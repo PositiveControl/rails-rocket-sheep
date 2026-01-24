@@ -121,7 +121,6 @@ myapp/
 - Ruby 3.4+
 - Rails 8.0+
 - PostgreSQL 14+
-- Node.js (for Tailwind CSS)
 
 ## License
 
