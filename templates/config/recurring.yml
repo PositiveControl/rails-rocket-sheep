@@ -1,0 +1,20 @@
+# Solid Queue recurring jobs
+# https://github.com/rails/solid_queue#recurring-tasks
+
+# Example recurring jobs (uncomment and customize as needed):
+#
+# production:
+#   cleanup_old_sessions:
+#     class: CleanupSessionsJob
+#     schedule: every day at 3am
+#     queue: maintenance
+#
+#   send_daily_digest:
+#     class: DailyDigestJob
+#     schedule: every day at 9am
+#     queue: mailers
+#
+#   sync_external_data:
+#     class: SyncExternalDataJob
+#     schedule: every 15 minutes
+#     queue: default

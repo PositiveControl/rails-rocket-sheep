@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+# Smart test runner that handles macOS fork issues
+# On macOS (especially Apple Silicon), parallel test workers can cause
+# fork-related crashes. This script detects the OS and adjusts accordingly.
+# See: https://github.com/rails/rails/issues/38187
+
+if [[ "$OSTYPE" == "darwin"* ]]; then
+  # macOS: Use single worker to avoid fork issues
+  export PARALLEL_WORKERS=1
+fi
+
+exec bin/rails test "$@"

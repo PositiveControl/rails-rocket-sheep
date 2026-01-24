@@ -1,0 +1,10 @@
+# Rubocop configuration
+# Inherits from Rails omakase defaults
+
+inherit_gem:
+  rubocop-rails-omakase: rubocop.yml
+
+# Add any project-specific overrides below
+# Example:
+# Style/StringLiterals:
+#   EnforcedStyle: double_quotes

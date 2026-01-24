@@ -1,0 +1,30 @@
+# frozen_string_literal: true
+
+class ApplicationRecord < ActiveRecord::Base
+  primary_abstract_class
+
+  # Use created_at for implicit ordering since UUIDs have no natural order
+  self.implicit_order_column = :created_at
+
+  # Include Discard::Model in models that need soft deletes:
+  #
+  #   class Post < ApplicationRecord
+  #     include Discard::Model
+  #   end
+  #
+  # Then use:
+  #   Post.kept          # non-discarded records
+  #   Post.discarded     # discarded records
+  #   post.discard       # soft delete
+  #   post.undiscard     # restore
+
+  # Include PaperTrail in models that need audit trail:
+  #
+  #   class Post < ApplicationRecord
+  #     has_paper_trail
+  #   end
+  #
+  # Then use:
+  #   post.versions      # all versions
+  #   post.paper_trail.previous_version
+end

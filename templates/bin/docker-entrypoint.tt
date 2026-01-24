@@ -1,0 +1,76 @@
+#!/bin/bash -e
+
+# Enable jemalloc for reduced memory usage and latency.
+if [ -z "${LD_PRELOAD+x}" ]; then
+    LD_PRELOAD=$(find /usr/lib -name libjemalloc.so.2 -print -quit)
+    export LD_PRELOAD
+fi
+
+# If running the rails server then create or migrate existing database
+if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
+  # For PostgreSQL, we need special handling for multi-database setup
+  if [ -n "$DATABASE_URL" ] && [[ "$DATABASE_URL" == postgres* ]]; then
+    echo "PostgreSQL detected, setting up database..."
+
+    # Create database if it doesn't exist
+    ./bin/rails db:create 2>/dev/null || true
+
+    # Enable PostgreSQL extensions
+    ./bin/rails runner "
+      ActiveRecord::Base.connection.execute('CREATE EXTENSION IF NOT EXISTS pgcrypto')
+      puts 'PostgreSQL pgcrypto extension enabled'
+    "
+
+    # Run migrations for primary database
+    ./bin/rails db:migrate
+
+    # Load schemas for queue/cable/cache databases (Rails 8 uses schema files, not migrations)
+    # Only load schemas if tables don't exist (schema:load would drop existing tables)
+    ./bin/rails runner "
+      require 'active_record'
+
+      # Check and load queue schema
+      queue_config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'queue')
+      if queue_config
+        ActiveRecord::Base.establish_connection(queue_config)
+        unless ActiveRecord::Base.connection.table_exists?('solid_queue_jobs')
+          puts 'Queue tables missing, loading schema...'
+          system('./bin/rails db:schema:load:queue')
+        else
+          puts 'Queue tables exist, skipping schema load'
+        end
+      end
+
+      # Check and load cache schema
+      cache_config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'cache')
+      if cache_config
+        ActiveRecord::Base.establish_connection(cache_config)
+        unless ActiveRecord::Base.connection.table_exists?('solid_cache_entries')
+          puts 'Cache tables missing, loading schema...'
+          system('./bin/rails db:schema:load:cache')
+        else
+          puts 'Cache tables exist, skipping schema load'
+        end
+      end
+
+      # Check and load cable schema
+      cable_config = ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'cable')
+      if cable_config
+        ActiveRecord::Base.establish_connection(cable_config)
+        unless ActiveRecord::Base.connection.table_exists?('solid_cable_messages')
+          puts 'Cable tables missing, loading schema...'
+          system('./bin/rails db:schema:load:cable')
+        else
+          puts 'Cable tables exist, skipping schema load'
+        end
+      end
+
+      # Restore primary connection
+      ActiveRecord::Base.establish_connection(ActiveRecord::Base.configurations.configs_for(env_name: Rails.env, name: 'primary'))
+    "
+  else
+    ./bin/rails db:prepare
+  fi
+fi
+
+exec "${@}"

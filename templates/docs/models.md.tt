@@ -1,0 +1,111 @@
+# <%= app_name.titleize %> - Data Models
+
+## Overview
+
+This document describes the data models and their relationships.
+
+---
+
+## Core Models
+
+### User
+
+The primary user model, managed by Devise.
+
+**Associations:**
+- `has_many :sessions` (if using database sessions)
+
+**Key Fields:**
+- `email` - User's email address (unique)
+- `encrypted_password` - Devise-managed password
+- `role` - User role for Petergate authorization
+
+**Scopes:**
+- `active` - Users who haven't been discarded
+
+---
+
+## Adding New Models
+
+When adding a new model:
+
+1. **Generate with UUID:**
+   ```bash
+   rails g model Thing name:string user:references
+   ```
+   UUIDs are configured automatically.
+
+2. **Add soft deletes if needed:**
+   ```ruby
+   class Thing < ApplicationRecord
+     include Discard::Model
+   end
+   ```
+
+3. **Add audit trail if needed:**
+   ```ruby
+   class Thing < ApplicationRecord
+     has_paper_trail
+   end
+   ```
+
+4. **Document here** with:
+   - Purpose/description
+   - Associations
+   - Key fields and their meaning
+   - Scopes
+   - Important methods
+
+---
+
+## Model Patterns
+
+### Soft Deletes (Discard)
+
+```ruby
+class Post < ApplicationRecord
+  include Discard::Model
+
+  # Optional: set default scope to exclude discarded
+  default_scope -> { kept }
+end
+
+# Usage:
+post.discard        # Soft delete
+post.undiscard      # Restore
+Post.kept           # Non-deleted records
+Post.discarded      # Deleted records
+Post.with_discarded # All records
+```
+
+### Audit Trail (PaperTrail)
+
+```ruby
+class Order < ApplicationRecord
+  has_paper_trail
+
+  # Optional: only track specific attributes
+  has_paper_trail only: [:status, :total]
+end
+
+# Usage:
+order.versions                    # All versions
+order.paper_trail.previous_version # Previous state
+order.paper_trail.originator      # Who made the change
+```
+
+### Scopes
+
+Prefer scopes over class methods:
+
+```ruby
+class Order < ApplicationRecord
+  scope :pending, -> { where(status: :pending) }
+  scope :completed, -> { where(status: :completed) }
+  scope :recent, -> { where("created_at > ?", 7.days.ago) }
+  scope :for_user, ->(user) { where(user: user) }
+
+  # Composable:
+  # Order.pending.recent.for_user(current_user)
+end
+```

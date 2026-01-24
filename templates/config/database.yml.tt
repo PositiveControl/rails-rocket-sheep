@@ -1,0 +1,73 @@
+# PostgreSQL multi-database configuration for Rails 8 Solid Stack
+# Supports separate databases for queue, cable, and cache
+
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: <%%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
+  host: <%%= ENV.fetch("DB_HOST") { "localhost" } %>
+  username: <%%= ENV.fetch("DB_USERNAME") { ENV["USER"] } %>
+  password: <%%= ENV["DB_PASSWORD"] %>
+
+development:
+  primary:
+    <<: *default
+    database: <%= app_name %>_development
+  queue:
+    <<: *default
+    database: <%= app_name %>_development_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: <%= app_name %>_development_cable
+    migrations_paths: db/cable_migrate
+  cache:
+    <<: *default
+    database: <%= app_name %>_development_cache
+    migrations_paths: db/cache_migrate
+
+test:
+  primary:
+    <<: *default
+    database: <%= app_name %>_test
+  queue:
+    <<: *default
+    database: <%= app_name %>_test_queue
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: <%= app_name %>_test_cable
+    migrations_paths: db/cable_migrate
+  cache:
+    <<: *default
+    database: <%= app_name %>_test_cache
+    migrations_paths: db/cache_migrate
+
+production:
+  primary:
+    <<: *default
+    database: <%%= ENV.fetch("DATABASE_NAME", "<%= app_name %>_production") %>
+<%% if ENV["DATABASE_URL"].present? %>
+    url: <%%= ENV["DATABASE_URL"] %>
+<%% end %>
+  queue:
+    <<: *default
+    database: <%%= ENV.fetch("DATABASE_NAME", "<%= app_name %>_production") %>
+<%% if (ENV["QUEUE_DATABASE_URL"] || ENV["DATABASE_URL"]).present? %>
+    url: <%%= ENV["QUEUE_DATABASE_URL"] || ENV["DATABASE_URL"] %>
+<%% end %>
+    migrations_paths: db/queue_migrate
+  cable:
+    <<: *default
+    database: <%%= ENV.fetch("DATABASE_NAME", "<%= app_name %>_production") %>
+<%% if (ENV["CABLE_DATABASE_URL"] || ENV["DATABASE_URL"]).present? %>
+    url: <%%= ENV["CABLE_DATABASE_URL"] || ENV["DATABASE_URL"] %>
+<%% end %>
+    migrations_paths: db/cable_migrate
+  cache:
+    <<: *default
+    database: <%%= ENV.fetch("DATABASE_NAME", "<%= app_name %>_production") %>
+<%% if (ENV["CACHE_DATABASE_URL"] || ENV["DATABASE_URL"]).present? %>
+    url: <%%= ENV["CACHE_DATABASE_URL"] || ENV["DATABASE_URL"] %>
+<%% end %>
+    migrations_paths: db/cache_migrate
