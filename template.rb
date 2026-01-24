@@ -78,6 +78,8 @@ gem_group :development, :test do
   gem "pry"
   gem "pry-rails"
   gem "bullet"
+  gem "rubocop-rails-omakase", require: false  # Linting
+  gem "brakeman", require: false               # Security analysis
 end
 
 gem_group :test do

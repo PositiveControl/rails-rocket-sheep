@@ -9,6 +9,8 @@ bin/dev              # Start development server with Tailwind watcher
 bin/test             # Run tests (single worker on macOS)
 bin/rails console    # Rails console
 bin/rails db:migrate # Run migrations
+bin/rubocop          # Run linter
+bin/brakeman         # Security analysis
 ```
 
 ## Tech Stack
@@ -21,6 +23,8 @@ bin/rails db:migrate # Run migrations
 - **WebSockets:** Solid Cable (database-backed)
 - **Auth:** Devise + Petergate
 - **Deployment:** Kamal 2 with Docker
+- **Linting:** RuboCop with Rails Omakase config
+- **Security:** Brakeman static analysis
 
 ## Conventions
 

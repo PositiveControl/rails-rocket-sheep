@@ -17,6 +17,8 @@ A highly opinionated Rails 8 application template with the Solid Stack.
 - **Stimulus Controllers** - Generic toggle and modal controllers
 - **VCR Testing** - HTTP request recording for tests
 - **Bullet** - N+1 query detection
+- **RuboCop** - Rails Omakase linting
+- **Brakeman** - Security static analysis
 - **CLAUDE.md** - AI assistant conventions
 
 ## Usage
@@ -61,7 +63,7 @@ kamal deploy  # Deploy updates
 
 ## What the Template Does
 
-1. **Configures Gems** - Adds Solid Stack, Devise, Petergate, Discard, PaperTrail, Pagy, Slim, VCR, Bullet
+1. **Configures Gems** - Adds Solid Stack, Devise, Petergate, Discard, PaperTrail, Pagy, Slim, VCR, Bullet, RuboCop, Brakeman
 2. **Sets Up Multi-Database** - Separate databases for queue, cable, cache
 3. **Configures UUIDs** - All models use UUID primary keys
 4. **Creates Base Classes** - ApplicationService, RegistryBase, AppConfig
