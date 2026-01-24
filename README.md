@@ -1,6 +1,6 @@
-# Rails Rocket Sheep 🐑🚀
+# Rails Rocket Sheep 🚀🐑
 
-A highly opinionated Rails 8 application template with the Solid Stack.
+A highly opinionated, LLM-friendly, Rails 8 application template with the Solid Stack.
 
 ## What's Included
 
@@ -24,6 +24,8 @@ A highly opinionated Rails 8 application template with the Solid Stack.
 ## Usage
 
 ### Create a New App
+
+Fork this repo to your GitHub account and replace `YOUR_USERNAME` below, or use my username.
 
 ```bash
 rails new myapp \

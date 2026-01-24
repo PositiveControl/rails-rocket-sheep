@@ -32,10 +32,11 @@ bin/brakeman         # Security analysis
 
 - **Planning:** Create plan file in `docs/plans/` for non-trivial features before coding
 - **Collaborative:** Explain findings and reasoning; stop often for feedback
-- **TDD:** Write tests before code. Commit when tests are green.
+- **TDD:** Write tests before code. Commit in functional chunks when tests are green.
+- **Flaky Tests:** Fix immediately; do not ignore or skip, even when unrelated to your changes
 - **TDD Pairing:** Stop when tests fail to present context and discuss next steps
 - **Commits:** Small, focused commits with clear messages
-- **Documentation:** Update `docs/` when implementing features
+- **Documentation:** Update `docs/` when implementing features, `grep` for existing docs first 
 
 ### Code Style
 
@@ -103,6 +104,7 @@ end
 - Similar patterns across models → Create a shared concern
 - Repeated view logic → Create a helper method or partial
 - Complex conditionals → Extract to a policy or service object
+- Context is beginning to blur → Refactor into smaller methods or classes
 
 ### Service Objects
 
