@@ -15,6 +15,7 @@ A highly opinionated, LLM-friendly, Rails 8 application template with the Solid 
 - **Slim Templates** - Clean, readable views
 - **Tailwind CSS** - Utility-first styling
 - **Stimulus Controllers** - Generic toggle and modal controllers
+- **SEO Foundation** - Sitemap, meta tags, canonical URLs, JSON-LD, robots.txt, Lighthouse CI
 - **VCR Testing** - HTTP request recording for tests
 - **Bullet** - N+1 query detection
 - **RuboCop** - Rails Omakase linting
@@ -70,8 +71,9 @@ kamal deploy  # Deploy updates
 3. **Configures UUIDs** - All models use UUID primary keys
 4. **Creates Base Classes** - ApplicationService, RegistryBase, AppConfig
 5. **Adds Stimulus Controllers** - toggle_controller.js, modal_controller.js
-6. **Sets Up Deployment** - Dockerfile, docker-entrypoint, Kamal config
-7. **Creates Documentation** - CLAUDE.md, docs/models.md, docs/design-patterns.md, docs/architecture.md
+6. **Sets Up SEO** - Dynamic sitemap, meta descriptions, canonical URLs, WebSite JSON-LD, robots.txt, Lighthouse CI, SEO regression tests
+7. **Sets Up Deployment** - Dockerfile, docker-entrypoint, Kamal config
+8. **Creates Documentation** - CLAUDE.md, docs/models.md, docs/design-patterns.md, docs/architecture.md
 8. **Configures Development** - Bullet for N+1 detection, letter_opener for emails
 
 ## Customization
@@ -89,7 +91,8 @@ After running the template, you may want to:
 1. **Customize CLAUDE.md** - Add project-specific conventions
 2. **Update deploy.yml** - Configure your actual server and registry
 3. **Add environment variables** - Set up `.kamal/secrets`
-4. **Create models** - Start with `rails g devise User`
+4. **Configure SEO** - Update `public/robots.txt` sitemap URL and `.github/workflows/lighthouse.yml` target URL
+5. **Create models** - Start with `rails g devise User`
 
 ## Project Structure
 
@@ -108,6 +111,9 @@ myapp/
 │   ├── queue.yml               # Solid Queue config
 │   ├── cable.yml               # Solid Cable config
 │   └── cache.yml               # Solid Cache config
+├── .github/
+│   ├── workflows/lighthouse.yml # Weekly Lighthouse SEO audit
+│   └── lighthouse-budget.json   # Score thresholds
 ├── docs/
 │   ├── models.md               # Model documentation
 │   ├── design-patterns.md      # UI/UX patterns + Slim/Tailwind gotchas

@@ -1,0 +1,9 @@
+# https://www.robotstxt.org/robotstxt.html
+User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /api/
+Disallow: /users/sign_in
+Disallow: /users/sign_up
+
+Sitemap: https://YOURAPP.com/sitemap.xml

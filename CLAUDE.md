@@ -218,6 +218,20 @@ ruby:
 a href=path
 ```
 
+## SEO
+
+The template includes an SEO foundation out of the box:
+
+- **robots.txt** — Sensible crawl rules in `public/robots.txt`
+- **Dynamic sitemap** — `/sitemap.xml` served from `HomeController#sitemap`
+- **Meta descriptions** — `<meta name="description">` with per-page `content_for(:meta_description)` overrides
+- **Canonical URLs** — `<link rel="canonical">` with per-page `content_for(:canonical_url)` overrides
+- **Structured data** — `StructuredDataHelper#jsonld_tag` for JSON-LD, WebSite schema on all pages
+- **SEO tests** — `test/integration/seo_test.rb` verifies meta tags, canonical URLs, JSON-LD, sitemap, robots.txt
+- **Lighthouse CI** — Weekly audit workflow in `.github/workflows/lighthouse.yml`
+
+See `docs/how-tos/add-seo-to-a-page.md` for step-by-step instructions.
+
 ## Testing
 
 ### Running Tests

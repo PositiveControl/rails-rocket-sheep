@@ -13,6 +13,7 @@
 #   - Adds ApplicationService base class with Result pattern
 #   - Adds RegistryBase module for configuration patterns
 #   - Includes generic Stimulus controllers (toggle, modal)
+#   - Sets up SEO foundation (sitemap, meta tags, structured data, robots.txt)
 #   - Sets up VCR for HTTP testing
 #   - Configures Bullet for N+1 detection
 #   - Creates comprehensive CLAUDE.md for AI assistants
@@ -244,7 +245,29 @@ copy_template_file "app/javascript/controllers/modal_controller.js"
 copy_template_file "app/helpers/progress_bar_helper.rb"
 
 # =============================================================================
-# Phase 9: Testing Setup
+# Phase 9: SEO Foundation
+# =============================================================================
+
+say "Setting up SEO foundation...", :green
+
+# robots.txt with sensible defaults
+copy_template_file "public/robots.txt"
+
+# Structured data helper (jsonld_tag + iso8601_duration)
+copy_template_file "app/helpers/structured_data_helper.rb"
+
+# SEO integration tests
+copy_template_file "test/integration/seo_test.rb"
+
+# Lighthouse CI workflow + budget
+copy_template_file ".github/workflows/lighthouse.yml"
+copy_template_file ".github/lighthouse-budget.json"
+
+# SEO how-to guide
+copy_template_file "docs/how-tos/add-seo-to-a-page.md"
+
+# =============================================================================
+# Phase 10: Testing Setup
 # =============================================================================
 
 say "Configuring testing...", :green
@@ -262,7 +285,7 @@ inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/
 end
 
 # =============================================================================
-# Phase 10: Code Quality
+# Phase 11: Code Quality
 # =============================================================================
 
 say "Setting up code quality tools...", :green
@@ -271,7 +294,7 @@ say "Setting up code quality tools...", :green
 copy_template_file ".rubocop.yml"
 
 # =============================================================================
-# Phase 11: Documentation
+# Phase 12: Documentation
 # =============================================================================
 
 say "Creating documentation...", :green
@@ -282,23 +305,47 @@ template "CLAUDE.md", "CLAUDE.md"
 # Documentation directory
 empty_directory "docs"
 empty_directory "docs/how-tos"
+empty_directory "docs/security"
 empty_directory "docs/synthesis"
 empty_directory "docs/plans"
 
 template_file "docs/models.md.tt"
 copy_template_file "docs/design-patterns.md"
 copy_template_file "docs/architecture.md"
+copy_template_file "docs/how-tos/harden-a-kamal-server.md"
+copy_template_file "docs/how-tos/extract-database-and-storage.md"
 
 # =============================================================================
-# Phase 12: Routes Configuration
+# Phase 13: Routes Configuration
 # =============================================================================
 
 say "Configuring routes and home page...", :green
 
-# Create HomeController
+# Create HomeController with sitemap
 create_file "app/controllers/home_controller.rb", <<~RUBY
   class HomeController < ApplicationController
     def index
+    end
+
+    def sitemap
+      require "builder"
+      expires_in 1.hour, public: true
+
+      builder = Builder::XmlMarkup.new(indent: 2)
+      builder.instruct!
+
+      xml = builder.urlset(xmlns: "http://www.sitemaps.org/schemas/sitemap/0.9") do |urlset|
+        # Homepage
+        urlset.url do |url|
+          url.loc root_url
+          url.changefreq "daily"
+          url.priority "1.0"
+        end
+
+        # Add your pages here — see docs/how-tos/add-seo-to-a-page.md
+      end
+
+      render xml: xml
     end
   end
 RUBY
@@ -342,6 +389,9 @@ create_file "config/routes.rb", <<~RUBY
     # Health check endpoint for Kamal
     get "up" => "rails/health#show", as: :rails_health_check
 
+    # SEO
+    get "sitemap.xml", to: "home#sitemap", as: :sitemap, defaults: { format: "xml" }
+
     # Email preview in development
     if Rails.env.development?
       mount LetterOpenerWeb::Engine, at: "/letter_opener"
@@ -353,7 +403,7 @@ create_file "config/routes.rb", <<~RUBY
 RUBY
 
 # =============================================================================
-# Phase 13: Git Configuration
+# Phase 14: Git Configuration
 # =============================================================================
 
 say "Configuring git...", :green
@@ -398,6 +448,27 @@ after_bundle do
     RUBY
   end
 
+  # Inject SEO meta tags into layout
+  say "Adding SEO meta tags to layout...", :yellow
+  inject_into_file "app/views/layouts/application.html.erb",
+    after: "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n" do
+    <<~ERB
+        <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : '#{app_name.titleize} — built with Rails.' %>">
+        <link rel="canonical" href="<%= content_for?(:canonical_url) ? yield(:canonical_url) : request.original_url.split('?').first %>">
+    ERB
+  end
+
+  # Add WebSite JSON-LD and head yield to layout
+  inject_into_file "app/views/layouts/application.html.erb",
+    before: "    <%= stylesheet_link_tag" do
+    <<~ERB
+        <%= yield :head %>
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"WebSite","name":"#{app_name.titleize}","url":"<%= root_url %>"}
+        </script>
+    ERB
+  end
+
   # Install PaperTrail
   say "Installing PaperTrail...", :yellow
   generate "paper_trail:install", "--with-changes"
@@ -429,10 +500,14 @@ after_bundle do
   say ""
   say "  3. Set up secrets in .kamal/secrets"
   say ""
-  say "  4. Start developing:"
+  say "  4. Update SEO URLs:"
+  say "     - public/robots.txt (Sitemap URL)"
+  say "     - .github/workflows/lighthouse.yml (production URL)"
+  say ""
+  say "  5. Start developing:"
   say "     bin/dev"
   say ""
-  say "  5. Deploy when ready:"
+  say "  6. Deploy when ready:"
   say "     kamal setup && kamal deploy"
   say ""
 end

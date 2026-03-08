@@ -1,0 +1,28 @@
+name: Lighthouse Audit
+
+on:
+  schedule:
+    - cron: "0 9 * * 1" # Every Monday at 9am UTC
+  workflow_dispatch: # Allow manual runs
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Lighthouse
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          # TODO: Replace with your production URL
+          urls: https://YOURAPP.com
+          temporaryPublicStorage: true
+          uploadArtifacts: true
+
+      - name: Check scores against budget
+        uses: treosh/lighthouse-ci-action@v12
+        with:
+          urls: https://YOURAPP.com
+          budgetPath: .github/lighthouse-budget.json
