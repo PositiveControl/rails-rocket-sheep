@@ -20,7 +20,42 @@
 #   - Configures Bullet for N+1 detection
 #   - Creates comprehensive CLAUDE.md for AI assistants
 
-TEMPLATE_ROOT = __dir__
+# When `--template` points at a URL, Rails evaluates this file with `__FILE__`
+# set to that URL, so `__dir__` is a URL too. Thor's `find_in_source_paths` only
+# ever calls `File.exist?`, so the whole `templates/` tree is unreachable that
+# way -- generation dies on the first copy with "Could not find
+# config/database.yml.tt in any of your source paths". Clone the repo to a temp
+# directory and copy from there instead.
+DEFAULT_REPO = "PositiveControl/rails-rocket-sheep"
+
+TEMPLATE_ROOT =
+  if __dir__.to_s.start_with?("http://", "https://")
+    require "tmpdir"
+    require "fileutils"
+
+    owner, repo, ref = __dir__.match(
+      %r{\Ahttps?://raw\.githubusercontent\.com/([^/]+)/([^/]+)/([^/]+)}
+    )&.captures || [*DEFAULT_REPO.split("/"), "main"]
+
+    checkout = Dir.mktmpdir("rails-rocket-sheep-")
+    at_exit { FileUtils.remove_entry(checkout, true) }
+
+    say "Fetching template files from #{owner}/#{repo} (#{ref})...", :green
+    cloned = system(
+      "git", "clone", "--depth", "1", "--quiet",
+      "--branch", ref, "https://github.com/#{owner}/#{repo}.git", checkout
+    )
+    unless cloned
+      raise Thor::Error,
+            "Could not clone https://github.com/#{owner}/#{repo}.git (ref #{ref}). " \
+            "Git is required to run this template from a URL. Clone the repo and " \
+            "pass a local path to --template instead."
+    end
+
+    checkout
+  else
+    __dir__
+  end
 
 # =============================================================================
 # Helper Methods
