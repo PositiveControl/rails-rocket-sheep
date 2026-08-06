@@ -5,7 +5,7 @@
 ## Versions and compatibility
 
 **Which Ruby and Rails versions?**
-Ruby 3.2+ and Rails 8.0+. Developed and tested against Ruby 3.4.7 and Rails 8.0.
+Ruby 3.3+ (Pagy 43 sets the floor) and Rails 8.0+. Last verified by generating an app against Ruby 4.0.6 and Rails 8.1.3.1 on 2026-08-06.
 
 **Does it work with SQLite or MySQL?**
 No. The template removes `sqlite3` and assumes PostgreSQL throughout — UUID primary keys via `gen_random_uuid()`, and a four-database Solid Stack configuration. Porting to MySQL means rewriting `config/database.yml` and choosing a different primary key strategy.
@@ -58,7 +58,7 @@ Discard deliberately adds no default scope. Use `Post.kept`. Default scopes are 
 Turbo discards a form response that returns 200 without a redirect — the page doesn't change and no error is shown. Validation failures must render with `status: :unprocessable_content`. Rack 3.1 renamed that status from `:unprocessable_entity`; Rails 8 accepts both.
 
 **Why is Pagy already included in `ApplicationController`?**
-Because an unpaginated index is a production incident with a delay fuse. `Pagy::Backend` is included in `ApplicationController` and `Pagy::Frontend` in `ApplicationHelper`, so `@pagy, @records = pagy(scope)` and `pagy_nav(@pagy)` work with no further setup.
+Because an unpaginated index is a production incident with a delay fuse. `Pagy::Method` is included in `ApplicationController`, so `@pagy, @records = pagy(scope)` works with no further setup. The nav and info helpers are methods on the returned object — `@pagy.series_nav`, `@pagy.info_tag` — so `ApplicationHelper` needs nothing.
 
 **Why does development use Solid Cable instead of `:async`?**
 So WebSocket behaviour matches production. The `:async` adapter only works within a single process, which hides bugs that appear the moment you deploy.

@@ -2,7 +2,7 @@
 id: pagination
 title: Every index paginates (Pagy)
 applies_to: ["app/controllers/**/*.rb", "app/views/**/index.html.slim"]
-triggers: ["index action", "pagy", "pagination", "pagy_nav", "unbounded query", "all records", "list page"]
+triggers: ["index action", "pagy", "pagination", "series_nav", "unbounded query", "all records", "list page"]
 see_also: ["controllers", "query-objects", "n-plus-one"]
 tokens: 260
 ---
@@ -15,12 +15,7 @@ incident with a delay fuse — it works for months, then a customer has 40,000 r
 ```ruby
 # app/controllers/application_controller.rb
 class ApplicationController < ActionController::Base
-  include Pagy::Backend
-end
-
-# app/helpers/application_helper.rb
-module ApplicationHelper
-  include Pagy::Frontend
+  include Pagy::Method
 end
 
 # app/controllers/orders_controller.rb
@@ -32,8 +27,13 @@ end
 ```slim
 / app/views/orders/index.html.slim
 = render OrdersTableComponent.new(orders: @orders)
-== pagy_nav(@pagy)
+== @pagy.series_nav
+== @pagy.info_tag
 ```
+
+The nav and info helpers are methods on the `Pagy` object, not view helpers — there
+is nothing to include in `ApplicationHelper`. They return a plain `String`, so render
+them with `==` (unescaped) in Slim.
 
 **The rule:** if a collection can grow with usage, it paginates. No exceptions for
 admin screens — admin screens are where the 40,000 rows live.

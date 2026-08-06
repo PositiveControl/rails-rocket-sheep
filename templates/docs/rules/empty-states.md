@@ -16,7 +16,7 @@ as a broken page.
 ```slim
 - if @orders.any?
   = render partial: "orders/order", collection: @orders, as: :order
-  == pagy_nav(@pagy)
+  == @pagy.series_nav
 - else
   = render EmptyStateComponent.new(
       title: "No orders yet",

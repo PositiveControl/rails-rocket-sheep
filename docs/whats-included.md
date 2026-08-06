@@ -69,7 +69,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `app/controllers/home_controller.rb` | Landing page plus a dynamic `sitemap.xml` |
 | `app/views/home/index.html.slim` | Placeholder home page |
 
-`app/controllers/application_controller.rb` gets `include Pagy::Backend` and `app/helpers/application_helper.rb` gets `include Pagy::Frontend`, so pagination works without further wiring. The layout renders `FlashComponent`.
+`app/controllers/application_controller.rb` gets `include Pagy::Method`, so pagination works without further wiring. The layout renders `FlashComponent`.
 
 ### Deployment
 
@@ -141,7 +141,7 @@ Worth knowing, because these are the surprises:
 5. **Six pattern directories, not seven.** `services`, `forms`, `queries`, `policies`, `lib`, `components` — each with a stated trigger. A new one needs an ADR. Recorded as ADR-007.
 6. **Devise is installed but no `User` exists.** You run `rails g devise User` yourself.
 7. **`app/lib` is autoloaded.** Registries live there.
-8. **Pagy is pre-wired.** `Pagy::Backend` in `ApplicationController`, `Pagy::Frontend` in `ApplicationHelper`.
+8. **Pagy is pre-wired.** `Pagy::Method` in `ApplicationController`; nav helpers live on the `@pagy` object.
 9. **Development mail is captured**, not sent. `letter_opener_web` at `/letter_opener`.
 10. **Development uses Solid Cable, not `:async`**, so WebSocket behaviour matches production.
 
