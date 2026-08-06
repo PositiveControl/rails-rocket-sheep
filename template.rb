@@ -120,8 +120,10 @@ empty_directory "db/cable_migrate"
 empty_directory "db/cache_migrate"
 
 # Configure generators for UUIDs
+# `<<~` strips to column 0, so indent to the 4 spaces the class body uses —
+# otherwise every generated app starts with unindented config.
 inject_into_file "config/application.rb", after: "class Application < Rails::Application\n" do
-  <<~RUBY
+  <<~RUBY.indent(4)
     # Use UUIDs as primary keys by default
     config.generators do |g|
       g.orm :active_record, primary_key_type: :uuid
@@ -621,20 +623,22 @@ after_bundle do
   say "Adding SEO meta tags to layout...", :yellow
   inject_into_file "app/views/layouts/application.html.erb",
     after: "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">\n" do
-    <<~ERB
-        <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : '#{app_name.titleize} — built with Rails.' %>">
-        <link rel="canonical" href="<%= content_for?(:canonical_url) ? yield(:canonical_url) : request.original_url.split('?').first %>">
+    <<~ERB.indent(4)
+      <meta name="description" content="<%= content_for?(:meta_description) ? yield(:meta_description) : '#{app_name.titleize} — built with Rails.' %>">
+      <link rel="canonical" href="<%= content_for?(:canonical_url) ? yield(:canonical_url) : request.original_url.split('?').first %>">
     ERB
   end
 
-  # Add WebSite JSON-LD and head yield to layout
+  # Add WebSite JSON-LD to the layout.
+  #
+  # Do not inject a `yield :head` here — Rails' own layout already has one, and a
+  # second would render every `content_for :head` block twice.
   inject_into_file "app/views/layouts/application.html.erb",
     before: "    <%= stylesheet_link_tag" do
-    <<~ERB
-        <%= yield :head %>
-        <script type="application/ld+json">
-        {"@context":"https://schema.org","@type":"WebSite","name":"#{app_name.titleize}","url":"<%= root_url %>"}
-        </script>
+    <<~ERB.indent(4)
+      <script type="application/ld+json">
+      {"@context":"https://schema.org","@type":"WebSite","name":"#{app_name.titleize}","url":"<%= root_url %>"}
+      </script>
     ERB
   end
 
