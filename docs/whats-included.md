@@ -25,6 +25,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `brakeman` | dev, test | Security static analysis |
 | `vcr`, `webmock` | test | Record and replay HTTP in tests |
 
+| `slowpoke-rb` | test | Reports tests slower than a threshold after each run; zero dependencies |
 ---
 
 ## Files the template writes
@@ -84,6 +85,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | File | Purpose |
 |---|---|
 | `public/robots.txt` | Crawl rules and sitemap pointer |
+| `test/support/slowpoke.rb` | Slow-test reporting, required from `test_helper.rb`; tuned by `SLOWPOKE_*` env vars |
 | `HomeController#sitemap` | Dynamic XML sitemap at `/sitemap.xml` |
 | Layout injections | `<meta name="description">`, `<link rel="canonical">`, `yield :head`, `WebSite` JSON-LD |
 
@@ -107,6 +109,7 @@ Empty `docs/plans/` and `docs/qa/` directories complete the four-directory canon
 |---|---|
 | `.claude/commands/*.md` | 19 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
 | `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
+| `docs/sop/find-slow-tests.md` | Reading the Slowpoke report and fixing what it flags |
 | `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
 | `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |
 | `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |

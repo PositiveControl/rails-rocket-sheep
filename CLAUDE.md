@@ -36,6 +36,7 @@ bin/brakeman         # Security analysis
 - **Flaky Tests:** Fix immediately; do not ignore or skip, even when unrelated to your changes
 - **TDD Pairing:** Stop when tests fail to present context and discuss next steps
 - **Commits:** Small, focused commits with clear messages
+- **Slow Tests:** Slowpoke flags tests over 500ms after each run. Fix the cause or state why it's inherent — don't let the report become noise
 - **Documentation:** Update `docs/` when implementing features, `grep` for existing docs first 
 
 ### Code Style
@@ -172,6 +173,21 @@ PLANS = { free: 0, pro: 29 }
 
 # GOOD: Query registry for capabilities
 PlanRegistry.price(plan_type)
+### Slow tests
+
+Slowpoke reports any test over 500ms after the run — it prints nothing when the
+suite is clean. Tune per run with environment variables:
+
+```bash
+SLOWPOKE_THRESHOLD=2.0 bin/test                 # only flag tests over 2s
+SLOWPOKE_MAX_RESULTS=10 bin/test                # just the worst ten
+SLOWPOKE_HISTORY=tmp/slowpoke.json bin/test     # write the run to JSON
+SLOWPOKE_CI=true bin/test                       # exit 1 if anything is slow
+```
+
+Project defaults live in `test/support/slowpoke.rb`. A slow test is usually a
+test creating records its assertion never touches. See `docs/sop/find-slow-tests.md`.
+
 
 # BAD: N+1 queries - iterating without preload
 users.each { |u| u.orders.count }

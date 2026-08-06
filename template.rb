@@ -14,7 +14,7 @@
 #   - Adds RegistryBase module for configuration patterns
 #   - Includes generic Stimulus controllers (toggle, modal)
 #   - Sets up SEO foundation (sitemap, meta tags, structured data, robots.txt)
-#   - Sets up VCR for HTTP testing
+#   - Sets up VCR for HTTP testing and Slowpoke for slow-test reporting
 #   - Configures Bullet for N+1 detection
 #   - Creates comprehensive CLAUDE.md for AI assistants
 
@@ -99,6 +99,9 @@ gem_group :test do
 end
 
 # =============================================================================
+  # Slow-test reporter. Gem is slowpoke-rb, library is slowpoke — require it
+  # explicitly from test/support/slowpoke.rb rather than letting Bundler guess.
+  gem "slowpoke-rb", "~> 0.1", require: false
 # Phase 2: Database Configuration
 # =============================================================================
 
@@ -309,6 +312,9 @@ copy_template_file ".rubocop.yml", force: true
 
 say "Creating documentation...", :green
 
+# Slowpoke slow-test reporting
+copy_template_file "test/support/slowpoke.rb"
+
 # CLAUDE.md for AI assistants
 template "CLAUDE.md", "CLAUDE.md"
 
@@ -323,6 +329,9 @@ template "CLAUDE.md", "CLAUDE.md"
 empty_directory "docs"
 empty_directory "docs/plans"
 empty_directory "docs/qa"
+  # Slowpoke — reports tests slower than the threshold after each run
+  require_relative "support/slowpoke"
+
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/design-patterns.md"

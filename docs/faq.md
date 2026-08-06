@@ -45,6 +45,9 @@ The template configures `config.generators` with `primary_key_type: :uuid`. Cons
 **Why are there four databases in development?**
 Solid Queue, Solid Cache, and Solid Cable each get their own, matching the production layout. It means job or cache tables never appear in your primary `schema.rb`, and you can move any of them to a separate host later by changing one environment variable.
 
+**A snail appeared at the end of my test run. What is it?**
+Slowpoke, reporting tests over 500ms. It prints nothing when the suite is clean. Raise the bar for one run with `SLOWPOKE_THRESHOLD=2.0 bin/test`, or change the project default in `test/support/slowpoke.rb`. Full guide in `docs/sop/find-slow-tests.md`.
+
 **Why is `test/fixtures/*.yml` empty when I generate a model?**
 Deliberate. The template overrides Rails' fixture generator via `lib/templates/test_unit/model/fixtures.yml`. The stock generator emits two placeholder records with identical values, which raises `PG::UniqueViolation` the moment a table has a unique index — Devise's `email` column being the usual first casualty. Add fixtures with values you actually chose.
 

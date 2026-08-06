@@ -31,7 +31,7 @@ Stack:
 - Hotwire (Turbo Frames, Turbo Streams, Stimulus)
 - Slim templates, Tailwind CSS
 - Devise (Turbo-configured) + Petergate for roles
-- Minitest + fixtures, VCR for HTTP recording
+- Minitest + fixtures, VCR for HTTP recording, Slowpoke for slow-test reporting
 - `ApplicationService` + Result pattern for business logic
 - `RegistryBase` for configuration entities
 - Discard for soft deletes, PaperTrail for audit trail
@@ -112,6 +112,7 @@ Work each section. Nothing relevant → skip the section.
 - **Dead code**: removed features clean up routes, jobs, helpers, tests. No commented-out code — git has history.
 - **Error handling**: rescue specific exception classes, never bare `rescue Exception`. Expected failures return `failure()`; genuinely exceptional conditions raise.
 - **Logging**: errors logged with enough context to debug. Services use `log_error` / `log_info`. No `puts` in library code.
+- New tests that Slowpoke would flag (>500ms) need a reason. Usually it's records built in `setup` the assertion never touches, or a real HTTP call escaping WebMock — see `docs/sop/find-slow-tests.md`.
 - **Comments**: only where *why* isn't obvious from the code.
 
 ### 7. Migrations

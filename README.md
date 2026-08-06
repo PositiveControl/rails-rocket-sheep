@@ -109,7 +109,9 @@ Kamal 2 with a PostgreSQL accessory, a tuned multi-stage `Dockerfile`, a `docker
 
 ### Testing and code quality
 
-Minitest with a `bin/test` wrapper that works around the macOS forking issue, VCR + WebMock for HTTP recording, Bullet for N+1 detection in development, RuboCop (Rails Omakase), Brakeman, and `letter_opener_web` for previewing mail at `/letter_opener`.
+Minitest with a `bin/test` wrapper that works around the macOS forking issue, VCR + WebMock for HTTP recording, Slowpoke for slow-test reporting, Bullet for N+1 detection in development, RuboCop (Rails Omakase), Brakeman, and `letter_opener_web` for previewing mail at `/letter_opener`.
+
+Slowpoke prints any test over 500ms after the run and nothing at all when the suite is clean. `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`, and `SLOWPOKE_CI` tune it per run; `SLOWPOKE_CI=true` fails the build on a slow test once the suite is under the line.
 
 ### Frontend
 

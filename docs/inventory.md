@@ -88,6 +88,7 @@ flowchart TB
 | Component library | ❌ | Deliberate |
 | API scaffolding | ❌ | Deliberate |
 | Seeds / demo data | ✅ | Idempotent admin user, generated password, production-guarded |
+| Slow-test reporting | ✅ | Slowpoke, on by default, silent when the suite is clean |
 
 ### Infrastructure
 
