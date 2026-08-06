@@ -29,6 +29,10 @@ rails new myapp \
   --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
 ```
 
+The URL form shallow-clones this repo to a temp directory first — `--template` only
+fetches `template.rb` itself, not the `templates/` tree it copies from — so `git`
+must be on your PATH.
+
 Or from a local clone, which is faster if you're generating more than one app:
 
 ```bash
