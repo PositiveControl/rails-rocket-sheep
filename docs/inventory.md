@@ -167,11 +167,39 @@ Settled by segue `.llm/threads/2026-08-06-tracker-abstraction.md` (merged). Full
 
 ### Remaining
 
-**4. A `code-reviewer` subagent — ~2 hours.** `/rails_code_review` exists as a command, so the content is written. Packaging it as a `.claude/agents/` definition lets it run in its own context window rather than consuming the main one.
+Nothing here blocks anything else. Ordered by what I'd do first.
 
-**6. Job worker in `deploy.yml` — ~30 min.** Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative but ships neither. A commented-out `job:` role turns a documentation step into an uncomment.
+#### Verification debt — do before buyers touch this
 
-**8. `docs/qa/` and `docs/plans/` examples — ~30 min.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
+**V1. Walk the `github-projects` tier end-to-end on a live board.** *(~1h, needs a test org + Projects v2 board)*
+
+This is the highest-priority item on the page. Tracker tiering refactored the code path that was previously the *only* path. It was verified by reading, not by running — no test board was available. Walk one issue through `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge and confirm every board transition still fires and `Closes #n` still closes.
+
+**V2. Walk the `beads` tier end-to-end.** *(~1h, needs `dolt sql-server` running)*
+
+Individual `bd` commands were verified against a live DB. The *composition* was not: claim → set-state → PR merge → `/pick` reconciles it closed. Lazy reconciliation is a design that has never run.
+
+**V3. Open one issue from the new forms after first push.** *(~5m)*
+
+GitHub validates issue-form schema server-side only. A malformed form silently falls back to a blank issue rather than erroring, so local YAML validation doesn't prove it works.
+
+#### Feature gaps
+
+**4. A `code-reviewer` subagent — ~2h.** `/rails_code_review` exists as a command, so the content is written. Packaging it as a `.claude/agents/` definition lets it run in its own context window rather than consuming the main one, and lets it be invoked automatically.
+
+**6. Job worker in `deploy.yml` — ~30m.** Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative but ships neither. A commented-out `job:` role turns a documentation step into an uncomment.
+
+**8. `docs/qa/` and `docs/plans/` examples — ~30m.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
+
+**9. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
+
+#### Maintenance, ongoing
+
+**10. Re-verify against each Rails release.** The template patches specific Rails files by matching their content (`config/application.rb`, `config/environments/development.rb`, the layout). Rails 8.1 or 9 can break *generation* — already-generated apps are unaffected. Nobody is scheduled to do this, and it's how the product quietly dies.
+
+#### Unmeasured assumption
+
+**11. Projects v2 adoption among small Rails shops.** The `beads` tier exists because a minority were assumed to use Projects v2 rather than plain Issues. Never measured. If Projects v2 turns out near-universal among buyers, Phase 2 was over-built — the design doesn't collapse, it just cost more than it returned. Cheapest resolution is asking the first ten buyers.
 
 ---
 
@@ -193,11 +221,14 @@ Not gaps to fill — things to be honest about.
 
 ```mermaid
 flowchart LR
-  DONE["✅ 1 settings · 2 hooks · 5 AGENTS.md<br/>7 seeds · 3 templates · tiers"] --> T4["4. reviewer subagent"]
-  T4 --> T8["8. doc examples"]
-  T8 --> T6["6. job role"]
+  DONE["✅ shipped<br/>guardrails · parity · tiers · templates"] --> V["V1–V3 verification debt<br/>~2h · before buyers"]
+  V --> BIZ["business gate<br/>license · demo · listing"]
+  BIZ --> T4["4 · 6 · 8 · 9<br/>feature gaps"]
+  T4 --> M["10 · maintenance<br/>per Rails release"]
 ```
 
-Every gap from the original ranking is closed. Items 4, 6, and 8 are worth doing but can wait for buyer feedback — which is the point at which guessing stops and evidence starts.
+Every gap from the original ranking is closed. What's left splits three ways:
 
-**Before selling, one thing outranks all of them:** the `github-projects` path was refactored during tracker tiering and verified by reading, not by running a live board end to end. It was previously the only path, so it carries the regression risk.
+1. **Verification debt (V1–V3, ~2h)** — the `github-projects` regression risk is the single highest-priority item here. It was the only path before tiering refactored it.
+2. **Business gate** — nothing engineering-side blocks selling; the LICENSE placeholders, deployed demo, and storefront do. Those live in `../../monetization-assessment.md`, outside this repo.
+3. **Feature gaps (4, 6, 8, 9)** — worth doing, but they can wait for buyer feedback, which is the point at which guessing stops and evidence starts.
