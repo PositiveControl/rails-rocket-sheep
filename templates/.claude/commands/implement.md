@@ -26,7 +26,7 @@ Report 3 lines before touching code: what's done, what's in flight, what's next.
 Work through Next Actions in order. Per logical unit:
 
 1. Implement per the plan
-2. Write tests for new functionality — framework, fixtures, and HTTP-recording conventions per CLAUDE.md
+2. Write tests for new functionality — framework, fixtures, layering, and HTTP recording per `docs/rules/testing.md`
 3. Run the affected tests — green before moving on
 4. Commit — one logical unit, message explains *why* (e.g., "Add scroll-to-bottom after Turbo Stream add", not "Update controller")
 5. Append one dated bullet to the task file's progress log

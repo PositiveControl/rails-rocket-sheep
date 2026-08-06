@@ -65,7 +65,7 @@ Group failures into:
 
 Examples:
 - one nil bug → 14 failures
-- one factory/fixture/setup bug → many unrelated-looking failures
+- one fixture/setup bug → many unrelated-looking failures
 - one route/view/authorization change → multiple request/system tests break
 - one time zone or formatting issue → many assertion mismatches
 
@@ -166,7 +166,7 @@ Internal agent structure:
 - checks Rails 8 convention/regression issues
 
 #### Agent 3: Test Architecture Investigator
-- inspects minitest structure, fixtures, setup/teardown, factories/fabricators if present, helper methods, test data assumptions
+- inspects minitest structure, fixtures, setup/teardown, helper methods, test data assumptions — conventions in `docs/rules/testing.md`
 - checks if tests brittle, stale, or wrong
 
 #### Agent 4: Targeted Fix Implementer
@@ -301,7 +301,7 @@ Watch for:
 - timestamp/time zone precision
 - JSON serialization shape changes
 - nil handling / presence assumptions
-- factories or fixtures not matching schema
+- fixtures not matching schema
 - schema drift after migrations
 - strong params changes
 - Turbo/HTML response differences in Rails 8
