@@ -134,7 +134,7 @@ For a low-traffic app you can instead run Solid Queue inside Puma by setting `SO
 
 ## After the first deploy
 
-`kamal setup` leaves a server with SSH open to the world and no firewall. Harden it before you have real users — see the generated `docs/how-tos/harden-a-kamal-server.md`, which covers UFW rules, disabling password auth, restricting SSH, and enabling unattended upgrades.
+`kamal setup` leaves a server with SSH open to the world and no firewall. Harden it before you have real users — see the generated `docs/sop/harden-a-kamal-server.md`, which covers UFW rules, disabling password auth, restricting SSH, and enabling unattended upgrades.
 
 Two things worth doing on day one:
 
@@ -147,7 +147,7 @@ Two things worth doing on day one:
 
 Running PostgreSQL on the same box as the app is correct for a small app and wrong for a growing one — a deploy that exhausts memory takes the database with it.
 
-The generated `docs/how-tos/extract-database-and-storage.md` covers moving PostgreSQL to a managed provider or a separate VPS, and moving Active Storage off local disk. The short version: change the `*_DATABASE_URL` secrets, remove the accessory from `deploy.yml`, and redeploy. Because everything routes through those environment variables, nothing in the application code changes.
+The generated `docs/sop/extract-database-and-storage.md` covers moving PostgreSQL to a managed provider or a separate VPS, and moving Active Storage off local disk. The short version: change the `*_DATABASE_URL` secrets, remove the accessory from `deploy.yml`, and redeploy. Because everything routes through those environment variables, nothing in the application code changes.
 
 ---
 

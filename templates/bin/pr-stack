@@ -1,0 +1,153 @@
+#!/usr/bin/env bash
+#
+# Rewrites the "Stacked PRs" footer on every open PR in the same stack, so the
+# list never goes stale when a PR is pushed on top of another.
+#
+#   bin/pr-stack           # stack containing the current branch's PR
+#   bin/pr-stack 3169      # stack containing PR #3169
+#   bin/pr-stack --check    # report drift, write nothing (exit 1 if stale)
+#
+# A stack is the linear chain of open PRs linked head-ref -> base-ref, walked
+# down to the default branch and up to the tip. Repo and default branch are
+# read from `gh`, so this script needs no configuration. Called by /pr_submit.
+
+set -euo pipefail
+
+START='<!-- stack-footer:start -->'
+END='<!-- stack-footer:end -->'
+MAX_DEPTH=50
+
+check_only=0
+target=""
+for arg in "$@"; do
+  case "$arg" in
+    --check) check_only=1 ;;
+    -*) echo "unknown flag: $arg" >&2; exit 2 ;;
+    *) target="$arg" ;;
+  esac
+done
+
+repo=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+trunk=$(gh repo view --json defaultBranchRef --jq .defaultBranchRef.name)
+[ -n "$target" ] || target=$(gh pr view --json number --jq .number)
+
+declare -A HEAD BASE TITLE BY_HEAD BY_BASE
+while IFS=$'\t' read -r num head base title; do
+  [ -n "$num" ] || continue
+  HEAD[$num]=$head
+  BASE[$num]=$base
+  TITLE[$num]=$title
+  if [ -n "${BY_HEAD[$head]:-}" ]; then
+    echo "ambiguous stack: #${BY_HEAD[$head]} and #$num share head ref $head" >&2
+    exit 1
+  fi
+  BY_HEAD[$head]=$num
+  BY_BASE[$base]="${BY_BASE[$base]:-} $num"
+done < <(gh pr list --repo "$repo" --state open --limit 200 \
+           --json number,title,headRefName,baseRefName \
+           --jq '.[] | [.number, .headRefName, .baseRefName, .title] | @tsv')
+
+if [ -z "${HEAD[$target]:-}" ]; then
+  echo "no open PR #$target in $repo" >&2
+  exit 1
+fi
+
+# Walk down to the default branch, then up to the tip.
+chain=()
+cur=$target
+while [ "${BASE[$cur]}" != "$trunk" ] && [ -n "${BY_HEAD[${BASE[$cur]}]:-}" ]; do
+  cur=${BY_HEAD[${BASE[$cur]}]}
+  chain=("$cur" "${chain[@]}")
+  if [ ${#chain[@]} -gt $MAX_DEPTH ]; then
+    echo "stack deeper than $MAX_DEPTH PRs, or a cycle in base refs" >&2
+    exit 1
+  fi
+done
+
+chain+=("$target")
+
+cur=$target
+# shellcheck disable=SC2086 # word splitting is how the child list is stored
+while true; do
+  set -- ${BY_BASE[${HEAD[$cur]}]:-}
+  [ $# -gt 0 ] || break
+  if [ $# -gt 1 ]; then
+    echo "ambiguous stack: PRs $* all target ${HEAD[$cur]} — that's a fork, not a chain." >&2
+    echo "Rebase the fork onto the tip so the stack is linear, then re-run." >&2
+    exit 1
+  fi
+  cur=$1
+  chain+=("$cur")
+  if [ ${#chain[@]} -gt $MAX_DEPTH ]; then
+    echo "stack deeper than $MAX_DEPTH PRs, or a cycle in base refs" >&2
+    exit 1
+  fi
+done
+
+if [ ${#chain[@]} -lt 2 ]; then
+  echo "#$target is not stacked — no footer needed"
+  exit 0
+fi
+
+echo "stack: $(printf '#%s <- ' "${chain[@]}" | sed 's/ <- $//')"
+
+# Drop trailing blank lines, so a body that differs only in trailing newlines
+# (gh adds one when reading, may drop one when writing) is not reported as drift.
+trim_trailing_blanks() {
+  awk 'NF { last = NR } { lines[NR] = $0 } END { for (i = 1; i <= last; i++) print lines[i] }' "$1"
+}
+
+# "ME | 3166 | Shipments hub" -> "Shipments hub"
+strip_prefix() {
+  printf '%s' "$1" | sed -E 's/^[[:space:]]*[A-Za-z]{2,3}[[:space:]]*\|[[:space:]]*[0-9]+[[:space:]]*\|[[:space:]]*//'
+}
+
+footer_for() {
+  local current=$1 i=0 num here
+  printf '%s\n\n---\n\n' "$START"
+  printf '**Stacked PRs** (bottom → top) — merge bottom-up; each PR is based on the one above it:\n\n'
+  for num in "${chain[@]}"; do
+    i=$((i + 1))
+    here=""
+    [ "$num" = "$current" ] && here="  ← **this PR**"
+    printf '%s. #%s — %s%s\n' "$i" "$num" "$(strip_prefix "${TITLE[$num]}")" "$here"
+  done
+  printf '\n%s\n' "$END"
+}
+
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+drift=0
+
+for num in "${chain[@]}"; do
+  gh pr view "$num" --repo "$repo" --json body --jq .body > "$tmp/body"
+  awk -v s="$START" -v e="$END" '
+    $0 == s { skip = 1; next }
+    $0 == e { skip = 0; next }
+    !skip   { print }
+  ' "$tmp/body" > "$tmp/stripped"
+
+  { trim_trailing_blanks "$tmp/stripped"
+    printf '\n'
+    footer_for "$num"
+  } > "$tmp/wanted"
+
+  trim_trailing_blanks "$tmp/body" > "$tmp/body_cmp"
+  trim_trailing_blanks "$tmp/wanted" > "$tmp/wanted_cmp"
+  if cmp -s "$tmp/body_cmp" "$tmp/wanted_cmp"; then
+    echo "  #$num up to date"
+    continue
+  fi
+
+  drift=1
+  if [ "$check_only" = 1 ]; then
+    echo "  #$num footer STALE"
+    continue
+  fi
+
+  gh pr edit "$num" --repo "$repo" --body-file "$tmp/wanted" > /dev/null
+  echo "  #$num footer updated"
+done
+
+[ "$check_only" = 1 ] && [ "$drift" = 1 ] && exit 1
+exit 0

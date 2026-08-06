@@ -266,7 +266,7 @@ copy_template_file ".github/workflows/lighthouse.yml"
 copy_template_file ".github/lighthouse-budget.json"
 
 # SEO how-to guide
-copy_template_file "docs/how-tos/add-seo-to-a-page.md"
+copy_template_file "docs/sop/add-seo-to-a-page.md"
 
 # =============================================================================
 # Phase 10: Testing Setup
@@ -308,18 +308,57 @@ say "Creating documentation...", :green
 # CLAUDE.md for AI assistants
 template "CLAUDE.md", "CLAUDE.md"
 
-# Documentation directory
+# Four-directory doc canon. Every workflow command in .claude/commands reads
+# and writes these paths, so the names are load-bearing — don't rename them
+# without updating the commands.
+#
+#   docs/plans   design docs        (/feature_plan writes here)
+#   docs/system  architecture state (/pr_submit completes placeholders here)
+#   docs/sop     procedures         (/pr_submit completes placeholders here)
+#   docs/qa      manual test guides (/pr_qa writes here)
 empty_directory "docs"
-empty_directory "docs/how-tos"
-empty_directory "docs/security"
-empty_directory "docs/synthesis"
 empty_directory "docs/plans"
+empty_directory "docs/qa"
 
-template_file "docs/models.md.tt"
-copy_template_file "docs/design-patterns.md"
-copy_template_file "docs/architecture.md"
-copy_template_file "docs/how-tos/harden-a-kamal-server.md"
-copy_template_file "docs/how-tos/extract-database-and-storage.md"
+template_file "docs/system/models.md.tt"
+copy_template_file "docs/system/design-patterns.md"
+copy_template_file "docs/system/architecture.md"
+copy_template_file "docs/sop/harden-a-kamal-server.md"
+copy_template_file "docs/sop/extract-database-and-storage.md"
+
+# =============================================================================
+# Phase 12b: Agent Workflow
+# =============================================================================
+
+say "Installing agent workflow commands...", :green
+
+# 19 slash commands driving the lifecycle:
+#   /pick → /feature_plan → /task_plan → /implement → /pr_submit → merge
+# Stack tokens (test/lint/scan commands, default branch) are pre-filled for
+# this stack. Repo and board tokens remain for `/workflow_setup` to fill.
+WORKFLOW_COMMANDS = Dir.glob(File.join(TEMPLATE_ROOT, "templates/.claude/commands/*.md"))
+                       .map { |path| ".claude/commands/#{File.basename(path)}" }.freeze
+
+empty_directory ".claude/commands"
+WORKFLOW_COMMANDS.each { |command| copy_template_file command }
+
+# Stacked-PR footer generator, called by /pr_submit
+copy_template_file "bin/pr-stack"
+chmod "bin/pr-stack", 0755
+
+# Local scratch: task files and segue threads. Gitignored — these are working
+# state for resuming a session, not artifacts to review.
+empty_directory ".llm/tasks"
+empty_directory ".llm/threads"
+copy_template_file ".llm/tasks/task_template.md"
+create_file ".llm/threads/.gitkeep", ""
+
+# Documentation index — committed docs only. /feature_plan adds placeholder
+# entries, /pr_submit completes-or-deletes them and checks for dead links.
+copy_template_file ".llm/README.md"
+
+# Workflow spec: lifecycle diagrams, gates, sizing rules
+copy_template_file "WORKFLOW.md"
 
 # =============================================================================
 # Phase 13: Routes Configuration
@@ -348,7 +387,7 @@ create_file "app/controllers/home_controller.rb", <<~RUBY
           url.priority "1.0"
         end
 
-        # Add your pages here — see docs/how-tos/add-seo-to-a-page.md
+        # Add your pages here — see docs/sop/add-seo-to-a-page.md
       end
 
       render xml: xml
@@ -431,8 +470,19 @@ append_to_file ".gitignore", <<~GITIGNORE
   .env*
   !.env.example
 
-  # Claude Code settings
-  .claude/
+  # Claude Code — local settings only. The workflow commands in
+  # .claude/commands/ are tracked deliberately: they are shared team
+  # convention, and every command assumes the others are present.
+  .claude/settings.local.json
+  .claude/*.local.json
+
+  # Agent scratch — task files and segue threads are per-developer working
+  # state for resuming a session, not reviewable artifacts. The task template
+  # itself is shared convention, so it stays tracked.
+  .llm/tasks/*
+  !.llm/tasks/task_template.md
+  .llm/threads/*
+  !.llm/threads/.gitkeep
 
   # IDE
   .idea/

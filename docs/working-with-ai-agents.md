@@ -81,8 +81,8 @@ This section alone prevents a recurring class of failure.
 
 Good additions:
 
-- A decision you made and don't want revisited → `docs/architecture.md` as an ADR, referenced from `CLAUDE.md`
-- A procedure with a specific correct order → `docs/how-tos/`
+- A decision you made and don't want revisited → `docs/system/architecture.md` as an ADR, referenced from `CLAUDE.md`
+- A procedure with a specific correct order → `docs/sop/`
 - A mistake the agent keeps making → the anti-patterns section, with a before/after pair
 - A domain rule the code doesn't express → the conventions section
 
@@ -98,15 +98,16 @@ Keep it dense. `CLAUDE.md` is loaded into context on every session, so length is
 
 ## The docs directories
 
-The generated app has `docs/plans/`, `docs/synthesis/`, and `docs/security/` created empty on purpose. They give an agent a place to put durable work:
+The generated app ships a four-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
 
-| Directory | Contents |
-|---|---|
-| `docs/plans/` | Implementation plans written before non-trivial features |
-| `docs/synthesis/` | Analysis of an existing area — how something currently works |
-| `docs/architecture.md` | Decisions and their consequences (ADR format, template included) |
-| `docs/how-tos/` | Procedures someone will need to repeat |
-| `docs/security/` | Audit findings |
+| Directory | Contents | Written by |
+|---|---|---|
+| `docs/plans/` | Design docs, written before issues exist | `/feature_plan` |
+| `docs/system/` | How things currently work — architecture state, ADRs, model reference | `/pr_submit`, `/update_docs` |
+| `docs/sop/` | Procedures someone will need to repeat | `/pr_submit`, `/update_docs` |
+| `docs/qa/` | Manual test guides for flows automated tests don't cover | `/pr_qa` |
+
+`.llm/README.md` indexes committed docs only, so an agent can find what already exists before writing a duplicate. `.llm/tasks/` and `.llm/threads/` are local scratch and gitignored.
 
 The point is continuity. An agent that writes a plan in session one can read it in session five. Without somewhere to put it, that analysis is re-derived every time — slowly, and slightly differently.
 

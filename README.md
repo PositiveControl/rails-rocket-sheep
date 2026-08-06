@@ -25,7 +25,7 @@ Rocket Sheep front-loads the opinions:
 - **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `RegistryBase` for configuration entities, Discard for soft deletes, PaperTrail for audit trails. The agent extends existing patterns instead of inventing new ones.
 - **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, UUIDs everywhere — with worked examples of both the right and wrong version.
 - **Anti-patterns are named explicitly.** The `CLAUDE.md` contains a list of things not to do (N+1 iteration, premature `.to_a`, hardcoded entity knowledge) with the correct form beside each one. Agents follow negative examples well when you actually give them some.
-- **Docs have a home.** `docs/architecture.md` for ADRs, `docs/how-tos/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
+- **Docs have a home.** `docs/system/architecture.md` for ADRs, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
 
 The result is that the tenth feature looks like the first one.
 
@@ -124,12 +124,14 @@ Tailwind CSS, Slim templates, and generic `toggle_controller.js` / `modal_contro
 | [Getting Started](docs/getting-started.md) | Prerequisites, first run, what to do in the first ten minutes |
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
+| [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
+| [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
 | [Patterns](docs/patterns.md) | Service objects, registries, soft deletes, audit trails — with worked examples |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
 | [FAQ](docs/faq.md) | Ruby/Rails versions, removing pieces, upgrades, licensing |
 
-Each generated app also ships its own docs: `docs/architecture.md`, `docs/design-patterns.md`, `docs/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships its own docs: `docs/system/architecture.md`, `docs/system/design-patterns.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 

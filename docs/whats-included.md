@@ -92,14 +92,26 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
-| `docs/architecture.md` | Architecture Decision Records, pre-seeded with the template's own five decisions |
-| `docs/design-patterns.md` | UI/UX patterns |
-| `docs/models.md` | Model documentation stub |
-| `docs/how-tos/add-seo-to-a-page.md` | Adding SEO to a new page |
-| `docs/how-tos/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
-| `docs/how-tos/extract-database-and-storage.md` | Moving Postgres off the app server |
+| `docs/system/architecture.md` | Architecture Decision Records, pre-seeded with the template's own five decisions |
+| `docs/system/design-patterns.md` | UI/UX patterns |
+| `docs/system/models.md` | Model documentation stub |
+| `docs/sop/add-seo-to-a-page.md` | Adding SEO to a new page |
+| `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
+| `docs/sop/extract-database-and-storage.md` | Moving Postgres off the app server |
 
-Empty `docs/plans/`, `docs/synthesis/`, and `docs/security/` directories are created as homes for feature plans, analysis, and audits.
+Empty `docs/plans/` and `docs/qa/` directories complete the four-directory canon (`plans`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
+
+### Agent workflow
+
+| File | Purpose |
+|---|---|
+| `.claude/commands/*.md` | 19 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
+| `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
+| `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |
+| `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
+
+Stack tokens (test, lint, scan commands, default branch, CI job names) arrive pre-filled. Run `/workflow_setup` once to fill in GitHub org, repo, and board IDs. See [The Agent Workflow](workflow.md).
 
 ---
 

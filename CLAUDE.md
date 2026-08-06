@@ -230,7 +230,7 @@ The template includes an SEO foundation out of the box:
 - **SEO tests** — `test/integration/seo_test.rb` verifies meta tags, canonical URLs, JSON-LD, sitemap, robots.txt
 - **Lighthouse CI** — Weekly audit workflow in `.github/workflows/lighthouse.yml`
 
-See `docs/how-tos/add-seo-to-a-page.md` for step-by-step instructions.
+See `docs/sop/add-seo-to-a-page.md` for step-by-step instructions.
 
 ## Testing
 
@@ -309,12 +309,38 @@ Required for production:
 
 ## Key Documentation
 
+Docs follow a four-directory canon. The workflow commands in `.claude/commands/`
+read and write these exact paths — don't rename them.
+
+| Directory | Holds | Written by |
+|-----------|-------|------------|
+| `docs/plans/` | Design docs for features | `/feature_plan` |
+| `docs/system/` | Architecture state — how things currently work | `/pr_submit`, `/update_docs` |
+| `docs/sop/` | Procedures someone will repeat | `/pr_submit`, `/update_docs` |
+| `docs/qa/` | Manual test guides | `/pr_qa` |
+
 | Topic | File |
 |-------|------|
-| Models | `docs/models.md` |
-| Design Patterns | `docs/design-patterns.md` |
-| Architecture Decisions | `docs/architecture.md` |
-| How-To Guides | `docs/how-tos/` |
+| Models | `docs/system/models.md` |
+| Design Patterns | `docs/system/design-patterns.md` |
+| Architecture Decisions | `docs/system/architecture.md` |
+| Procedures | `docs/sop/` |
+
+## Workflow
+
+Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
+
+```
+/pick (entry, routes by state) → /feature_plan → /task_plan → /implement → /pr_submit → human merge → automation
+```
+
+- `/pick` is the entry door for every session — it surfaces ready work and routes it
+- Four gates: design approved (G1), plan approved (G2), suite green (G3), comments resolved (G4)
+- Sizing: 100–600 added lines per PR; issue acceptance criteria ≤5 bullets. Forecast passes 600 lines mid-implementation → stop, split, land the current slice
+- `/segue` is the escape valve — isolate a tangent, merge findings back without polluting the workstream
+- Conventions are single-sourced **here**. Task files in `.llm/tasks/` reference this file; they never restate it
+
+Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
 
 ## Project Structure
 
@@ -329,11 +355,19 @@ app/
 ├── views/                  # Slim templates
 └── javascript/controllers/ # Stimulus controllers
 
-docs/
-├── models.md               # Model documentation
-├── design-patterns.md      # UI/UX patterns
-├── architecture.md         # Architecture Decision Records
-├── how-tos/                # Step-by-step guides
-├── synthesis/              # Feature analysis
-└── plans/                  # Implementation plans
+docs/                       # 4-dir canon — names are load-bearing
+├── plans/                  # Design docs (/feature_plan)
+├── system/                 # Architecture state
+│   ├── architecture.md     #   Architecture Decision Records
+│   ├── design-patterns.md  #   UI/UX patterns
+│   └── models.md           #   Model documentation
+├── sop/                    # Procedures / how-tos
+└── qa/                     # Manual test guides
+
+.claude/commands/           # 19 workflow slash commands (tracked, shared)
+.llm/
+├── tasks/                  # Task files — local scratch, gitignored
+└── threads/                # Segue threads — local scratch, gitignored
+bin/pr-stack                # Stacked-PR footer generator (used by /pr_submit)
+WORKFLOW.md                 # Lifecycle spec + diagrams
 ```
