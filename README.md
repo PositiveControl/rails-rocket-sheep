@@ -22,9 +22,10 @@ You end up as a full-time code reviewer for an codebase with no opinions.
 
 Rocket Sheep front-loads the opinions:
 
-- **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `RegistryBase` for configuration entities, Discard for soft deletes, PaperTrail for audit trails. The agent extends existing patterns instead of inventing new ones.
+- **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `ApplicationForm` for multi-model forms, `ApplicationComponent` for UI units, `Data`-based registries for fixed variant sets, PaperTrail for audit trails, Discard for the tables that genuinely need soft deletes. The agent extends existing patterns instead of inventing new ones.
 - **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, UUIDs everywhere — with worked examples of both the right and wrong version.
-- **Anti-patterns are named explicitly.** The `CLAUDE.md` contains a list of things not to do (N+1 iteration, premature `.to_a`, hardcoded entity knowledge) with the correct form beside each one. Agents follow negative examples well when you actually give them some.
+- **Anti-patterns are named explicitly.** `CLAUDE.md` and `docs/system/design-patterns.md` name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
+- **The pattern budget is fixed.** Six sanctioned directories under `app/`: `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh requires an ADR. Sprawl is the failure mode of a pattern catalogue, so the catalogue names its own limit.
 - **Docs have a home.** `docs/system/architecture.md` for ADRs, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
 
 The result is that the tenth feature looks like the first one.
@@ -44,9 +45,9 @@ Devise, pre-configured for Turbo (`navigational_formats` set correctly — the f
 ### Data patterns
 
 - **UUID primary keys** on every table, wired through the generators so `rails g model` does the right thing automatically
-- **Discard** for soft deletes
+- **Discard** available for soft deletes, opt-in per table — `destroy` is the default, and PaperTrail can reify a destroyed record
 - **PaperTrail** with `--with-changes` for a full audit trail
-- **Pagy** for pagination
+- **Pagy** for pagination, wired into `ApplicationController` and `ApplicationHelper` so `pagy(scope)` works out of the box
 
 ### Service objects with a Result type
 
@@ -68,29 +69,64 @@ result.success? ? redirect_to(result.value) : render(:new)
 
 `Result` is a `Struct` with `success?`, `failure?`, `value`, `errors`, and a `record` alias. Services get `log_error` and `log_info` helpers that tag output with the class name.
 
-### Registry pattern for configuration entities
+### Form objects
 
-Plans, tiers, product types, anything with a fixed set of variants and per-variant attributes:
+`ApplicationForm` — `ActiveModel::Model` plus attributes — for the submit that writes two models, or carries fields that aren't columns:
 
 ```ruby
-module PlanRegistry
-  extend RegistryBase
+class SignupForm < ApplicationForm
+  attribute :email, :string
+  attribute :company_name, :string
+  validates :email, :company_name, presence: true
 
-  ITEMS = {
-    free: { name: "Free", price_cents: 0,    features: %i[basic_access] },
-    pro:  { name: "Pro",  price_cents: 2900, features: %i[basic_access api_access webhooks] }
-  }.freeze
-
-  class << self
-    def items = ITEMS
-    def price_cents(type) = get(type, :price_cents)
-    def has_feature?(type, feature) = (get(type, :features) || []).include?(feature.to_sym)
-    def paid_plans = items.reject { |_, v| v[:price_cents].zero? }.keys
+  def save
+    return false if invalid?
+    ApplicationRecord.transaction { ... }
+    true
   end
 end
 ```
 
-`RegistryBase` supplies `get`, `exists?`, `all_types`, `name`, `where`, `validate!`, and `freeze!`. A working `AppConfig` registry ships as a reference implementation.
+The controller treats it exactly like a model. No `accepts_nested_attributes_for`, no error keys shaped like `items.attributes.0.quantity`.
+
+### UI components
+
+ViewComponent, configured for Slim sidecar directories, with `ApplicationComponent` and four working components — `AlertComponent`, `FlashComponent` (already wired into the layout), `ErrorSummaryComponent`, `EmptyStateComponent` — each with a unit test that runs without a request.
+
+```bash
+bin/rails generate component Badge label
+# app/components/badge_component.rb
+# app/components/badge_component/badge_component.html.slim
+# test/components/badge_component_test.rb
+```
+
+### Registries for fixed variant sets
+
+Plans, tiers, product types — anything with a fixed set of variants and per-variant attributes:
+
+```ruby
+module PlanRegistry
+  Plan = Data.define(:key, :name, :price_cents, :features) do
+    def free?                 = price_cents.zero?
+    def has_feature?(feature) = features.include?(feature.to_sym)
+  end
+
+  ITEMS = {
+    free: Plan.new(key: :free, name: "Free", price_cents: 0,     features: %i[basic_access]),
+    pro:  Plan.new(key: :pro,  name: "Pro",  price_cents: 2_900, features: %i[basic_access api_access])
+  }.freeze
+
+  class << self
+    def [](key) = ITEMS.fetch(key.to_sym)   # unknown key raises
+    def all     = ITEMS.values
+    def paid    = all.reject(&:free?)
+  end
+end
+
+PlanRegistry[user.plan].has_feature?(:api_access)
+```
+
+No base class to learn. A mistyped attribute raises `NoMethodError` instead of returning `nil`; an unknown key raises `KeyError`; and `Data.define` requires every member, so an attribute can't be added to one variant and forgotten on the others. `app/lib/plan_registry.rb` ships as the canonical shape — copy it.
 
 ### SEO foundation
 
@@ -115,7 +151,7 @@ Slowpoke prints any test over 500ms after the run and nothing at all when the su
 
 ### Frontend
 
-Tailwind CSS, Slim templates, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice.
+Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules are documented in `docs/system/ui-patterns.md` — the failures they prevent are silent ones.
 
 ---
 
@@ -129,12 +165,12 @@ Tailwind CSS, Slim templates, and generic `toggle_controller.js` / `modal_contro
 | [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
-| [Patterns](docs/patterns.md) | Service objects, registries, soft deletes, audit trails — with worked examples |
+| [Patterns](docs/patterns.md) | Service objects, registries, form objects, components, soft deletes, audit trails — with worked examples |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
 | [FAQ](docs/faq.md) | Ruby/Rails versions, removing pieces, upgrades, licensing |
 
-Each generated app also ships its own docs: `docs/system/architecture.md`, `docs/system/design-patterns.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships its own docs: `docs/system/architecture.md`, `docs/system/design-patterns.md`, `docs/system/ui-patterns.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 
@@ -167,7 +203,7 @@ See [Getting Started](docs/getting-started.md) for the full walkthrough.
 Honest scope, so nobody buys the wrong thing:
 
 - **Not a SaaS starter kit.** No billing, no subscriptions, no teams, no admin panel. If you want Stripe and multi-tenancy pre-built, Jumpstart Pro is the better purchase. Rocket Sheep is a *foundation*, not an application.
-- **Not a component library.** Tailwind is configured; the components are yours to write.
+- **Not a component library.** ViewComponent is set up and four utility components ship (alert, flash, error summary, empty state). Buttons, tables, navs, and everything else are yours to write.
 - **Not a framework.** Everything it adds is a plain Rails file you own and can delete. There is no gem to depend on, no upgrade treadmill, and nothing that breaks when Rails 8.1 ships.
 
 ---

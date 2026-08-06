@@ -21,7 +21,7 @@ The template writes plain Rails files, so there's no gem to become incompatible.
 ## Using it
 
 **Can I use it on an existing app?**
-Not as a template — `rails new` only applies to new apps. You can copy individual pieces: `app/services/application_service.rb`, `app/lib/registry_base.rb`, the SEO helper and tests, and `CLAUDE.md` all drop into an existing app unchanged. The database, Kamal, and generator configuration do not.
+Not as a template — `rails new` only applies to new apps. You can copy individual pieces: `app/services/application_service.rb`, `app/forms/application_form.rb`, `app/lib/plan_registry.rb`, `app/components/`, the SEO helper and tests, and `CLAUDE.md` all drop into an existing app unchanged (components need the `view_component` gem). The database, Kamal, and generator configuration do not.
 
 **Can I generate more than one app with it?**
 Yes. Clone it locally and point `--template` at the local path — it's faster than fetching over HTTP each time, and it lets you keep your own modifications.
@@ -52,7 +52,13 @@ Slowpoke, reporting tests over 500ms. It prints nothing when the suite is clean.
 Deliberate. The template overrides Rails' fixture generator via `lib/templates/test_unit/model/fixtures.yml`. The stock generator emits two placeholder records with identical values, which raises `PG::UniqueViolation` the moment a table has a unique index — Devise's `email` column being the usual first casualty. Add fixtures with values you actually chose.
 
 **Why doesn't `Post.all` exclude soft-deleted records?**
-Discard deliberately adds no default scope. Use `Post.kept`. Default scopes are hard to escape and cause more problems than they solve — but it does mean every query against a discardable model is a place to forget.
+Discard deliberately adds no default scope. Use `Post.kept`. Default scopes are hard to escape and cause more problems than they solve — but it does mean every query against a discardable model is a place to forget. That tax is why soft deletes are opt-in per table here rather than a default: `destroy` is the norm, and PaperTrail can reify a destroyed record when someone deletes the wrong thing.
+
+**Why do form errors sometimes not appear?**
+Turbo discards a form response that returns 200 without a redirect — the page doesn't change and no error is shown. Validation failures must render with `status: :unprocessable_content`. Rack 3.1 renamed that status from `:unprocessable_entity`; Rails 8 accepts both.
+
+**Why is Pagy already included in `ApplicationController`?**
+Because an unpaginated index is a production incident with a delay fuse. `Pagy::Backend` is included in `ApplicationController` and `Pagy::Frontend` in `ApplicationHelper`, so `@pagy, @records = pagy(scope)` and `pagy_nav(@pagy)` work with no further setup.
 
 **Why does development use Solid Cable instead of `:async`?**
 So WebSocket behaviour matches production. The `:async` adapter only works within a single process, which hides bugs that appear the moment you deploy.
@@ -64,8 +70,8 @@ Rails 8 runs its own `solid_cache:install solid_queue:install solid_cable:instal
 
 ## Removing things
 
-**Can I remove Devise / PaperTrail / Slim / SEO?**
-Yes — everything is a plain file with no cross-dependencies, with one exception: `app/lib/app_config.rb` uses `RegistryBase`, so removing the registry module means rewriting or deleting `AppConfig` too. See [What's Included](whats-included.md#removing-things-you-dont-want).
+**Can I remove Devise / PaperTrail / Slim / ViewComponent / SEO?**
+Yes — everything is a plain file with no cross-dependencies, with one exception: dropping `view_component` means deleting `app/components/`, `test/components/`, and the `FlashComponent` line in the layout. See [What's Included](whats-included.md#removing-things-you-dont-want).
 
 **I don't want the `CLAUDE.md` conventions.**
 Delete the file. Nothing reads it at runtime.

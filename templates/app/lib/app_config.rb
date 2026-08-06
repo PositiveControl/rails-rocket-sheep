@@ -1,31 +1,35 @@
 # frozen_string_literal: true
 
-# Application configuration using the registry pattern.
-# Centralized configuration for app-wide settings and constants.
+# App-wide constants: branding, feature flags, limits, timing.
 #
 # Usage:
 #   AppConfig::BRANDING[:name]           # => "My App"
 #   AppConfig::Limits::MAX_UPLOAD_SIZE   # => 10.megabytes
+#   AppConfig::Features.enabled?(:beta_api)
 #
+# This is plain frozen constants, not a registry. A registry is for a fixed set
+# of *variants that each carry attributes* — see plan_registry.rb for that shape.
+# Values with no variants don't need one.
 module AppConfig
-  # Application branding
+  # Application branding — change these before you deploy
   BRANDING = {
     name: "My App",
     tagline: "Built with Rails Rocket Sheep",
     support_email: "support@example.com"
   }.freeze
 
-  # Feature flags (simple implementation - consider flipper gem for production)
+  # Feature flags. Fine for a handful of toggles; reach for Flipper when flags
+  # need to change without a deploy or vary per user.
   module Features
-    def self.enabled?(feature)
-      ENABLED_FEATURES.include?(feature.to_sym)
-    end
-
     ENABLED_FEATURES = %i[
       # Add feature flags here
       # :new_dashboard
       # :beta_api
     ].freeze
+
+    def self.enabled?(feature)
+      ENABLED_FEATURES.include?(feature.to_sym)
+    end
   end
 
   # Application limits
@@ -40,45 +44,5 @@ module AppConfig
     SESSION_TIMEOUT = 2.hours
     TOKEN_EXPIRY = 24.hours
     CACHE_TTL = 1.hour
-  end
-
-  # Example registry for subscription plans
-  module PlanRegistry
-    extend RegistryBase
-
-    ITEMS = {
-      free: {
-        name: "Free",
-        price_cents: 0,
-        interval: :month,
-        features: %i[basic_access],
-        limits: { projects: 3, storage_mb: 100 }
-      },
-      starter: {
-        name: "Starter",
-        price_cents: 900,
-        interval: :month,
-        features: %i[basic_access api_access],
-        limits: { projects: 10, storage_mb: 1000 }
-      },
-      pro: {
-        name: "Pro",
-        price_cents: 2900,
-        interval: :month,
-        features: %i[basic_access api_access priority_support webhooks],
-        limits: { projects: 100, storage_mb: 10000 }
-      }
-    }.freeze
-
-    class << self
-      def items = ITEMS
-
-      def price_cents(type) = get(type, :price_cents)
-      def features(type) = get(type, :features) || []
-      def limit(type, key) = get(type, :limits)&.dig(key)
-
-      def paid_plans = items.reject { |_, v| v[:price_cents].zero? }.keys
-      def has_feature?(type, feature) = features(type).include?(feature.to_sym)
-    end
   end
 end

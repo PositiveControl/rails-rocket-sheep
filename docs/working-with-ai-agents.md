@@ -33,11 +33,15 @@ That last rule matters more than it looks. Without it agents accumulate near-dup
 ### Style rules, stated as absolutes
 
 - Slim, never ERB
-- Service objects for business logic
+- Service objects for business logic; form objects for multi-model submits
+- Components for markup with logic; partials with strict locals for the rest
+- Seven actions per controller — a new verb is a new resource
+- Validation failures render `status: :unprocessable_content`
 - Scopes, not class methods, for queries
 - UUIDs for primary keys; `t.uuid :parent_id` for foreign keys
-- Discard for soft deletes, PaperTrail for audit trails
-- Registries for configuration entities
+- `destroy` by default; Discard only where a table earns soft deletes
+- PaperTrail for audit trails
+- Registries (`Data` objects, `fetch` lookup) for fixed variant sets
 
 Absolutes work better than preferences. "Prefer service objects" gets interpreted as a suggestion. "Service objects for business logic" gets followed.
 
@@ -50,7 +54,8 @@ Every pattern appears twice — the bad version and the good version:
 PLANS = { free: 0, pro: 29 }
 
 # GOOD: Query registry for capabilities
-PlanRegistry.price(plan_type)
+PlanRegistry[plan_type].price_cents
+PlanRegistry[plan_type].has_feature?(:api_access)
 ```
 
 The bad example is doing the work. It names the specific mistake the agent would otherwise make.
@@ -69,9 +74,24 @@ span.count = "(#{count})"
 / Multi-line Ruby needs a ruby: block
 ruby:
   config = { foo: { label: "Foo" } }
+
+/ Strict locals in a partial — exact syntax, first line
+/# locals: (order:, compact: false)
 ```
 
 This section alone prevents a recurring class of failure.
+
+### Two pattern docs, one index
+
+`CLAUDE.md` states the rules in short form and points at the reasoning:
+`docs/system/design-patterns.md` for the backend (controllers, services, forms,
+queries, policies, jobs, caching) and `docs/system/ui-patterns.md` for the view
+layer. Both carry a "when not to" for every pattern and a table of patterns
+explicitly rejected — repository, CQRS, hexagonal, interactor chains, DI
+containers.
+
+Keeping the detail out of `CLAUDE.md` matters for a boring reason: the same rule
+written in three places drifts, and the agent then has three answers.
 
 ---
 

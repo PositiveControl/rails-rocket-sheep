@@ -18,6 +18,8 @@ bin/brakeman         # Security analysis
 - **Backend:** Rails 8 + PostgreSQL
 - **Frontend:** Hotwire (Turbo + Stimulus), Tailwind CSS
 - **Templates:** Slim (not ERB)
+- **Components:** ViewComponent (`app/components`, `ApplicationComponent`)
+- **Pagination:** Pagy (wired into `ApplicationController`)
 - **Background Jobs:** Solid Queue (database-backed)
 - **Caching:** Solid Cache (database-backed)
 - **WebSockets:** Solid Cable (database-backed)
@@ -34,19 +36,21 @@ bin/brakeman         # Security analysis
 - **Collaborative:** Explain findings and reasoning; stop often for feedback
 - **TDD:** Write tests before code. Commit in functional chunks when tests are green.
 - **Flaky Tests:** Fix immediately; do not ignore or skip, even when unrelated to your changes
+- **Slow Tests:** Slowpoke flags tests over 500ms after each run. Fix the cause or state why it's inherent — don't let the report become noise
 - **TDD Pairing:** Stop when tests fail to present context and discuss next steps
 - **Commits:** Small, focused commits with clear messages
-- **Slow Tests:** Slowpoke flags tests over 500ms after each run. Fix the cause or state why it's inherent — don't let the report become noise
 - **Documentation:** Update `docs/` when implementing features, `grep` for existing docs first 
 
 ### Code Style
 
 - **DRY:** Don't Repeat Yourself. If you see duplicated code, centralize it. Extract helpers, concerns, or services when patterns repeat 2-3 times.
 - **Service objects:** Use `ApplicationService` base class with Result pattern
-- **Registry pattern:** Single source of truth for config entities (see `app/lib/`)
-- **Soft deletes:** Use Discard gem (`include Discard::Model`)
+- **Form objects:** Use `ApplicationForm` for multi-model or non-AR forms
+- **Registry pattern:** Fixed variant sets as `Data` objects in `app/lib/` — see `plan_registry.rb`
+- **Deletes:** `destroy` by default. Discard (`include Discard::Model`) only when a table earns it
 - **Audit trail:** Use PaperTrail gem (`has_paper_trail`)
 - **Scopes over class methods:** For all queries
+- **RESTful controllers:** Seven actions; a new verb gets its own controller
 
 ### Database
 
@@ -58,181 +62,92 @@ bin/brakeman         # Security analysis
 
 - **Slim only:** No ERB templates
 - **Tailwind:** Utility classes inline
+- **Components:** `bin/rails g component Name` — class, Slim sidecar template, and test
+- **Partials:** Declare strict locals (`/# locals: (order:)`), never read instance variables
 - **Stimulus:** `thing_controller.js` naming convention
 - **Generic controllers:** Use `toggle_controller.js` and `modal_controller.js` for common patterns
 
 ## Architecture Principles
 
-### DRY - Don't Repeat Yourself
+Short form below. The reasoning, the "when not to", and the rejected patterns live in
+`docs/system/design-patterns.md` (backend) and `docs/system/ui-patterns.md` (views).
+Read those before introducing a pattern that isn't listed here.
 
-When you notice duplicated code, centralize it:
+### Where code goes
 
-```ruby
-# BAD: Same validation logic in multiple places
-class OrdersController
-  def create
-    return render_error("Invalid amount") if params[:amount] <= 0
-    # ...
-  end
-end
+| Directory | Holds | Add a file when |
+|-----------|-------|-----------------|
+| `app/services/` | Multi-step writes with a failure path | An operation touches >1 model, or runs from >1 caller |
+| `app/forms/` | Form objects (`ApplicationForm`) | One submit writes ≥2 models, or a field isn't a column |
+| `app/queries/` | Reads that join ≥2 models | A scope would need a join and 3+ clauses |
+| `app/policies/` | Record-level authorization | The answer depends on the record, not just the role |
+| `app/lib/` | Registries — frozen hashes of `Data` objects | A fixed set of variants each carry the same attributes |
+| `app/components/` | UI units (`ApplicationComponent`) | Markup has logic or variants, or is reused |
 
-class RefundsController
-  def create
-    return render_error("Invalid amount") if params[:amount] <= 0
-    # ...
-  end
-end
+Six directories. A new top-level directory under `app/` is an architecture decision —
+record an ADR in `docs/system/architecture.md` or don't create it. The default answer
+for any given piece of code is still a model method, a scope, or a controller action.
 
-# GOOD: Extract to a concern or service
-module AmountValidation
-  extend ActiveSupport::Concern
+### Non-negotiables
 
-  included do
-    before_action :validate_positive_amount, only: [:create, :update]
-  end
+**Controllers**
+- Seven actions only — `index show new create edit update destroy`. A new verb is a new resource with its own controller.
+- Actions stay under ~10 lines: find, delegate, branch, respond.
+- Form failures render with `status: :unprocessable_content`. Without it Turbo discards the response and the form silently freezes.
+- Every index paginates. Pagy is wired into `ApplicationController`; use `@pagy, @records = pagy(scope)`.
+- Scope every lookup — `current_user.orders.find(params[:id])` — and let a miss raise. `rescue_from` handles it once in `ApplicationController`.
+- `rate_limit` (Rails 8, backed by Solid Cache) on sign-in, password reset, signup, and anything that sends mail.
 
-  private
+**Business logic**
+- `ApplicationService` for coordination. `failure()` for expected outcomes, `raise` for broken invariants. Transactions live here, never in controllers or callbacks.
+- `ApplicationForm` for multi-model or non-AR forms. Never `accepts_nested_attributes_for`.
+- Query objects for joins across ≥2 models. Always return a relation, never an array.
+- Policy objects for record-level authorization; Petergate `access` for role-level.
+- Registries for fixed variant sets: a frozen hash of `Data` objects, `fetch` for lookup. Query capabilities (`PlanRegistry[key].has_feature?(:api)`), never identities (`plan == "pro"`).
 
-  def validate_positive_amount
-    return if params[:amount].to_f > 0
-    render_error("Invalid amount")
-  end
-end
-```
+**Models**
+- Scopes, never class methods returning relations.
+- Callbacks touch only their own record. Writing other models, sending mail, and calling APIs belong in a service. Enqueue jobs from `after_commit`, never `after_save`.
+- `includes` when you read an association, `counter_cache` when you only need the number. Sort and aggregate in the database.
+- Deletes are real by default. Add Discard only when restoration is a user-facing feature, an audit obligation requires the row, or foreign keys must stay valid — then `.kept` is on you in every query, and never `default_scope`.
 
-**When to extract:**
-- Same code appears 2-3 times → Extract to helper/concern/service
-- Similar patterns across models → Create a shared concern
-- Repeated view logic → Create a helper method or partial
-- Complex conditionals → Extract to a policy or service object
-- Context is beginning to blur → Refactor into smaller methods or classes
+**Jobs**
+- Thin wrapper over a service. Takes IDs, not records. Guards at the top so a retry is a no-op. Enqueued after the transaction commits.
 
-### Service Objects
+**Views**
+- Component > partial > helper > inline. Partials declare strict locals and read no instance variables.
+- Turbo streams from the controller by default; model `broadcasts_to` only for genuine multi-user push.
+- Stimulus uses targets, values, and classes — never `document.querySelector`, never Tailwind class strings in JS.
 
-Use `ApplicationService` for business logic:
+### DRY
 
-```ruby
-class CreateOrderService < ApplicationService
-  def initialize(user:, items:)
-    @user = user
-    @items = items
-  end
+Same code 2–3 times is the trigger. Where it goes depends on what repeats: a role
+across models is a concern, coordination is a service, markup is a component,
+formatting is a helper, a query is a scope. Extracting into the wrong one costs more
+than the duplication did.
 
-  def call
-    order = Order.new(user: @user)
-    order.items = @items
-
-    if order.save
-      success(order)
-    else
-      failure(order.errors.full_messages)
-    end
-  end
-end
-
-# Usage:
-result = CreateOrderService.call(user: current_user, items: cart_items)
-if result.success?
-  redirect_to result.value  # result.value is the order
-else
-  flash[:alert] = result.errors.join(", ")
-end
-```
-
-### Registry Pattern
-
-Use registries for configuration entities (plans, product types, etc.):
-
-```ruby
-# app/lib/plan_registry.rb
-module PlanRegistry
-  extend RegistryBase
-
-  ITEMS = {
-    free: { name: "Free", price: 0, features: [:basic] },
-    pro: { name: "Pro", price: 29, features: [:basic, :api, :support] }
-  }.freeze
-
-  class << self
-    def items = ITEMS
-    def price(type) = get(type, :price)
-    def has_feature?(type, feature) = get(type, :features)&.include?(feature)
-  end
-end
-
-# Usage:
-PlanRegistry.price(:pro)              # => 29
-PlanRegistry.has_feature?(:pro, :api) # => true
-```
-
-### Anti-Patterns to Avoid
-
-```ruby
-# BAD: Hardcoded entity knowledge in service
-PLANS = { free: 0, pro: 29 }
-
-# GOOD: Query registry for capabilities
-PlanRegistry.price(plan_type)
-### Slow tests
-
-Slowpoke reports any test over 500ms after the run — it prints nothing when the
-suite is clean. Tune per run with environment variables:
-
-```bash
-SLOWPOKE_THRESHOLD=2.0 bin/test                 # only flag tests over 2s
-SLOWPOKE_MAX_RESULTS=10 bin/test                # just the worst ten
-SLOWPOKE_HISTORY=tmp/slowpoke.json bin/test     # write the run to JSON
-SLOWPOKE_CI=true bin/test                       # exit 1 if anything is slow
-```
-
-Project defaults live in `test/support/slowpoke.rb`. A slow test is usually a
-test creating records its assertion never touches. See `docs/sop/find-slow-tests.md`.
-
-
-# BAD: N+1 queries - iterating without preload
-users.each { |u| u.orders.count }
-
-# GOOD: Eager load or use counter cache
-User.includes(:orders).each { |u| u.orders.size }
-
-# BAD: Early .to_a forcing evaluation then filtering
-User.where(active: true).to_a.select { |u| u.admin? }
-
-# GOOD: Filter in database
-User.where(active: true).where(role: :admin)
-
-# BAD: Ruby sorting large datasets
-users.to_a.sort_by { |u| u.orders.count }
-
-# GOOD: Database sorting
-User.left_joins(:orders).group(:id).order("COUNT(orders.id) DESC")
-
-# BAD: Duplicated code across controllers/models
-# (see DRY section above)
-
-# GOOD: Extract to concerns, helpers, or services
-```
-
-### Slim Template Pitfalls
+### Slim pitfalls
 
 ```slim
 / Tailwind brackets conflict with Slim - use class=""
 div class="max-h-[85vh]"
 
-/ Text starting with ( needs span wrapper
+/ Text starting with ( needs a pipe or interpolation
 span.count = "(#{count})"
 
-/ Multi-line Ruby needs ruby: block
+/ Multi-line Ruby needs a ruby: block
 ruby:
-  config = {
-    foo: { label: "Foo" },
-    bar: { label: "Bar" }
-  }
+  config = { foo: { label: "Foo" } }
 
-/ Dynamic attributes need local variables
+/ Interpolation in attributes needs a local first
 - path = "/items/#{item.id}"
 a href=path
+
+/ Strict locals in a partial — exact syntax, first line
+/# locals: (order:, compact: false)
 ```
+
+Full list, plus Tailwind, ViewComponent, Turbo, and Stimulus conventions: `docs/system/ui-patterns.md`.
 
 ## SEO
 
@@ -257,6 +172,21 @@ bin/test                    # All tests
 bin/test test/models/       # Directory
 bin/test test/models/user_test.rb:42  # Specific line
 ```
+
+### Slow tests
+
+Slowpoke reports any test over 500ms after the run — it prints nothing when the
+suite is clean. Tune per run with environment variables:
+
+```bash
+SLOWPOKE_THRESHOLD=2.0 bin/test                 # only flag tests over 2s
+SLOWPOKE_MAX_RESULTS=10 bin/test                # just the worst ten
+SLOWPOKE_HISTORY=tmp/slowpoke.json bin/test     # write the run to JSON
+SLOWPOKE_CI=true bin/test                       # exit 1 if anything is slow
+```
+
+Project defaults live in `test/support/slowpoke.rb`. A slow test is usually a
+test creating records its assertion never touches. See `docs/sop/find-slow-tests.md`.
 
 ### Test Patterns
 
@@ -338,7 +268,8 @@ read and write these exact paths — don't rename them.
 | Topic | File |
 |-------|------|
 | Models | `docs/system/models.md` |
-| Design Patterns | `docs/system/design-patterns.md` |
+| Design Patterns (backend) | `docs/system/design-patterns.md` |
+| UI Patterns (views) | `docs/system/ui-patterns.md` |
 | Architecture Decisions | `docs/system/architecture.md` |
 | Procedures | `docs/sop/` |
 
@@ -365,17 +296,24 @@ app/
 ├── lib/                    # Registries and config modules
 ├── models/                 # ActiveRecord models
 ├── services/               # Service objects (inherit ApplicationService)
+├── forms/                  # Form objects (inherit ApplicationForm)
+├── components/             # ViewComponents (inherit ApplicationComponent)
 ├── controllers/            # RESTful controllers
 ├── jobs/                   # Background jobs (Solid Queue)
 ├── helpers/                # View helpers
 ├── views/                  # Slim templates
 └── javascript/controllers/ # Stimulus controllers
 
+# Created on first use, not shipped empty:
+#   app/queries/   Query objects — reads joining ≥2 models
+#   app/policies/  Record-level authorization
+
 docs/                       # 4-dir canon — names are load-bearing
 ├── plans/                  # Design docs (/feature_plan)
 ├── system/                 # Architecture state
 │   ├── architecture.md     #   Architecture Decision Records
-│   ├── design-patterns.md  #   UI/UX patterns
+│   ├── design-patterns.md  #   Backend patterns
+│   ├── ui-patterns.md      #   View patterns
 │   └── models.md           #   Model documentation
 ├── sop/                    # Procedures / how-tos
 └── qa/                     # Manual test guides

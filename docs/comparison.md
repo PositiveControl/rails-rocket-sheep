@@ -73,10 +73,10 @@ This is the real competition, and it's a legitimate choice — most experienced 
 
 Stated plainly so nobody buys the wrong thing:
 
-- **No billing.** No Stripe, no subscriptions, no plan management. `AppConfig::PlanRegistry` is an example of the registry pattern, not a billing system.
+- **No billing.** No Stripe, no subscriptions, no plan management. `PlanRegistry` is an example of the registry pattern, not a billing system.
 - **No teams or multi-tenancy.** Single-tenant. Adding tenancy is on you.
 - **No admin panel.** No Avo, no Administrate, no ActiveAdmin.
-- **No component library.** Tailwind is configured; components are yours.
+- **No component library.** ViewComponent is configured and four utility components ship (alert, flash, error summary, empty state); buttons, tables, and navs are yours.
 - **No API scaffolding.** No JSON serializers, no versioning, no docs generation.
 - **No OmniAuth.** Devise with email and password only.
 - **No background job dashboard.** Solid Queue's Mission Control is not wired up.

@@ -1,0 +1,4 @@
+.space-y-2 aria-live="polite"
+  - messages.each do |key, message|
+    = render AlertComponent.new(variant: variant_for(key)) do
+      = message

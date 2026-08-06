@@ -53,6 +53,10 @@ Run `workflow_setup` once before first use.
 - Run `bin/test` before you claim anything works
 - `bin/rubocop` and `bin/brakeman` must be clean
 - Business logic goes in service objects (`ApplicationService`), not controllers
+- Multi-model forms go in form objects (`ApplicationForm`), never `accepts_nested_attributes_for`
+- Markup with logic or variants goes in a ViewComponent with a test; partials declare strict locals
+- Controllers stay RESTful — seven actions, a new verb gets a new controller
+- Validation failures render with `status: :unprocessable_content`, or Turbo silently drops the response
 - Slim templates, never ERB, in application views
 - Tests come first; fix flaky tests immediately rather than skipping them
 - Update `docs/` when behaviour changes, and `grep` for an existing doc first

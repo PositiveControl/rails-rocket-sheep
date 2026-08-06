@@ -91,7 +91,7 @@ Four files have placeholder values that must be changed. None of them will break
 | `public/robots.txt` | The `Sitemap:` URL — currently points at `example.com` |
 | `.github/workflows/lighthouse.yml` | The production URL to audit |
 
-`app/lib/app_config.rb` also carries placeholder branding (`name`, `tagline`, `support_email`). Update it or delete it — it's a reference implementation of the registry pattern as much as a config file.
+`app/lib/app_config.rb` also carries placeholder branding (`name`, `tagline`, `support_email`). Update it or delete it. Alongside it, `app/lib/plan_registry.rb` is the canonical registry shape — a worked example to copy, not something the app depends on.
 
 See [Deployment](deployment.md) for the full Kamal walkthrough.
 
@@ -104,19 +104,27 @@ app/
 ├── lib/                     # Registries and config modules (autoloaded)
 ├── models/                  # ActiveRecord models — UUID PKs by default
 ├── services/                # Service objects, inherit ApplicationService
+├── forms/                   # Form objects, inherit ApplicationForm
+├── components/              # ViewComponents, inherit ApplicationComponent
 ├── controllers/
 ├── jobs/                    # Background jobs (Solid Queue)
 ├── helpers/
 ├── views/                   # Slim templates
 └── javascript/controllers/  # Stimulus
 
-docs/
-├── architecture.md          # ADRs — record decisions here
-├── design-patterns.md       # UI/UX patterns
-├── models.md                # Model documentation
-├── how-tos/                 # Procedures
-├── synthesis/               # Feature analysis
-└── plans/                   # Implementation plans
+# Created on first use, not shipped empty:
+#   app/queries/             # Query objects — reads joining 2+ models
+#   app/policies/            # Record-level authorization
+
+docs/                        # Four-directory canon — the names are load-bearing
+├── plans/                   # Feature design docs
+├── system/
+│   ├── architecture.md      # ADRs — record decisions here
+│   ├── design-patterns.md   # Backend patterns
+│   ├── ui-patterns.md       # View patterns
+│   └── models.md            # Model documentation
+├── sop/                     # Procedures / how-tos
+└── qa/                      # Manual test guides
 
 .kamal/secrets               # Gitignored
 CLAUDE.md                    # Conventions your AI agent reads
@@ -132,7 +140,9 @@ CLAUDE.md                    # Conventions your AI agent reads
 
 **Devise routes missing from the home page.** You haven't run `rails g devise User` yet. The home view calls `user_signed_in?`, which needs the Devise model to exist.
 
-**Tailwind classes with brackets don't render.** Slim parses `[` specially. Use the explicit attribute form — `div class="max-h-[85vh]"` rather than `.max-h-[85vh]`. This and other Slim gotchas are listed in the generated `CLAUDE.md`.
+**Tailwind classes with brackets don't render.** Slim parses `[` specially. Use the explicit attribute form — `div class="max-h-[85vh]"` rather than `.max-h-[85vh]`. This and other Slim gotchas are in `docs/system/ui-patterns.md`.
+
+**A form submits and nothing happens.** The controller rendered a validation failure with a 200. Turbo discards it silently. Render with `status: :unprocessable_content` — see the Turbo status contract in `docs/system/design-patterns.md`.
 
 **`bin/dev` says the port is in use.** Another Rails app is running. `lsof -ti:3000 | xargs kill` or run with `-p 3001`.
 
@@ -141,5 +151,5 @@ CLAUDE.md                    # Conventions your AI agent reads
 ## Next
 
 - [What's Included](whats-included.md) — every gem and file, and why it's there
-- [Patterns](patterns.md) — service objects and registries in practice
+- [Patterns](patterns.md) — service objects, form objects, registries, and components in practice
 - [Working With AI Agents](working-with-ai-agents.md) — the part that makes this template different

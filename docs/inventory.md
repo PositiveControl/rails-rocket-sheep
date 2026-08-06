@@ -27,9 +27,10 @@ flowchart TB
 
   subgraph APP ["Application"]
     SVC["ApplicationService<br/>+ Result"]
-    REG["RegistryBase"]
-    MOD["Models<br/>UUID · Discard · PaperTrail"]
-    VW["Slim + Tailwind<br/>+ Stimulus"]
+    FRM["ApplicationForm<br/>form objects"]
+    REG["Registries<br/>Data objects"]
+    MOD["Models<br/>UUID · PaperTrail"]
+    VW["Slim + Tailwind<br/>ViewComponent + Stimulus"]
     SEO["SEO foundation<br/>+ tests"]
   end
 
@@ -55,7 +56,8 @@ flowchart TB
 
 | Item | Status | Notes |
 |---|---|---|
-| `CLAUDE.md` conventions | ✅ | Style, patterns, anti-patterns with before/after pairs, Slim pitfalls |
+| `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs |
+| Pattern reference docs | ✅ | `docs/system/design-patterns.md` (backend) + `ui-patterns.md` (views), each with when-not-to and rejected patterns |
 | Workflow commands | ✅ | 19 commands, `/pick` → merge |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them) |
@@ -73,22 +75,26 @@ flowchart TB
 | Item | Status | Notes |
 |---|---|---|
 | Service objects | ✅ | `ApplicationService` + `Result` struct, log helpers |
-| Registry pattern | ✅ | `RegistryBase` + working `AppConfig` reference |
+| Form objects | ✅ | `ApplicationForm` — `ActiveModel`, `save`/`save!`, `promote_errors` |
+| UI components | ✅ | ViewComponent + `ApplicationComponent`, four components with tests |
+| Registry pattern | ✅ | `Data`-based, no base class — `PlanRegistry` is the canonical file |
 | UUID primary keys | ✅ | Wired through generators |
-| Soft deletes | ✅ | Discard |
+| Soft deletes | ✅ | Discard installed, opt-in per table; `destroy` is the default |
 | Audit trail | ✅ | PaperTrail `--with-changes` |
-| Pagination | ✅ | Pagy |
+| Pagination | ✅ | Pagy, included in `ApplicationController` and `ApplicationHelper` |
+| Query objects | ➖ | Documented pattern, no base class — `app/queries/` on first use |
+| Policy objects | ➖ | Documented pattern, no base class — `app/policies/` on first use |
 | Auth | ✅ | Devise (Turbo-configured) + Petergate |
-| Frontend | ✅ | Slim, Tailwind, 2 generic Stimulus controllers |
+| Frontend | ✅ | Slim, Tailwind, ViewComponent, 2 generic Stimulus controllers |
 | SEO | ✅ | robots, sitemap, meta, canonical, JSON-LD, integration tests, Lighthouse CI |
 | Fixture generator override | ✅ | Prevents the unique-index collision on first test run |
+| Slow-test reporting | ✅ | Slowpoke, on by default, silent when the suite is clean |
 | Billing | ❌ | Deliberate — see [comparison](comparison.md) |
 | Teams / multi-tenancy | ❌ | Deliberate |
 | Admin panel | ❌ | Deliberate |
 | Component library | ❌ | Deliberate |
 | API scaffolding | ❌ | Deliberate |
 | Seeds / demo data | ✅ | Idempotent admin user, generated password, production-guarded |
-| Slow-test reporting | ✅ | Slowpoke, on by default, silent when the suite is clean |
 
 ### Infrastructure
 

@@ -35,7 +35,9 @@ When adding a new model:
    ```
    UUIDs are configured automatically.
 
-2. **Add soft deletes if needed:**
+2. **Add soft deletes only if the table earns them** — restoration is a user-facing
+   feature, an audit obligation requires the row, or foreign keys must stay valid.
+   Otherwise `destroy`:
    ```ruby
    class Thing < ApplicationRecord
      include Discard::Model
@@ -60,14 +62,11 @@ When adding a new model:
 
 ## Model Patterns
 
-### Soft Deletes (Discard)
+### Soft Deletes (Discard) — opt-in per table
 
 ```ruby
 class Post < ApplicationRecord
   include Discard::Model
-
-  # Optional: set default scope to exclude discarded
-  default_scope -> { kept }
 end
 
 # Usage:
@@ -77,6 +76,14 @@ Post.kept           # Non-deleted records
 Post.discarded      # Deleted records
 Post.with_discarded # All records
 ```
+
+**Never add `default_scope -> { kept }`.** Discard omits a default scope on
+purpose — default scopes are hard to escape and leak into every association,
+`unscoped` call, and join. Use `.kept` explicitly instead.
+
+Before adding Discard, check whether PaperTrail already covers it: a destroyed
+record can be restored with
+`PaperTrail::Version.where(item_type: "Post", item_id: id, event: "destroy").last.reify.save!`.
 
 ### Audit Trail (PaperTrail)
 

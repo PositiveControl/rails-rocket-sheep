@@ -11,7 +11,9 @@
 #   - Adds Devise + Petergate for authentication and authorization
 #   - Configures UUID primary keys for all models
 #   - Adds ApplicationService base class with Result pattern
-#   - Adds RegistryBase module for configuration patterns
+#   - Adds ApplicationForm base class for multi-model form objects
+#   - Adds a Data-based registry pattern for fixed variant sets
+#   - Adds ViewComponent with ApplicationComponent and four shipped components
 #   - Includes generic Stimulus controllers (toggle, modal)
 #   - Sets up SEO foundation (sitemap, meta tags, structured data, robots.txt)
 #   - Sets up VCR for HTTP testing and Slowpoke for slow-test reporting
@@ -76,6 +78,7 @@ gem "pagy", "~> 9.0"
 
 # Templates
 gem "slim-rails"
+gem "view_component", "~> 4.0"   # UI components with tests
 
 # Email (optional - Resend API)
 gem "resend", "~> 0.17"
@@ -96,12 +99,12 @@ end
 gem_group :test do
   gem "vcr", "~> 6.0"
   gem "webmock", "~> 3.0"
-end
-
-# =============================================================================
   # Slow-test reporter. Gem is slowpoke-rb, library is slowpoke — require it
   # explicitly from test/support/slowpoke.rb rather than letting Bundler guess.
   gem "slowpoke-rb", "~> 0.1", require: false
+end
+
+# =============================================================================
 # Phase 2: Database Configuration
 # =============================================================================
 
@@ -126,6 +129,12 @@ inject_into_file "config/application.rb", after: "class Application < Rails::App
 
     # Autoload app/lib for registries and game config
     config.autoload_paths << Rails.root.join("app/lib")
+
+    # ViewComponent: generate a sidecar directory so a component's class,
+    # template, and any component-scoped Stimulus controller sit together.
+    # Template engine follows config.generators.template_engine, which
+    # slim-rails sets to :slim.
+    config.view_component.generate.sidecar = true
 
   RUBY
 end
@@ -230,10 +239,13 @@ say "Adding service object patterns...", :green
 # ApplicationService base class
 copy_template_file "app/services/application_service.rb"
 
-# RegistryBase module
-copy_template_file "app/lib/registry_base.rb"
+# ApplicationForm base class (multi-model / non-AR forms)
+copy_template_file "app/forms/application_form.rb"
 
-# Example registry
+# Canonical registry — Data objects, fetch-based lookup
+copy_template_file "app/lib/plan_registry.rb"
+
+# App-wide constants (branding, flags, limits, timing)
 copy_template_file "app/lib/app_config.rb"
 
 # =============================================================================
@@ -248,6 +260,26 @@ copy_template_file "app/javascript/controllers/modal_controller.js"
 
 # Helpers
 copy_template_file "app/helpers/progress_bar_helper.rb"
+
+# ViewComponent base class plus the four components every app ends up needing.
+# Each ships with a unit test — see test/components/.
+copy_template_file "app/components/application_component.rb"
+
+%w[alert flash error_summary empty_state].each do |component|
+  copy_template_file "app/components/#{component}_component.rb"
+  copy_template_file "app/components/#{component}_component/#{component}_component.html.slim"
+  copy_template_file "test/components/#{component}_component_test.rb"
+end
+
+# Pagy is installed but Rails does not wire it up. Do it here so "every index
+# paginates" is a rule someone can actually follow — see docs/system/design-patterns.md.
+inject_into_class "app/controllers/application_controller.rb", "ApplicationController" do
+  "  include Pagy::Backend\n\n"
+end
+
+inject_into_file "app/helpers/application_helper.rb", after: "module ApplicationHelper\n" do
+  "  include Pagy::Frontend\n"
+end
 
 # =============================================================================
 # Phase 9: SEO Foundation
@@ -280,6 +312,9 @@ say "Configuring testing...", :green
 # VCR support
 copy_template_file "test/support/vcr.rb"
 
+# Slowpoke slow-test reporting
+copy_template_file "test/support/slowpoke.rb"
+
 # Generator override: stock fixtures emit two identical placeholder records,
 # which violate any unique index (notably Devise's email) on first test run.
 copy_template_file "lib/templates/test_unit/model/fixtures.yml"
@@ -293,6 +328,9 @@ inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/
   <<~RUBY
   # VCR for HTTP request recording
   require_relative "support/vcr"
+
+  # Slowpoke — reports tests slower than the threshold after each run
+  require_relative "support/slowpoke"
 
   RUBY
 end
@@ -312,9 +350,6 @@ copy_template_file ".rubocop.yml", force: true
 
 say "Creating documentation...", :green
 
-# Slowpoke slow-test reporting
-copy_template_file "test/support/slowpoke.rb"
-
 # CLAUDE.md for AI assistants
 template "CLAUDE.md", "CLAUDE.md"
 
@@ -329,16 +364,15 @@ template "CLAUDE.md", "CLAUDE.md"
 empty_directory "docs"
 empty_directory "docs/plans"
 empty_directory "docs/qa"
-  # Slowpoke — reports tests slower than the threshold after each run
-  require_relative "support/slowpoke"
-
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/design-patterns.md"
+copy_template_file "docs/system/ui-patterns.md"
 copy_template_file "docs/system/architecture.md"
 copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
 copy_template_file "docs/sop/beads-setup.md"
+copy_template_file "docs/sop/find-slow-tests.md"
 
 # =============================================================================
 # Phase 12b: Agent Workflow
@@ -591,6 +625,11 @@ after_bundle do
         {"@context":"https://schema.org","@type":"WebSite","name":"#{app_name.titleize}","url":"<%= root_url %>"}
         </script>
     ERB
+  end
+
+  # Render the flash through FlashComponent instead of leaving it unhandled
+  inject_into_file "app/views/layouts/application.html.erb", after: "<body>\n" do
+    "    <%= render FlashComponent.new(flash: flash) %>\n"
   end
 
   # Install PaperTrail

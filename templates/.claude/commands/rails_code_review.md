@@ -33,8 +33,10 @@ Stack:
 - Devise (Turbo-configured) + Petergate for roles
 - Minitest + fixtures, VCR for HTTP recording, Slowpoke for slow-test reporting
 - `ApplicationService` + Result pattern for business logic
-- `RegistryBase` for configuration entities
-- Discard for soft deletes, PaperTrail for audit trail
+- `ApplicationForm` for multi-model and non-AR forms
+- ViewComponent + `ApplicationComponent` for UI units
+- `Data`-based registries in `app/lib/` for fixed variant sets
+- Discard available for soft deletes (opt-in per table), PaperTrail for audit trail
 - Pagy for pagination
 
 Code style: double quotes, 2-space indent, trailing newline, empty line between methods and after guard clauses.
@@ -62,7 +64,7 @@ Work each section. Nothing relevant → skip the section.
 - **Mass Assignment**: `assign_attributes` / `update` use permitted params.
 - **Sensitive Data**: no credentials, tokens, or PII in logs, comments, or hardcoded strings.
 - **UUID enumeration**: UUID PKs prevent ID guessing — flag anywhere a sequential or predictable identifier is exposed instead.
-- **Soft deletes**: discarded records must not leak through a query that forgot `.kept` — especially in authorization checks and API responses.
+- **Soft deletes**: discarded records must not leak through a query that forgot `.kept` — especially in authorization checks and API responses. A new `include Discard::Model` needs a stated reason (user-facing restore, audit obligation, foreign keys that must stay valid); `default_scope -> { kept }` is always wrong.
 
 ### 3. Performance
 
@@ -79,18 +81,24 @@ Work each section. Nothing relevant → skip the section.
 
 - **Fat models / thin controllers**: business logic in models or services, never controllers. Controllers orchestrate only.
 - **Service objects**: multi-model or multi-step operations belong in `app/services/`, inheriting `ApplicationService`, returning `success` / `failure`. Flag a service that only wraps one `create!` — that's a layer for nothing.
-- **Registries**: fixed sets of variants with per-variant attributes belong in a registry, not scattered constants or conditionals. Flag capability checks written as identity checks (`plan == "pro" || plan == "enterprise"` instead of `PlanRegistry.has_feature?`).
+- **Registries**: fixed sets of variants with per-variant attributes belong in a registry — a frozen hash of `Data` objects with `fetch` lookup, following `app/lib/plan_registry.rb`. Flag hash-of-hashes entries, `[]` lookups that can silently return `nil`, and capability checks written as identity checks (`plan == "pro" || plan == "enterprise"` instead of `PlanRegistry[plan].has_feature?(:api_access)`).
 - **Concerns**: shared behaviour extracted, not copy-pasted. Pattern repeated 2–3 times → extract.
 - **Scopes over class methods** for all queries.
 - **RESTful routing**: custom actions genuinely non-CRUD, or should this be a new resource?
 - **Callbacks**: avoid `after_save` / `after_create` for side effects that should be explicit (emails, notifications). Call them from a service.
 - **UUID foreign keys**: `t.uuid :parent_id` with `add_foreign_key` — not `t.references` without a type, which silently produces a bigint mismatch.
+- **Form objects**: a submit that writes two or more models, or carries fields that aren't columns, belongs in `app/forms/` inheriting `ApplicationForm`. Flag `accepts_nested_attributes_for` outright.
+- **Query objects**: a read joining two or more models belongs in `app/queries/` and must return a relation, never an array. Flag `.to_a` followed by Ruby `select` / `sort_by`.
+- **Policies**: record-level authorization (`can this user edit this record`) belongs in a policy object used by both controller and view. Flag the same ownership conditional copy-pasted into a view and a controller. Petergate stays for role-level access.
+- **Pattern budget**: six sanctioned directories under `app/` — `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh needs an ADR in `docs/system/architecture.md`.
 - **Turbo / Hotwire**:
-  - `turbo_stream_from` + `broadcast_*_to` for async updates, not polling
-  - Frames for partial updates; Streams for multi-target or real-time
-  - Stimulus uses `targets` / `values` / `actions`, not direct DOM queries
+  - **Form failures render `status: :unprocessable_content`.** A 200 makes Turbo discard the response and the form silently freezes. Flag every `render :new` / `render :edit` without it.
+  - Turbo Stream responses come from the controller by default. Model `broadcasts_to` is for genuine multi-user push only — flag it where the person who clicked is the only one who needs the update.
+  - Frames for partial updates; Streams for multi-target or real-time. Keep the `format.html` fallback.
+  - Stimulus uses `targets` / `values` / `classes`, not direct DOM queries, and no Tailwind class strings in JS (the compiler can't see them).
   - Reuse the generic `toggle_controller` / `modal_controller` rather than writing a third variant
-- **Slim**: no Ruby logic beyond simple conditionals and iteration — extract helpers. Tailwind bracket classes need the `class=""` attribute form.
+- **Components vs partials**: markup with variants, conditionals, or reuse belongs in `app/components/` with a unit test. Partials must declare strict locals (`/# locals: (order:)`) and must not read instance variables.
+- **Slim**: no Ruby logic beyond simple conditionals and iteration — extract to a component or helper. Tailwind bracket classes need the `class=""` attribute form.
 
 ### 5. Testing
 
@@ -101,7 +109,10 @@ Work each section. Nothing relevant → skip the section.
 - External API calls recorded with VCR. No live network in tests.
 - Minitest style: `assert_*`, plus `assert_difference` / `assert_raises` / `assert_redirected_to` where they fit.
 - System tests for Turbo/Stimulus interaction.
+- Components tested with `render_inline` — at minimum the `render?` boundary and each variant.
+- Form failures asserted with `assert_response :unprocessable_content`, not just a rendered template.
 - No skipped tests without a comment explaining why. No flaky test left "for later" — `CLAUDE.md` requires fixing immediately.
+- New tests that Slowpoke would flag (>500ms) need a reason. Usually it's records built in `setup` the assertion never touches, or a real HTTP call escaping WebMock — see `docs/sop/find-slow-tests.md`.
 - Tests isolated; no dependence on execution order.
 
 ### 6. Code Quality
@@ -112,7 +123,6 @@ Work each section. Nothing relevant → skip the section.
 - **Dead code**: removed features clean up routes, jobs, helpers, tests. No commented-out code — git has history.
 - **Error handling**: rescue specific exception classes, never bare `rescue Exception`. Expected failures return `failure()`; genuinely exceptional conditions raise.
 - **Logging**: errors logged with enough context to debug. Services use `log_error` / `log_info`. No `puts` in library code.
-- New tests that Slowpoke would flag (>500ms) need a reason. Usually it's records built in `setup` the assertion never touches, or a real HTTP call escaping WebMock — see `docs/sop/find-slow-tests.md`.
 - **Comments**: only where *why* isn't obvious from the code.
 
 ### 7. Migrations

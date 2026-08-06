@@ -28,7 +28,8 @@ How things currently work. Architecture state, not intentions.
 
 <!-- system:start -->
 - [Architecture Decision Records](../docs/system/architecture.md) — decisions taken and their consequences
-- [Design Patterns](../docs/system/design-patterns.md) — UI and view patterns
+- [Design Patterns](../docs/system/design-patterns.md) — backend patterns: controllers, services, forms, queries, jobs
+- [UI Patterns](../docs/system/ui-patterns.md) — components, partials, Turbo, Stimulus, Slim, Tailwind
 - [Models](../docs/system/models.md) — model reference
 <!-- system:end -->
 
