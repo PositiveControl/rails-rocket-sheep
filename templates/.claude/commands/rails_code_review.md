@@ -102,18 +102,19 @@ Work each section. Nothing relevant → skip the section.
 
 ### 5. Testing
 
-- Tests for all new public methods and controller actions?
-- Happy path *and* key failure cases (invalid input, unauthorized access)?
-- Fixtures satisfy uniqueness constraints and are named meaningfully — not `one` / `two`.
-- Services tested through their `Result` — both `success?` and `failure?` branches, with `errors` asserted.
-- External API calls recorded with VCR. No live network in tests.
-- Minitest style: `assert_*`, plus `assert_difference` / `assert_raises` / `assert_redirected_to` where they fit.
-- System tests for Turbo/Stimulus interaction.
-- Components tested with `render_inline` — at minimum the `render?` boundary and each variant.
-- Form failures asserted with `assert_response :unprocessable_content`, not just a rendered template.
-- No skipped tests without a comment explaining why. No flaky test left "for later" — `CLAUDE.md` requires fixing immediately.
-- New tests that Slowpoke would flag (>500ms) need a reason. Usually it's records built in `setup` the assertion never touches, or a real HTTP call escaping WebMock — see `docs/sop/find-slow-tests.md`.
-- Tests isolated; no dependence on execution order.
+Read `docs/rules/testing.md` and review the diff against it.
+What that rule can't tell you, and you have to judge from the change itself:
+
+- **Does the coverage match the risk?** A payment path and a display tweak do not
+  earn the same number of tests. Under-tested risk and over-tested trivia are both findings.
+- **Is the failure case tested the one that will actually happen?** An asserted
+  `ArgumentError` nobody can trigger is not coverage.
+- **Does a passing test prove the change works?** Assertions on a rendered template
+  where the bug would be in the status code, or on a mock's return value rather than
+  an effect, pass whether or not the code is right.
+- **Did a behavior change silently rewrite a test instead of fixing the code?**
+  Look at edited assertions in existing tests, not just added ones.
+- Missing tests are a finding at the same severity as the code they'd cover.
 
 ### 6. Code Quality
 

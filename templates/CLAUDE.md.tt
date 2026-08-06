@@ -44,7 +44,7 @@ and the "when not to" — follow the link before you argue with the rule.
 
 - **Tests first.** `bin/test` passes before you claim anything works. `bin/rubocop`
   and `bin/brakeman` clean. Fix flaky tests immediately, even when unrelated to
-  your change.
+  your change. Minitest and fixtures, no factories → `docs/rules/testing.md`
 - **Form failures render with `status: :unprocessable_content`.** Without it Turbo
   discards the response and the form silently freezes → `docs/rules/turbo-status.md`
 - **Controllers stay RESTful** — seven actions, a new verb gets a new controller,
@@ -99,13 +99,15 @@ bin/test test/models/                 # Directory
 bin/test test/models/user_test.rb:42  # Specific line
 ```
 
-Slowpoke reports any test over 500ms and prints nothing when the suite is clean.
-Tune per run with `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`,
-`SLOWPOKE_CI`; project defaults are in `test/support/slowpoke.rb`. A slow test is
-usually a test creating records its assertion never touches — `docs/sop/find-slow-tests.md`.
+System tests are separate: `bin/rails test:system`.
 
-`binding.pry` drops into a debugger anywhere. VCR wraps external HTTP:
-`vcr_cassette("external_api/fetch_data") { ... }`.
+How to write one — layering, fixtures, VCR, assertions — is `docs/rules/testing.md`.
+
+Slowpoke reports any test over 500ms and prints nothing when the suite is clean.
+Tuning it, and reading the report, is `docs/sop/find-slow-tests.md`; project
+defaults are in `test/support/slowpoke.rb`.
+
+`binding.pry` drops into a debugger anywhere.
 
 ## SEO
 

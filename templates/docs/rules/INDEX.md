@@ -46,6 +46,8 @@ Editing a file that matches → read these rules.
 | `app/javascript/controllers/**` | [stimulus](stimulus.md) · [tailwind-build](tailwind-build.md) |
 | `app/views/**/*.turbo_stream.slim` | [turbo-streams](turbo-streams.md) |
 | `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) |
+| `test/**` | [testing](testing.md) |
+| `test/components/**` | [testing](testing.md) · [components](components.md) |
 | Adding a new directory under `app/` | [pattern-budget](pattern-budget.md) · [rejected-patterns](rejected-patterns.md) |
 
 ## Route by symptom
@@ -74,7 +76,10 @@ Editing a file that matches → read these rules.
 | UUIDs, foreign keys, indexes | [database-conventions](database-conventions.md) |
 | Money, enums/state machines, a fat model | [optional-patterns](optional-patterns.md) |
 | `Current.user` | [current-attributes](current-attributes.md) |
+| Writing a test, a fixture, or a VCR cassette | [testing](testing.md) |
+| A test over 500ms, or one that fails only in some orders | [testing](testing.md) |
 | "Where does this code go?" | [pattern-budget](pattern-budget.md) |
+| The same code written a third time | [pattern-budget](pattern-budget.md) |
 | Proposing repository / CQRS / hexagonal / interactors | [rejected-patterns](rejected-patterns.md) |
 | Understanding how the layers fit together | [write-path](write-path.md) |
 | A Slim template rendering wrong, or `div.max-h-[85vh]` | [slim-gotchas](slim-gotchas.md) |
@@ -132,8 +137,9 @@ Editing a file that matches → read these rules.
 | [forms-ui](forms-ui.md) | 260 | `form_with`, error summary, field errors |
 | [empty-states](empty-states.md) | 180 | The state everyone forgets |
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
+| [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~12,700 tokens across 36 rules. Typical read: this index (~1,700)
+**Total corpus:** ~13,400 tokens across 37 rules. Typical read: this index (~1,700)
 plus one or two rules (~150–560). Reading the whole corpus is a bug, not thoroughness.
 
 ---
