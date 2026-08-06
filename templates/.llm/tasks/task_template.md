@@ -24,7 +24,7 @@
 **Out of scope:** [explicit — related work that is deliberately NOT this task]
 
 ## Rules & Conventions
-Follow `CLAUDE.md` — the single source for style, testing, and process conventions. Do not copy rules here. Task-specific constraints only:
+Follow `CLAUDE.md` for the non-negotiables and `docs/rules/INDEX.md` to find the rules that apply to the files you are touching. Do not copy rules here. Task-specific constraints only:
 - [Add only if this task has constraints beyond CLAUDE.md]
 
 ## Next Actions

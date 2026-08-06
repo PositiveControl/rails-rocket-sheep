@@ -11,7 +11,7 @@
 #
 # Remember the other half of the contract: the controller must render the form
 # again with `status: :unprocessable_content`, or Turbo discards the response
-# and the form appears frozen. See docs/system/design-patterns.md.
+# and the form appears frozen. See docs/rules/turbo-status.md.
 class ErrorSummaryComponent < ApplicationComponent
   # @param record [#errors]
   # @param title [String, nil] heading; defaults to a count

@@ -130,8 +130,8 @@ Write the record to `.claude/workflow.config.md` — a table of every token and 
 The section must include:
 - Chain: `/pick` (entry) → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → human merge + automation
 - Sizing: PR target 100–600 added lines / 5–15 files; issue acceptance criteria ≤5 bullets; scope-escape rule
-- Docs: 4-dir canon (`docs/plans`, `docs/system`, `docs/sop`, `docs/qa`)
-- Single-source rule: conventions live in `CLAUDE.md`; task files reference them rather than restating
+- Docs: `docs/rules` (conventions, one per file + `INDEX.md`) + canon (`docs/plans`, `docs/system`, `docs/sop`, `docs/qa`)
+- Single-source rule: conventions live in `docs/rules/`, one per file; CLAUDE.md and task files reference them rather than restating
 
 `.gitignore` entries for `.llm/tasks/` and `.llm/threads/` are already written by the template — verify, don't duplicate.
 

@@ -209,7 +209,7 @@ Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexer
 |---|---|
 | State machine | The configured tracker tier (Todo → In Progress → Up for Review → Done, + Blocked). See §2 for the per-tier mapping |
 | Resumability artifact | Task files + design docs (local, uncommitted; `/implement` reloads them in any fresh session) |
-| Memory home | CLAUDE.md + `docs/` (conventions single-sourced in CLAUDE.md; system knowledge in the 4-dir doc canon) |
+| Memory home | `docs/rules/` (one convention per file, routed by `docs/rules/INDEX.md`) + `docs/` canon for system knowledge; CLAUDE.md names the non-negotiables and links out |
 
 ## Gates
 
@@ -262,7 +262,7 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 
 ## Documentation rules
 
-- 4-dir canon: `docs/plans` (design docs), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
+- Doc canon: `docs/rules` (one convention per file + `INDEX.md`), `docs/plans` (design docs), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
 - `.llm/README.md` indexes **committed docs only**; `.llm/tasks/` and `.llm/threads/` are local scratch (gitignored)
 - Doc updates happen at defined points only: `/feature_plan` creates placeholders, `/pr_submit` completes-or-deletes them (+ index dupe/dead-link check), `/update_docs` for deep passes
 - Never merge a PR leaving a Draft placeholder behind

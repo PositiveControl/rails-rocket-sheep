@@ -105,15 +105,14 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 |---|---|
 | `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
 | `docs/system/architecture.md` | Architecture Decision Records, pre-seeded with the template's own five decisions |
-| `docs/system/design-patterns.md` | Backend patterns — controllers, services, forms, queries, policies, jobs, caching |
-| `docs/system/ui-patterns.md` | View patterns — components, partials, Turbo, Stimulus, Slim, Tailwind |
+| `docs/rules/` (26 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
 | `docs/system/models.md` | Model documentation stub |
 | `docs/sop/add-seo-to-a-page.md` | Adding SEO to a new page |
 | `docs/sop/find-slow-tests.md` | Reading the Slowpoke report and fixing what it flags |
 | `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
 | `docs/sop/extract-database-and-storage.md` | Moving Postgres off the app server |
 
-Empty `docs/plans/` and `docs/qa/` directories complete the four-directory canon (`plans`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
+`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
 
 ### Agent workflow
 

@@ -5,17 +5,21 @@ alwaysApply: true
 
 # Project Conventions
 
-**The conventions for this repository live in `CLAUDE.md` at the repo root. Read
-it before making any change.**
+**Start with `CLAUDE.md` at the repo root — the stack, the non-negotiables, and
+how to find the rule that applies. Read it before making any change.**
 
-This file is a pointer, not a second source. Conventions are single-sourced in
-`CLAUDE.md` so the two cannot drift.
+Individual conventions are one rule per file in `docs/rules/`, routed by
+`docs/rules/INDEX.md`. Read the index, then only the rules that match the file
+you are editing — not the whole directory.
+
+This file is a pointer, not a second source, so the copies cannot drift.
 
 ## Orientation
 
 | What | Where |
 |---|---|
 | Coding conventions, patterns, anti-patterns | `CLAUDE.md` |
+| Individual rules, one per file — read the index, then only what applies | `docs/rules/INDEX.md` |
 | Development lifecycle, gates, sizing rules | `WORKFLOW.md` |
 | Workflow commands | `.cursor/commands/` (mirrored from `.claude/commands/`) |
 | Index of committed documentation | `.llm/README.md` |
