@@ -143,11 +143,23 @@ Not a checkbox — an actual working setup:
 
 Kamal 2 with a PostgreSQL accessory, a tuned multi-stage `Dockerfile`, a `docker-entrypoint` that runs migrations, and a `.kamal/secrets` scaffold. `kamal setup && kamal deploy` from a clean server.
 
-### Testing and code quality
+### Testing guardrails
 
-Minitest with a `bin/test` wrapper that works around the macOS forking issue, VCR + WebMock for HTTP recording, Slowpoke for slow-test reporting, Bullet for N+1 detection in development, RuboCop (Rails Omakase), Brakeman, and `letter_opener_web` for previewing mail at `/letter_opener`.
+An agent writes tests on every task, so testing is where drift compounds fastest: one session writes fixtures, the next adds FactoryBot; one session stubs an HTTP call, the next lets it hit the network in CI. Rocket Sheep pins the answers and then makes them impossible to miss.
 
-Slowpoke prints any test over 500ms after the run and nothing at all when the suite is clean. `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`, and `SLOWPOKE_CI` tune it per run; `SLOWPOKE_CI=true` fails the build on a slow test once the suite is under the line.
+**The conventions are a routed rule, not advice.** `docs/rules/testing.md` states one framework (Minitest and fixtures — no RSpec, no factories), which layer tests what, the fixture rules, and cassette naming. It carries `applies_to: ["test/**"]`, and `docs/rules/INDEX.md` routes `test/**` to it — an agent about to touch a test file lands on it before writing a line, the same way editing a migration lands it on `safe-migrations`.
+
+**The suite runs before anything is claimed to work.** "Tests first" is the first non-negotiable in the generated `CLAUDE.md`. `/implement` writes tests per logical unit and won't move on red. `/pr_submit` runs the full unit suite plus the system tests it selects from the branch diff. `/rails_code_review` reviews the diff against the rule and flags missing coverage at the severity of the code it would have covered. `/test_fix` exists for the run that comes back red.
+
+**Three guardrails you meet without reading anything.** They are the ones that fire on their own:
+
+- **Fixtures that don't collide.** Stock Rails writes two identical placeholder records into every new fixture file, and the second one violates the first unique index it meets — usually Devise's `email`, on your first `bin/test`. A generator override ships an empty fixture file with the reason and a worked example in the comment, so `rails g model` produces something that passes.
+- **No live network in tests.** WebMock blocks it; VCR records it. `vcr_cassette("stripe/create_customer") { ... }` is available in every test case, and `test/support/vcr.rb` already filters `API_KEY` and the Resend credential out of recordings before they reach the repo.
+- **Slow tests are reported, every run.** Slowpoke prints any test over 500ms and nothing at all when the suite is clean, so it never becomes noise you learn to scroll past. `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`, and `SLOWPOKE_CI` tune it per run; `SLOWPOKE_CI=true` fails the build on a slow test once the suite is under the line. The usual cause — records built in `setup` that no assertion reads — is a rule, and `docs/sop/find-slow-tests.md` is the procedure.
+
+Working examples ship with the app rather than being left as an exercise: four ViewComponent tests that run without a request or a route, and SEO integration tests that assert the meta tags are really in the response.
+
+Around them: `bin/test` wraps `rails test` and forces a single worker on macOS, where forked workers crash for reasons that have nothing to do with your code. Bullet flags N+1s in development, RuboCop (Rails Omakase) and Brakeman run in the same CI workflow as the suite, and `letter_opener_web` previews mail at `/letter_opener`.
 
 ### Frontend
 
@@ -171,7 +183,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 
 The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
 
-Each generated app also ships: `docs/rules/` (36 rules + a routing index), `docs/system/architecture.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships: `docs/rules/` (37 rules + a routing index), `docs/system/architecture.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 

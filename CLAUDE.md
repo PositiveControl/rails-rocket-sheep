@@ -26,7 +26,7 @@ templates/               Everything copied into the generated app.
 ├── CLAUDE.md.tt         The generated app's conventions file (ERB)
 ├── AGENTS.md            Tool-neutral pointer to it
 ├── WORKFLOW.md          Lifecycle spec shipped to the app
-├── docs/rules/          36 single-rule convention files + INDEX.md
+├── docs/rules/          37 single-rule convention files + INDEX.md
 ├── docs/system/         ADRs, models reference
 ├── docs/sop/            Procedures
 ├── .claude/commands/    19 workflow commands (mirrored to .cursor/commands/)
