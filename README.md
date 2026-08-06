@@ -169,6 +169,8 @@ Honest scope, so nobody buys the wrong thing:
 
 ## License
 
-Commercial license. Full terms accompany purchase.
+Commercial license — see [LICENSE](LICENSE) for the full terms.
 
-Apps you generate are yours — the template is applied once and leaves behind ordinary Rails files with no runtime dependency on it.
+Two tiers: **Single Application** and **Unlimited Applications**. Both are perpetual one-time purchases, not subscriptions.
+
+Apps you generate are entirely yours — no royalties, no attribution, and you may open-source them. The template is applied once and leaves behind ordinary Rails files with no runtime dependency on it. What the license restricts is redistributing the *template*, not anything you build with it.

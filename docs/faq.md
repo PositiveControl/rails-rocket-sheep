@@ -82,7 +82,19 @@ Yes. This reduces divergence between sessions — it doesn't replace review. An 
 ## Licensing
 
 **What does the license permit?**
-Commercial license; the full terms accompany purchase and are authoritative over anything summarised here.
+See [LICENSE](../LICENSE) — it is authoritative over anything summarised here. In short: a perpetual, one-time-purchase commercial license, in a Single Application or Unlimited Applications tier. You may build personal, commercial, and client work with it.
+
+**What can't I do with it?**
+Resell, republish, or otherwise distribute the template itself, share your repo access outside your organisation, or use it to build a competing template or starter-kit product. The restrictions apply to the template, not to what you build with it.
+
+**Can I open-source an app I built with it?**
+Yes, under any license you choose — provided it's a genuine application rather than, in substance, a republication of the template. Publishing a freshly generated, substantially unmodified app is redistribution and isn't permitted. See LICENSE §5.
+
+**Can a contractor work on my app?**
+Yes. Someone working only on your generated application isn't a "Developer" under the license and needs no license of their own. A contractor who takes a copy of the *template* away with them needs their own. See LICENSE §3.3.
+
+**Is there a refund?**
+Within 30 days, where you haven't put a generated app into production. See LICENSE §8.
 
 **Do I owe anything on apps I build with it?**
 No. Generated apps are yours. The template is applied once and leaves behind ordinary Rails files.
