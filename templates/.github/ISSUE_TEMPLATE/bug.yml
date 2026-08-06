@@ -1,0 +1,48 @@
+name: Bug
+description: Something behaves incorrectly
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: The actual behaviour, including any error message verbatim.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What should have happened
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: >-
+        Smallest sequence that triggers it. A failing test is better than prose —
+        if you have one, paste it.
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: input
+    id: scope
+    attributes:
+      label: Affected area
+      description: Model, controller, service, job, or view — wherever you suspect it lives.
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Where it occurs — development, production, CI — and anything unusual about it.
+    validations:
+      required: false

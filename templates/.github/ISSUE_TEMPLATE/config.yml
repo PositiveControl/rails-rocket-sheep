@@ -1,0 +1,4 @@
+# Blank issues stay enabled deliberately. The forms exist to make sizing the
+# default, not to block someone jotting a note — a template that gets in the way
+# gets bypassed, and then nothing is sized.
+blank_issues_enabled: true

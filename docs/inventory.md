@@ -102,7 +102,7 @@ flowchart TB
 | Job dashboard | ❌ | Mission Control not wired up |
 | Backups | ❌ | Documented as day-one work, no automation |
 | Uptime monitoring | ❌ | Documented, not provided |
-| PR / issue templates | ⚠️ | Deferred — blocked on the tracker-abstraction segue |
+| PR / issue templates | ✅ | Tier-neutral PR template; issue forms encoding the ≤5-criteria sizing rule |
 | CODEOWNERS | ❌ | Low value for a solo buyer |
 
 ---
@@ -131,9 +131,13 @@ flowchart LR
 
 **7. Seeds.** `db/seeds.rb` creates an admin user, idempotent, password from `SEED_ADMIN_PASSWORD` or generated and printed once, and refuses to run in production without `SEED_ALLOW_PRODUCTION=1`.
 
-### ⏸ Blocked
+### ✅ Shipped (continued)
 
-**3. PR and issue templates — ~30 min.** Unblocked by the tracker segue, but now the last step of a three-phase piece of work rather than a standalone task — the PR template must be tier-neutral, with `Closes #n` injected by `/pr_submit` only under the GitHub-Projects tier. See *Tracker tiering* below.
+**3. PR and issue templates.** `PULL_REQUEST_TEMPLATE.md` is tier-neutral: it explains in a comment when to add `Closes #` rather than hardcoding it, because tier `beads` must not have one. Carries the test plan and a checklist covering the suite, lint/scan, and the no-Draft-placeholder rule.
+
+Issue forms (`feature.yml`, `bug.yml`) put the ≤5-acceptance-criteria rule and the size forecast at the point of creation. Blank issues stay enabled — a template that gets in the way gets bypassed, and then nothing is sized at all.
+
+*Plan deviation:* the plan scoped issue templates to the `github-projects` tier. They apply to `labels` too, since that tier also uses GitHub Issues — only `beads` keeps issues outside GitHub. No gitignore change was needed either; `.github/` is tracked.
 
 ---
 
@@ -157,7 +161,7 @@ Settled by segue `.llm/threads/2026-08-06-tracker-abstraction.md` (merged). Full
 
 1. **Agent-harness parity (~4h)** — ✅ done. Command prose neutralised, commands mirrored to `.cursor/commands/` from the same source files, `.cursor/rules/conventions.mdc` added, `AGENTS.md` gained a commands table so a harness with no slash-command concept can be told to follow a file directly.
 2. **Tracker tiering (~1.5–2d)** — ✅ done. `/workflow_setup` resolves the tier first and fills `{{TRACKER}}`; `pick`, `feature_plan`, `task_plan`, `pr_submit`, and `implement` branch on the literal. Lazy reconciliation in `/pick` replaces the lost `Closes #n` automation under `beads`. `WORKFLOW.md` §2 and §4 are tier-aware; `docs/sop/beads-setup.md` covers the `dolt sql-server` requirement.
-3. **Item 3 (~30m)** — next: tier-neutral PR template, GitHub-tier issue templates.
+3. **Item 3 (~30m)** — ✅ done. Tier-neutral PR template, issue forms carrying the sizing rule.
 
 **Load-bearing assumption, unmeasured:** that a minority of small Rails shops on GitHub use Projects v2 rather than plain Issues. This justifies the beads tier existing. If Projects v2 is near-universal among buyers, Phase 2 is over-built. The design doesn't collapse if it's wrong — it just costs more than it returns.
 
@@ -189,11 +193,11 @@ Not gaps to fill — things to be honest about.
 
 ```mermaid
 flowchart LR
-  DONE["✅ 1 settings · 2 hooks<br/>5 AGENTS.md · 7 seeds"] --> SEG{"segue:<br/>tracker abstraction"}
-  SEG --> T3["3. PR/issue templates"]
-  DONE --> T4["4. reviewer subagent"]
+  DONE["✅ 1 settings · 2 hooks · 5 AGENTS.md<br/>7 seeds · 3 templates · tiers"] --> T4["4. reviewer subagent"]
   T4 --> T8["8. doc examples"]
   T8 --> T6["6. job role"]
 ```
 
-The cheap alignment gaps are closed. Item 3 unblocks when the segue resolves. Items 4, 6, and 8 are worth doing but can wait for buyer feedback — which is the point at which guessing stops and evidence starts.
+Every gap from the original ranking is closed. Items 4, 6, and 8 are worth doing but can wait for buyer feedback — which is the point at which guessing stops and evidence starts.
+
+**Before selling, one thing outranks all of them:** the `github-projects` path was refactored during tracker tiering and verified by reading, not by running a live board end to end. It was previously the only path, so it carries the regression risk.

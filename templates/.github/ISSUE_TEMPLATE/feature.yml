@@ -1,0 +1,70 @@
+name: Feature or task
+description: A sized unit of work that can land in one PR
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sizing is decided here, not at review time. An issue fits when its
+        acceptance criteria fit in **5 testable bullets or fewer** and the work
+        lands in roughly **100–600 added lines**.
+
+        More than that is an epic — open it as one and let `/feature_plan`
+        decompose it into slices.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What outcome does this produce, and why does it matter?
+      placeholder: One or two sentences.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: >-
+        Testable bullets, 5 maximum. Each one should be something you could
+        write an assertion for. Needing more than 5 means this should be split.
+      value: |
+        - [ ]
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+
+  - type: textarea
+    id: out-of-scope
+    attributes:
+      label: Out of scope
+      description: >-
+        Related work this issue deliberately does not cover. Being explicit here
+        is what stops scope creeping in during implementation.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: size
+    attributes:
+      label: Size forecast
+      description: Estimated added lines. L and XL should usually be split first.
+      options:
+        - "XS — under 100"
+        - "S — 100–300 (ideal)"
+        - "M — 300–600"
+        - "L — 600–1,200 (split if possible)"
+        - "XL — 1,200+ (must split)"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and dependencies
+      description: >-
+        Design doc link (docs/plans/…), parent epic, related issues, or work that
+        must land first.
+    validations:
+      required: false

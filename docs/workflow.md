@@ -111,6 +111,20 @@ Only the *findings* merge back — not the exploration. The workstream stays cle
 
 ---
 
+## PRs and issues opened by hand
+
+`/pr_submit` writes a correct PR body on its own. The templates exist for the times a human opens one directly, which is where conventions otherwise get dropped.
+
+- **`.github/PULL_REQUEST_TEMPLATE.md`** — summary, changes, test plan, and a checklist covering the suite, lint/scan, and the no-`Status: Draft` rule. The closing line is **not** hardcoded: a comment explains that `github-projects` and `labels` need `Closes #<issue>` while `beads` must not have one.
+- **`.github/ISSUE_TEMPLATE/feature.yml`** — puts the ≤5-acceptance-criteria rule and the size forecast at the point of creation, which is where sizing is actually decided. `/pick` enforces the same rule at the door, but by then the issue already exists.
+- **`.github/ISSUE_TEMPLATE/bug.yml`** — what happened, expected, reproduction steps.
+
+Blank issues stay enabled. A form that gets in the way gets bypassed, and then nothing is sized at all.
+
+Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there — the PR template still does.
+
+---
+
 ## Command inventory
 
 | Command | Tier | Job |

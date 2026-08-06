@@ -376,6 +376,18 @@ chmod "bin/hooks/session_end", 0755
 # Tool-neutral pointer to CLAUDE.md, for agents that look for AGENTS.md
 copy_template_file "AGENTS.md"
 
+# PR and issue templates. /pr_submit writes a correct PR body on its own; these
+# carry the same conventions into PRs and issues opened by hand, which is where
+# they otherwise get dropped. The PR template is tier-neutral — it explains when
+# to add `Closes #` rather than hardcoding it, since tier `beads` must not.
+# Issue forms put the <=5-acceptance-criteria sizing rule at the point of
+# creation, which is where sizing actually gets decided.
+copy_template_file ".github/PULL_REQUEST_TEMPLATE.md"
+empty_directory ".github/ISSUE_TEMPLATE"
+copy_template_file ".github/ISSUE_TEMPLATE/feature.yml"
+copy_template_file ".github/ISSUE_TEMPLATE/bug.yml"
+copy_template_file ".github/ISSUE_TEMPLATE/config.yml"
+
 # Stacked-PR footer generator, called by /pr_submit
 copy_template_file "bin/pr-stack"
 chmod "bin/pr-stack", 0755

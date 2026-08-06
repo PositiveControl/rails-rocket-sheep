@@ -110,6 +110,8 @@ Empty `docs/plans/` and `docs/qa/` directories complete the four-directory canon
 | `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
 | `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |
 | `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
+| `.github/PULL_REQUEST_TEMPLATE.md` | Tier-neutral PR body + checklist, for PRs opened by hand |
+| `.github/ISSUE_TEMPLATE/` | Issue forms carrying the ≤5-acceptance-criteria sizing rule |
 
 Stack tokens (test, lint, scan commands, default branch, CI job names) arrive pre-filled. Run `/workflow_setup` once to fill in GitHub org, repo, and board IDs. See [The Agent Workflow](workflow.md).
 
