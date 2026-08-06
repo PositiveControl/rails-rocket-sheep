@@ -281,6 +281,10 @@ copy_template_file "test/support/vcr.rb"
 # which violate any unique index (notably Devise's email) on first test run.
 copy_template_file "lib/templates/test_unit/model/fixtures.yml"
 
+# Idempotent seed creating an admin user with a generated password. Replaces
+# the empty db/seeds.rb Rails ships, so a fresh app has something to log in as.
+copy_template_file "db/seeds.rb", nil, force: true
+
 # Update test_helper to require VCR
 inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/ do
   <<~RUBY
@@ -341,6 +345,23 @@ WORKFLOW_COMMANDS = Dir.glob(File.join(TEMPLATE_ROOT, "templates/.claude/command
 
 empty_directory ".claude/commands"
 WORKFLOW_COMMANDS.each { |command| copy_template_file command }
+
+# Project permissions + hooks. The allowlist covers this template's own
+# binstubs and read-only git/gh operations, so an agent stops asking to run
+# `bin/test`. The deny list keeps credentials out of the context window and
+# blocks history-destroying git commands.
+copy_template_file ".claude/settings.json"
+
+# Hooks turn two CLAUDE.md conventions into enforcement rather than advice:
+# RuboCop on edited Ruby, and the Slim/Tailwind bracket pitfall. The Stop hook
+# catches Draft doc placeholders left behind at the end of a session.
+copy_template_file "bin/hooks/post_edit"
+copy_template_file "bin/hooks/session_end"
+chmod "bin/hooks/post_edit", 0755
+chmod "bin/hooks/session_end", 0755
+
+# Tool-neutral pointer to CLAUDE.md, for agents that look for AGENTS.md
+copy_template_file "AGENTS.md"
 
 # Stacked-PR footer generator, called by /pr_submit
 copy_template_file "bin/pr-stack"

@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Claude Code Stop hook — runs when the agent finishes a turn.
+#
+# Enforces the one documentation rule that is otherwise only caught at review
+# time: never leave a `Status: Draft` placeholder behind. /feature_plan creates
+# placeholders and /pr_submit is supposed to complete-or-delete them, but a
+# session that ends in between leaves them silently.
+#
+# Stays quiet unless there is something to say. Exits 2 with feedback when a
+# draft placeholder exists, 0 otherwise. A broken hook must never block work,
+# so any unexpected failure exits 0.
+#
+# Disable by removing the Stop entry from .claude/settings.json.
+
+DOC_DIRS = %w[docs/plans docs/system docs/sop docs/qa].freeze
+
+drafts =
+  begin
+    DOC_DIRS.flat_map do |dir|
+      next [] unless Dir.exist?(dir)
+
+      Dir.glob("#{dir}/**/*.md").select do |file|
+        File.foreach(file).any? { |line| line.match?(/^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i) }
+      end
+    end
+  rescue StandardError
+    exit 0
+  end
+
+exit 0 if drafts.empty?
+
+warn <<~MSG
+  Draft doc placeholders are still open:
+
+  #{drafts.map { |file| "  #{file}" }.join("\n")}
+
+  Complete them with real content, or delete them if this work needs no doc.
+  A PR must never merge leaving a Draft placeholder behind (see WORKFLOW.md).
+MSG
+
+exit 2

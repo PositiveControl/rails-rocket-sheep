@@ -1,0 +1,85 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(bin/test:*)",
+      "Bash(bin/rubocop:*)",
+      "Bash(bin/brakeman:*)",
+      "Bash(bin/rails routes:*)",
+      "Bash(bin/rails db:migrate:*)",
+      "Bash(bin/rails db:prepare:*)",
+      "Bash(bin/rails db:test:prepare:*)",
+      "Bash(bin/rails db:seed:*)",
+      "Bash(bin/rails generate:*)",
+      "Bash(bin/rails test:*)",
+      "Bash(bin/rails about:*)",
+      "Bash(bin/rails stats:*)",
+      "Bash(bin/rails tailwindcss:build:*)",
+      "Bash(bin/rails zeitwerk:check:*)",
+      "Bash(bin/importmap:*)",
+      "Bash(bin/pr-stack:*)",
+      "Bash(bundle install:*)",
+      "Bash(bundle show:*)",
+      "Bash(bundle exec rubocop:*)",
+      "Bash(git status:*)",
+      "Bash(git log:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git remote -v:*)",
+      "Bash(git add:*)",
+      "Bash(git stash list:*)",
+      "Bash(gh pr view:*)",
+      "Bash(gh pr checks:*)",
+      "Bash(gh pr diff:*)",
+      "Bash(gh pr list:*)",
+      "Bash(gh issue view:*)",
+      "Bash(gh issue list:*)",
+      "Bash(gh run list:*)",
+      "Bash(gh run view:*)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(wc:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(pg_isready:*)",
+      "WebSearch"
+    ],
+    "deny": [
+      "Read(./config/master.key)",
+      "Read(./config/credentials/*.key)",
+      "Read(./.kamal/secrets)",
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)",
+      "Bash(git reset --hard:*)",
+      "Bash(git clean -fd:*)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bin/hooks/post_edit"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bin/hooks/session_end"
+          }
+        ]
+      }
+    ]
+  }
+}

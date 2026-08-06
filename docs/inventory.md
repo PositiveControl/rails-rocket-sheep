@@ -62,10 +62,10 @@ flowchart TB
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped |
 | Task template | ✅ | Resumable task file format |
 | `/workflow_setup` wizard | ✅ | Stack + CI tokens pre-filled; asks only repo/board/naming |
-| Project `.claude/settings.json` | ❌ | No permission allowlist — see gap 1 |
-| Hooks | ❌ | No enforcement, only instruction — see gap 2 |
+| Project `.claude/settings.json` | ✅ | Allowlist + deny rules; credentials blocked from context |
+| Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
-| Cross-tool parity | ❌ | No `AGENTS.md` / `.cursorrules` — see gap 5 |
+| Cross-tool parity | ⚠️ | `AGENTS.md` pointer ships; no `.cursorrules` |
 | MCP config | ❌ | No `.mcp.json` |
 
 ### Application
@@ -87,7 +87,7 @@ flowchart TB
 | Admin panel | ❌ | Deliberate |
 | Component library | ❌ | Deliberate |
 | API scaffolding | ❌ | Deliberate |
-| Seeds / demo data | ❌ | See gap 7 |
+| Seeds / demo data | ✅ | Idempotent admin user, generated password, production-guarded |
 
 ### Infrastructure
 
@@ -102,67 +102,46 @@ flowchart TB
 | Job dashboard | ❌ | Mission Control not wired up |
 | Backups | ❌ | Documented as day-one work, no automation |
 | Uptime monitoring | ❌ | Documented, not provided |
-| PR / issue templates | ❌ | See gap 3 |
+| PR / issue templates | ⚠️ | Deferred — blocked on the tracker-abstraction segue |
 | CODEOWNERS | ❌ | Low value for a solo buyer |
 
 ---
 
-## Gaps worth closing, ranked
+## Gaps: shipped and remaining
 
-Ranked by leverage per hour of work. The first two are the highest-value items on this list and both target the same weakness: **the alignment layer is entirely advisory.** `CLAUDE.md` tells an agent what to do; nothing stops it doing otherwise.
+The first wave targeted the weakness that mattered most: **the alignment layer was entirely advisory.** `CLAUDE.md` told an agent what to do; nothing stopped it doing otherwise. Hooks changed that.
 
 ```mermaid
 flowchart LR
-  subgraph NOW ["Today: instruction only"]
+  subgraph BEFORE ["Before: instruction only"]
     A["CLAUDE.md says<br/>'run bin/rubocop'"] -.->|"agent may ignore"| B["commit"]
   end
-  subgraph NEXT ["With hooks: enforcement"]
-    C["agent edits .rb"] --> D["PostToolUse hook<br/>runs rubocop"] --> E["fails → agent must fix"]
+  subgraph AFTER ["Now: enforcement"]
+    C["agent edits .rb"] --> D["PostToolUse hook<br/>runs rubocop"] --> E["fails → fed back<br/>agent must fix"]
   end
 ```
 
-### 1. Project `.claude/settings.json` with a permission allowlist — ~1 hour
+### ✅ Shipped
 
-Every generated app makes an agent ask permission for `bin/test`, `bin/rubocop`, `bin/rails`, `git status`, `git diff`. Dozens of prompts per session, all for read-only or obviously safe commands.
+**1. `.claude/settings.json` permission allowlist.** Covers the template's binstubs and read-only git/gh, so agents stop asking to run `bin/test`. Deny rules block reading `master.key`, `.kamal/secrets`, and `.env*` into context, and block `push --force` / `reset --hard` / `clean -fd`. Tracked in git as shared config; personal overrides go in the gitignored `settings.local.json`.
 
-Ship a project-level allowlist covering the template's own binstubs and read-only git, plus a `deny` list for genuinely dangerous operations. Highest ratio of annoyance removed to effort on the list, and it's a visible quality signal the first time a buyer runs the app.
+**2. Hooks.** `bin/hooks/post_edit` runs RuboCop on edited Ruby and catches Tailwind bracket classes in Slim shorthand — the pitfall `CLAUDE.md` documents but that otherwise fails at render time. `bin/hooks/session_end` reports `Status: Draft` doc placeholders left open. All three exit 0 on any internal error: a broken hook must never block work. See [Agent Guardrails](agent-guardrails.md).
 
-### 2. Hooks for enforcement — ~3 hours
+**5. `AGENTS.md`.** Tool-neutral pointer to `CLAUDE.md` with an orientation table. Deliberately a pointer, not a second source — anything restated would drift. `.cursorrules` still absent.
 
-The conventions are advisory. Hooks make some of them mechanical:
+**7. Seeds.** `db/seeds.rb` creates an admin user, idempotent, password from `SEED_ADMIN_PASSWORD` or generated and printed once, and refuses to run in production without `SEED_ALLOW_PRODUCTION=1`.
 
-- **PostToolUse** on Ruby edits → run `bin/rubocop` on the touched file, fail loudly
-- **PostToolUse** on `.slim` edits → catch the Tailwind bracket pitfall the docs warn about
-- **PreToolUse** on `git commit` → block if the suite hasn't run
-- **Stop** → warn when a `Status: Draft` doc placeholder is still present
+### ⏸ Blocked
 
-This is the strongest available answer to "keep the agent in line", and it's the thing no competing template offers. Worth doing before most feature work.
+**3. PR and issue templates — ~30 min.** `.github/PULL_REQUEST_TEMPLATE.md` and `.github/ISSUE_TEMPLATE/` are GitHub-specific by definition, so their shape depends on the tracker-abstraction decision. Waiting on that segue.
 
-Caveat: hooks that fire too often become noise the user disables. Start with the RuboCop one only.
+### Remaining
 
-### 3. PR and issue templates — ~30 min
+**4. A `code-reviewer` subagent — ~2 hours.** `/rails_code_review` exists as a command, so the content is written. Packaging it as a `.claude/agents/` definition lets it run in its own context window rather than consuming the main one.
 
-The workflow depends on `Closes #N` in every PR body. `/pr_submit` writes it, but a human opening a PR by hand won't. A `PULL_REQUEST_TEMPLATE.md` carrying the `Closes #` line and the test-plan checklist makes the convention survive contact with humans. Issue templates can encode the ≤5-acceptance-criteria sizing rule at the point of creation, which is where sizing actually gets decided.
+**6. Job worker in `deploy.yml` — ~30 min.** Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative but ships neither. A commented-out `job:` role turns a documentation step into an uncomment.
 
-### 4. A `code-reviewer` subagent — ~2 hours
-
-`/rails_code_review` exists as a command, so the content is written. Packaging it as a `.claude/agents/` definition lets it run in its own context window instead of consuming the main one, and lets it be invoked automatically rather than only by hand.
-
-### 5. `AGENTS.md` cross-tool parity — ~15 min
-
-`AGENTS.md` is becoming the tool-neutral convention file. A symlink or short pointer file means Cursor, Codex, and others pick up the same conventions. Cheapest item here; matters mainly for buyers not using Claude Code, which the FAQ currently answers with "symlink it yourself".
-
-### 6. Job worker in `deploy.yml` — ~30 min
-
-Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative, but ships neither. A commented-out `job:` role in `config/deploy.yml` turns a documentation step into an uncomment.
-
-### 7. Seeds / demo data — ~1 hour
-
-`db/seeds.rb` is empty. A generated app has no user to log in as, so the first thing every buyer does is create one by hand in the console. A seed creating an admin user (credentials printed, not hardcoded to anything guessable) removes that.
-
-### 8. `docs/qa/` example — ~30 min
-
-The directory ships empty and `/pr_qa` writes into it, but there's no example of the expected shape. One worked QA guide makes the format obvious. Same argument applies to `docs/plans/`, where a design-doc template would make `/feature_plan` output more consistent.
+**8. `docs/qa/` and `docs/plans/` examples — ~30 min.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
 
 ---
 
@@ -184,13 +163,11 @@ Not gaps to fill — things to be honest about.
 
 ```mermaid
 flowchart LR
-  S1["1. settings.json<br/>allowlist"] --> S2["2. RuboCop hook"]
-  S2 --> S3["3. PR/issue<br/>templates"]
-  S3 --> S4["7. seeds"]
-  S4 --> S5["5. AGENTS.md"]
-  S5 --> S6["4. reviewer<br/>subagent"]
-  S6 --> S7["8. doc examples"]
-  S7 --> S8["6. job role"]
+  DONE["✅ 1 settings · 2 hooks<br/>5 AGENTS.md · 7 seeds"] --> SEG{"segue:<br/>tracker abstraction"}
+  SEG --> T3["3. PR/issue templates"]
+  DONE --> T4["4. reviewer subagent"]
+  T4 --> T8["8. doc examples"]
+  T8 --> T6["6. job role"]
 ```
 
-Items 1, 2, 3, 5, and 7 total roughly a day and a half and close every cheap gap. Items 4, 6, and 8 are worth doing but can wait for buyer feedback — which is the point at which guessing stops and evidence starts.
+The cheap alignment gaps are closed. Item 3 unblocks when the segue resolves. Items 4, 6, and 8 are worth doing but can wait for buyer feedback — which is the point at which guessing stops and evidence starts.

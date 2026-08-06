@@ -1,0 +1,74 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Claude Code PostToolUse hook — runs after Edit/Write/MultiEdit.
+#
+# Turns two CLAUDE.md conventions from advice into enforcement:
+#   1. Ruby files must pass RuboCop
+#   2. Slim templates must not use Tailwind bracket classes in the shorthand
+#      form, which Slim's parser silently mangles
+#
+# Contract: Claude Code writes the tool call as JSON on stdin. Exiting 2 sends
+# stderr back to the agent as feedback it must address; exiting 0 is silent
+# success. Any other failure mode here exits 0 — a broken hook must never block
+# work.
+#
+# Disable by removing the PostToolUse entry from .claude/settings.json.
+
+require "json"
+require "shellwords"
+
+def bail(message = nil)
+  warn message if message
+  exit 2
+end
+
+payload =
+  begin
+    JSON.parse($stdin.read)
+  rescue StandardError
+    exit 0
+  end
+
+path = payload.dig("tool_input", "file_path").to_s
+exit 0 if path.empty?
+exit 0 unless File.exist?(path)
+
+# Only look at files inside the project.
+relative = path.delete_prefix("#{Dir.pwd}/")
+exit 0 if relative.start_with?("/", "..")
+
+case File.extname(relative)
+when ".rb", ".rake"
+  exit 0 unless File.executable?("bin/rubocop")
+
+  output = `bin/rubocop --force-exclusion --format quiet #{relative.shellescape} 2>&1`
+  bail(<<~MSG) unless $?.success?
+    RuboCop failed on #{relative}:
+
+    #{output.strip}
+
+    Fix these before continuing. `bin/rubocop -a #{relative}` autocorrects most of them.
+  MSG
+
+when ".slim"
+  # Slim parses `[` in a class shorthand as attribute syntax, so Tailwind
+  # bracket utilities must use the explicit class="" form. Documented in
+  # CLAUDE.md; this catches it at write time instead of at render time.
+  offenders = File.readlines(relative).each_with_index.filter_map do |line, index|
+    next unless line =~ /^\s*[.#][\w.#-]*\[/
+
+    "  #{relative}:#{index + 1}: #{line.strip}"
+  end
+
+  bail(<<~MSG) if offenders.any?
+    Slim shorthand with Tailwind bracket classes — Slim reads `[` as attribute syntax:
+
+    #{offenders.join("\n")}
+
+    Use the explicit attribute form instead:
+      div class="max-h-[85vh]"     # not  .max-h-[85vh]
+  MSG
+end
+
+exit 0

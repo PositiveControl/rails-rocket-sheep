@@ -125,6 +125,7 @@ Tailwind CSS, Slim templates, and generic `toggle_controller.js` / `modal_contro
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
 | [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
+| [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
 | [Patterns](docs/patterns.md) | Service objects, registries, soft deletes, audit trails — with worked examples |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
