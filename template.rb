@@ -329,6 +329,7 @@ copy_template_file "docs/system/design-patterns.md"
 copy_template_file "docs/system/architecture.md"
 copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
+copy_template_file "docs/sop/beads-setup.md"
 
 # =============================================================================
 # Phase 12b: Agent Workflow

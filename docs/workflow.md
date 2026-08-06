@@ -12,7 +12,7 @@ Full spec, diagrams, and gate definitions live in the generated app's `WORKFLOW.
 /pick (entry, routes by state) → /feature_plan → /task_plan → /implement → /pr_submit → human merge → automation
 ```
 
-Every command ends by naming the next one, so the workflow self-navigates. `/pick` is the entry door for every session — it surfaces prioritized ready work and routes each item by shape and board state.
+Every command ends by naming the next one, so the workflow self-navigates. `/pick` is the entry door for every session — it surfaces prioritized ready work and routes each item by shape and tracker state.
 
 ```mermaid
 flowchart LR
@@ -61,7 +61,7 @@ The design of G1 is the non-obvious one: the agent may not create issues until y
 
 ## The thread ID
 
-One issue number connects every artifact. This is what lets any command reconstruct state from scratch — any session, any machine, no handoff notes.
+One identifier connects every artifact. This is what lets any command reconstruct state from scratch — any session, any machine, no handoff notes. Its shape depends on the tracker tier — a GitHub issue number (`1613`), or a bead ID (`bd-a3f2dd`) — but its role is the same, and every command accepts both. The diagram shows the GitHub form.
 
 ```mermaid
 flowchart LR
@@ -73,7 +73,7 @@ flowchart LR
   ID --> DOC["doc placeholders<br/>docs/sop · docs/system"]
 ```
 
-Practical effect: `/implement` is idempotent. Run it in a fresh session with no memory of the previous one and it reloads the task file, orients itself, and continues. State lives in GitHub and in the task file — never in a conversation.
+Practical effect: `/implement` is idempotent. Run it in a fresh session with no memory of the previous one and it reloads the task file, orients itself, and continues. State lives in the tracker and in the task file — never in a conversation.
 
 ---
 
@@ -116,10 +116,10 @@ Only the *findings* merge back — not the exploration. The workstream stays cle
 | Command | Tier | Job |
 |---|---|---|
 | `/pick` | Core | Entry door. Prioritized ready work; routes epic → `/feature_plan`, sized Todo → `/task_plan`, In Progress → `/implement`, Blocked → show blocker |
-| `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → board Todo |
+| `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
 | `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit |
-| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR with `Closes #n` → stack footer → comments (G4) |
+| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR (with `Closes #n` where the tier uses it) → stack footer → comments (G4) |
 | `/pr_review` | Core | Reviewer side: full-context diff review |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
@@ -129,9 +129,30 @@ Only the *findings* merge back — not the exploration. The workstream stays cle
 | `/pr_fix_ci` | Optional | Diagnose and fix a failing CI run |
 | `/test_fix` | Optional | Fix failing tests |
 | `/run_lint` | Optional | Lint and auto-fix |
-| `/workflow_setup` | Setup | One-time wizard: repo, board, naming, CI checks |
+| `/workflow_setup` | Setup | One-time wizard: tracker tier, repo, board, naming, CI checks |
 
 ---
+
+## Tracker tiers
+
+The workflow needs somewhere to hold state. Three options, chosen once by `/workflow_setup`; every command branches on the resulting literal rather than probing at run time.
+
+| Tier | For | Setup cost | What you get |
+|---|---|---|---|
+| `github-projects` | You have or want a Projects v2 board | A board with five statuses | Richest state, automatic close-on-merge, parent/sibling context |
+| `beads` | GitHub Issues without a board, or you want real dependency semantics | `bd` + `dolt` + a running `dolt sql-server` | Blocker-aware "what's ready", first-class dependencies, atomic claim |
+| `labels` | No tracker at all | Five labels, created for you | Nothing to run; no dependency tracking, no context tree |
+
+The one real behavioural difference is how work reaches **Done**:
+
+- `github-projects` and `labels` — `Closes #n` in the PR body closes the issue on merge. Fully automatic.
+- `beads` — no `Closes #n` equivalent exists, so `/pick` reconciles at session start: any bead marked up-for-review whose PR has merged gets closed. No CI job, no webhook, and it self-heals if you skip a session.
+
+Everything else — the four gates, sizing rules, task files, the doc canon, segues — is identical across tiers.
+
+**Choosing:** if you already run a Projects board, use it. If you don't and don't want to, `beads` buys genuinely better "what should I work on next" semantics at the cost of two binaries and a background daemon on your machine. If that cost isn't worth it, `labels` works and needs nothing.
+
+`beads` setup is documented in the generated app at `docs/sop/beads-setup.md`.
 
 ## Setup
 
@@ -147,19 +168,27 @@ Restart your Claude session afterwards, then run `/pick`.
 
 ### Requirements
 
+All tiers:
 - A GitHub repo with a remote (the wizard stops without one)
-- GitHub Projects (v2) board with statuses: Todo, In Progress, Up for Review, Done, Blocked
-- `gh` CLI authenticated. Board operations need `gh auth refresh -s project`
+- `gh` CLI authenticated
+
+Tier `github-projects` additionally:
+- A Projects v2 board with statuses: Todo, In Progress, Up for Review, Done, Blocked
+- Board operations need `gh auth refresh -s project`
+
+Tier `beads` additionally:
+- `bd` and `dolt` installed, and a running `dolt sql-server`
 
 ### Repo automation
 
-Three settings do the post-merge work, so no command has to:
+All tiers want **"Automatically delete head branches"** enabled on the repo.
 
-1. **"Automatically delete head branches"** — enabled on the repo
-2. **Board workflow "item closed → status Done"** — enabled on the project
-3. **`Closes #N` in every PR body** — `/pr_submit` writes this automatically
+Tier `github-projects` adds two more, and with them merging is a single human click and everything downstream is automatic:
 
-With those on, merging is a single human click and everything downstream is automatic.
+1. **Board workflow "item closed → status Done"** — enabled on the project
+2. **`Closes #N` in every PR body** — `/pr_submit` writes this automatically
+
+Tier `labels` uses `Closes #N` too. Tier `beads` deliberately does not — reconciliation happens in `/pick`.
 
 ---
 
@@ -179,6 +208,8 @@ Exactly one owner per slot. This matters if you run other agent tooling alongsid
 
 The commands are markdown files. Delete what you don't want.
 
-The core chain assumes GitHub Issues and a Projects board. Without a board, `/pick`, `/feature_plan`, and `/task_plan` lose most of their value — but `/pr_submit`, `/pr_review`, `/rails_code_review`, `/pr_qa`, and the segue set all work standalone on any repo with `gh` access.
+Ten of the nineteen commands touch no tracker at all — `/pr_qa`, `/rails_code_review`, `/run_lint`, `/test_fix`, `/update_docs`, and all five `segue_*`. They work standalone on any repo.
 
-If you don't use GitHub at all, delete `.claude/commands/` entirely. The rest of the template is unaffected.
+The tiers exist so the other nine degrade rather than break. If you don't use GitHub at all, delete `.claude/commands/` and `.cursor/commands/`; the rest of the template is unaffected.
+
+**Jira and Linear are not supported, and deliberately so.** The tracker interface is only about four verbs, but the thread ID doesn't survive the move: `Closes #n` is GitHub-native, and both the branch name and PR title key off a repo-local integer. Jira in practice means smart-commits and `PROJ-123` titles — a second convention set rather than an adapter swap, plus permanent maintenance against two vendor APIs. The `beads` tier covers the same "my issues aren't in GitHub Projects" buyer at a fraction of the cost.

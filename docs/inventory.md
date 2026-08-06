@@ -156,8 +156,8 @@ Settled by segue `.llm/threads/2026-08-06-tracker-abstraction.md` (merged). Full
 **Phases:**
 
 1. **Agent-harness parity (~4h)** — ✅ done. Command prose neutralised, commands mirrored to `.cursor/commands/` from the same source files, `.cursor/rules/conventions.mdc` added, `AGENTS.md` gained a commands table so a harness with no slash-command concept can be told to follow a file directly.
-2. **Tracker tiering (~1.5–2d)** — the expensive part. `/workflow_setup` gains a tier question; `pick`, `feature_plan`, `task_plan`, `pr_submit`, `implement` branch on the token. Lazy reconciliation in `/pick` replaces the lost `Closes #n` automation.
-3. **Item 3 (~30m)** — tier-neutral PR template, GitHub-tier issue templates.
+2. **Tracker tiering (~1.5–2d)** — ✅ done. `/workflow_setup` resolves the tier first and fills `{{TRACKER}}`; `pick`, `feature_plan`, `task_plan`, `pr_submit`, and `implement` branch on the literal. Lazy reconciliation in `/pick` replaces the lost `Closes #n` automation under `beads`. `WORKFLOW.md` §2 and §4 are tier-aware; `docs/sop/beads-setup.md` covers the `dolt sql-server` requirement.
+3. **Item 3 (~30m)** — next: tier-neutral PR template, GitHub-tier issue templates.
 
 **Load-bearing assumption, unmeasured:** that a minority of small Rails shops on GitHub use Projects v2 rather than plain Issues. This justifies the beads tier existing. If Projects v2 is near-universal among buyers, Phase 2 is over-built. The design doesn't collapse if it's wrong — it just costs more than it returns.
 
@@ -175,7 +175,7 @@ Settled by segue `.llm/threads/2026-08-06-tracker-abstraction.md` (merged). Full
 
 Not gaps to fill — things to be honest about.
 
-**The workflow assumes GitHub Projects.** `/pick`, `/feature_plan`, and `/task_plan` lose most of their value without a board. Buyers using Linear, Jira, or nothing get roughly half the value, and nothing in the product currently tells them that before purchase. The [workflow doc](workflow.md) says it; the sales page must too.
+**Jira and Linear buyers still aren't served.** The three tiers cover GitHub Projects, GitHub Issues via beads, and no tracker at all — but a shop whose issues live in Jira gets the ten tracker-independent commands and nothing else. That was a deliberate call (the thread ID doesn't survive the move; see [workflow](workflow.md)), but the sales page must say so rather than letting buyers discover it.
 
 **19 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 19 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
 

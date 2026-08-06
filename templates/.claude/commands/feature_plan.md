@@ -52,20 +52,41 @@ Each sub-issue must have:
 - Size forecast targeting **100–600 added lines** per PR
 - Dependencies on sibling slices noted in the body
 
+Tier `{{TRACKER}}`. Follow only the matching branch.
+
+**`github-projects`** — create the issues, link them, and put them on the board:
+
 ```bash
 gh issue create --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --title "<title>" --body "<body>"
-```
 
-Link sub-issues to the parent:
-
-```bash
+# Link each sub-issue to the parent
 gh api graphql -f query='mutation { addSubIssue(input: { issueId: "<PARENT_NODE_ID>", subIssueId: "<CHILD_NODE_ID>" }) { issue { number } } }'
+
+# Add each issue to the board (status defaults to Todo)
+gh project item-add {{PROJECT_NUMBER}} --owner {{GITHUB_ORG}} --url <ISSUE_URL>
 ```
 
-Add each issue to the project board with status **Todo**:
+**`beads`** — create an epic and hang the slices off it as real dependencies:
 
 ```bash
-gh project item-add {{PROJECT_NUMBER}} --owner {{GITHUB_ORG}} --url <ISSUE_URL>
+bd create "<epic title>" --type epic --description "<goal + link to docs/plans/...>"
+bd create "<slice title>" --type task --description "<goal, acceptance criteria, size forecast>"
+
+# Child depends on parent. Argument order is child first, then parent.
+bd dep add <CHILD_ID> <EPIC_ID> --type parent-child
+
+# Verify the tree
+bd children <EPIC_ID>
+```
+
+Dependencies between sibling slices are first-class here — use `bd dep add <BLOCKED_ID> <BLOCKER_ID>` rather than only noting them in the body. `bd ready` then hides work whose blockers are still open, which is what makes `/pick` accurate under this tier.
+
+Always pass `--description`; `bd create` warns on issues without one, and a bare title is useless to the next session.
+
+**`labels`** — create the issues and mark them Todo. There is no parent/child model, so record slice dependencies in the issue body:
+
+```bash
+gh issue create --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --title "<title>" --body "<body>" --label "status:todo"
 ```
 
 ### Step 6: Create doc placeholders

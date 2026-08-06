@@ -1,8 +1,8 @@
 # Workflow Setup (wizard)
 
-One-time interactive setup for the agent workflow. Collects this repo's GitHub and board parameters, fills the remaining `{{TOKEN}}`s in `.claude/commands/*.md`, and verifies repo automation. Run once from the repo root.
+One-time interactive setup for the agent workflow. Resolves the tracker tier, collects this repo's parameters, fills the remaining `{{TOKEN}}`s across `.claude/commands/` and `.cursor/commands/`, and verifies repo automation. Run once from the repo root.
 
-**Stack tokens are already filled.** This app was generated from Rails Rocket Sheep, so the test, lint, and security-scan commands and the default branch are pre-set. This wizard only collects what is repo-specific: org, repo, board, naming conventions, and CI check names.
+**Stack tokens are already filled.** This app was generated from Rails Rocket Sheep, so the test, lint, and security-scan commands and the default branch are pre-set. This wizard only collects what is repo-specific: the tracker tier, org, repo, board, naming conventions, and CI check names.
 
 ## Instructions
 
@@ -19,7 +19,42 @@ Silently gather:
 
 No remote yet → stop and tell the user to create the GitHub repo and push first. Everything downstream needs it.
 
-### Step 2: Ask — repository & board
+### Step 2: Ask — tracker tier (ask this first)
+
+This resolves `{{TRACKER}}` to one literal value. Every command branches on it, so it must be decided before anything else. Commands read the literal — they never probe at run time.
+
+| Tier | Value | For | Setup cost |
+|---|---|---|---|
+| GitHub Projects | `github-projects` | You have, or will create, a Projects v2 board | Board with 5 statuses |
+| beads | `beads` | GitHub Issues, no board — or you want real dependency semantics | `bd` + a running `dolt sql-server` |
+| Labels | `labels` | No tracker at all; smallest possible setup | Five labels, created here |
+
+Detect and propose rather than asking cold:
+
+```bash
+gh project list --owner <ORG> 2>/dev/null     # boards exist → propose github-projects
+command -v bd && bd list --limit 1 2>/dev/null # bd on PATH and a DB reachable → propose beads
+```
+
+Boards exist → propose `github-projects`. Otherwise `bd` present and working → propose `beads`. Otherwise `labels`.
+
+**Be honest about the trade in one line each**, so the choice is informed:
+- `github-projects` — richest state, automatic close-on-merge, but needs a board configured with exactly the five statuses
+- `beads` — real blocker-aware "what's ready", but adds two binaries and a background daemon to the machine, and issues live outside GitHub
+- `labels` — nothing to set up and nothing to run, but no dependency tracking and no parent/child context
+
+Then run only the branch for the chosen tier:
+
+**`github-projects`** — continue to Step 2a.
+**`beads`** — verify `bd` is on PATH and a database is reachable (`bd list --limit 1`). Failure means no `dolt sql-server` is running: point at `docs/sop/beads-setup.md` and stop rather than writing a tier that cannot work. Capture the issue prefix from `bd list` output (e.g. `tst-a3f2dd` → prefix `tst`).
+**`labels`** — create the five status labels now, then skip Step 2a entirely:
+```bash
+for s in todo in-progress up-for-review blocked done; do
+  gh label create "status:$s" --repo <ORG>/<REPO> --force
+done
+```
+
+### Step 2a: Ask — repository & board (tier `github-projects` only)
 
 Group 1:
 - GitHub org / repo (default: from remote)
@@ -63,9 +98,13 @@ CI checks (from detected workflow jobs): which are **fast** (lint/scan — poll 
 
 ### Step 5: Fill the tokens
 
-Replace every remaining `{{TOKEN}}` across `.claude/commands/*.md`:
+Replace every remaining `{{TOKEN}}` across `.claude/commands/*.md` **and `.cursor/commands/*.md`** — the two directories are mirrors and must stay identical:
 
-`{{GITHUB_ORG}}`, `{{GITHUB_REPO}}`, `{{PROJECT_NUMBER}}`, `{{PROJECT_NAME}}`, `{{PROJECT_ID}}`, `{{STATUS_FIELD_ID}}`, `{{STATUS_TODO}}`, `{{STATUS_IN_PROGRESS}}`, `{{STATUS_UP_FOR_REVIEW}}`, `{{STATUS_DONE}}`, `{{STATUS_BLOCKED}}`, `{{BRANCH_PREFIX}}`, `{{PR_TITLE_PREFIX}}`, `{{REVIEW_LABEL}}`, `{{FAST_CI_CHECKS}}`, `{{FAST_CI_CHECKS_JQ}}` (quoted comma list, e.g. `"lint","scan"`), `{{SLOW_CI_CHECKS}}`
+Always: `{{TRACKER}}` (the literal from Step 2), `{{GITHUB_ORG}}`, `{{GITHUB_REPO}}`, `{{BRANCH_PREFIX}}`, `{{PR_TITLE_PREFIX}}`, `{{REVIEW_LABEL}}`, `{{FAST_CI_CHECKS}}`, `{{FAST_CI_CHECKS_JQ}}` (quoted comma list, e.g. `"lint","scan"`), `{{SLOW_CI_CHECKS}}`
+
+Tier `github-projects` only: `{{PROJECT_NUMBER}}`, `{{PROJECT_NAME}}`, `{{PROJECT_ID}}`, `{{STATUS_FIELD_ID}}`, `{{STATUS_TODO}}`, `{{STATUS_IN_PROGRESS}}`, `{{STATUS_UP_FOR_REVIEW}}`, `{{STATUS_DONE}}`, `{{STATUS_BLOCKED}}`
+
+Under `beads` and `labels` those board tokens have no meaning. Fill them with `n/a` rather than leaving them — the audit below must come back empty, and a leftover `{{TOKEN}}` in a branch the agent never reads is still a bug waiting for the day someone switches tiers.
 
 And `{{PERSONA}}` in `.llm/tasks/task_template.md`.
 
@@ -74,7 +113,8 @@ Already filled by the template — change these only if Step 1 found a mismatch:
 Then verify, and note that the audit must cover the task template too:
 
 ```bash
-grep -rn "{{" .claude/commands/ .llm/tasks/ --exclude=workflow_setup.md
+grep -rn "{{" .claude/commands/ .cursor/commands/ .llm/tasks/ --exclude=workflow_setup.md
+diff -r .claude/commands .cursor/commands    # mirrors must stay identical
 ```
 
 Must return nothing. Leftovers → fill them.
@@ -99,10 +139,12 @@ The section must include:
 
 Apply/verify (each needs repo or org admin — if a call fails, list it for a human):
 
+Tier `github-projects` needs all four. Tiers `beads` and `labels` need only items 1 and 3 — there is no board to automate, and `beads` deliberately has no `Closes #n` (the next `/pick` reconciles instead).
+
 1. Auto-delete merged branches: `gh api -X PATCH repos/<ORG>/<REPO> -f delete_branch_on_merge=true`
 2. Board built-in workflow **"Item closed" → status Done**: check `gh api graphql -f query='{ organization(login: "<ORG>") { projectV2(number: <N>) { workflows(first: 20) { nodes { name enabled } } } } }'`. The target status isn't exposed by the API — ask the user to eyeball it in the board's Workflows UI.
 3. Branch protection on the default branch with required CI checks (turns the suite/review gates hard) — recommend, don't force.
-4. Remind: every PR body must contain `Closes #<issue>` — `/pr_submit` does this automatically.
+4. Tiers `github-projects` and `labels`: every PR body must contain `Closes #<issue>` — `/pr_submit` does this automatically. Tier `beads`: it must **not**; reconciliation happens at the next `/pick`.
 
 ### Step 8: Finish
 
@@ -116,6 +158,7 @@ Setup complete. Reload commands in your agent tool, then run:
 
 ## Reference
 - `WORKFLOW.md` (repo root) — full lifecycle spec and diagrams
-- Token audit: `grep -rn "{{" .claude/commands/ .llm/tasks/ --exclude=workflow_setup.md` must be empty when done
-- Board statuses required: Todo, In Progress, Up for Review, Done, Blocked
+- Token audit: `grep -rn "{{" .claude/commands/ .cursor/commands/ .llm/tasks/ --exclude=workflow_setup.md` must be empty when done
+- Board statuses required (tier `github-projects`): Todo, In Progress, Up for Review, Done, Blocked
+- beads requires a running `dolt sql-server` — see `docs/sop/beads-setup.md`
 - `gh` project commands may need: `gh auth refresh -s project`

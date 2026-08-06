@@ -1,6 +1,10 @@
 # Dev Workflow — Spec & Diagrams
 
-Command-driven lifecycle for Claude Code + GitHub. Diagrams are mermaid — they render natively on GitHub, GitLab, and VS Code. No external dependencies.
+Command-driven lifecycle for any coding agent, on any of three tracker tiers. Diagrams are mermaid — they render
+natively on GitHub, GitLab, and VS Code. No external dependencies.
+
+**Tracker tier: `{{TRACKER}}`** — one of `github-projects`, `beads`, `labels`, resolved once by `/workflow_setup`.
+Where this spec says "board", read it as whatever your tier uses to hold state; §2 gives the mapping.
 
 ## The chain
 
@@ -80,9 +84,26 @@ flowchart TB
 
 Legend: teal = command · filled teal = entry · amber = human gate · green = automated gate / automation · dashed grey = optional / out of core.
 
-## 2. Board state machine
+## 2. State machine
 
-GitHub issues + Projects board is the single state home. Commands fire the transitions; the final one is repo automation, not a command. State lives in GitHub — never in a session's memory.
+The tracker is the single state home. Commands fire the transitions. State lives in the tracker — never in a session's memory.
+
+How each tier stores the five states:
+
+| State | `github-projects` | `beads` | `labels` |
+|---|---|---|---|
+| Todo | board status Todo | `status: open` | `status:todo` |
+| In Progress | board status In Progress | `status: in_progress` (`bd update --claim`) | `status:in-progress` |
+| Up for Review | board status Up for Review | `lifecycle=up_for_review` — event bead + label | `status:up-for-review` |
+| Done | board status Done | `status: closed` | issue closed |
+| Blocked | board status Blocked | `status: blocked`, surfaced by `bd blocked` | `status:blocked` |
+
+`beads` has no native "Up for Review" status, so `/pr_submit` uses `bd set-state <id> lifecycle=up_for_review`, which records an event bead *and* attaches a queryable label.
+
+The **Done** transition differs by tier and is the one real behavioural difference between them:
+
+- `github-projects` and `labels` — `Closes #n` in the PR body closes the issue on merge; the board's "item closed" workflow then sets Done. Fully automatic.
+- `beads` — no `Closes #n` equivalent exists. `/pick` reconciles lazily at session start: any bead in `lifecycle:up_for_review` whose linked PR has merged gets closed. No CI job, no webhook, and it self-heals if a session is skipped.
 
 ```mermaid
 stateDiagram-v2
@@ -141,7 +162,9 @@ flowchart TB
 
 ## 4. The thread ID
 
-The linchpin. One issue number connects every artifact, which is what lets each command resolve state from scratch — any session, any machine, no handoff notes.
+The linchpin. One identifier connects every artifact, which is what lets each command resolve state from scratch — any session, any machine, no handoff notes.
+
+The identifier's *shape* is tier-dependent — a GitHub issue number (`1613`) under `github-projects` and `labels`, a bead ID (`bd-a3f2dd`) under `beads` — but its **role is identical in all three**, and every command accepts both shapes. The diagram below shows the `github-projects` form.
 
 ```mermaid
 flowchart LR
@@ -165,6 +188,8 @@ flowchart LR
   style ID fill:#0F7480,stroke:#0B3A40,color:#FFFFFF
 ```
 
+Under `beads` two edges change: the PR body carries **no** `Closes #n` line, and the "board item" is a bead whose `external_ref` (`gh-<pr>`) is the link `/pick` follows to reconcile it closed. Everything else — task file, branch, PR title, doc placeholders, design doc — is unchanged.
+
 ## 5. Tiers
 
 | Tier | Contents |
@@ -182,7 +207,7 @@ Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexer
 
 | Slot | Owner |
 |---|---|
-| State machine | GitHub issues + Projects board (Todo → In Progress → Up for Review → Done, + Blocked) |
+| State machine | The configured tracker tier (Todo → In Progress → Up for Review → Done, + Blocked). See §2 for the per-tier mapping |
 | Resumability artifact | Task files + design docs (local, uncommitted; `/implement` reloads them in any fresh session) |
 | Memory home | CLAUDE.md + `docs/` (conventions single-sourced in CLAUDE.md; system knowledge in the 4-dir doc canon) |
 
@@ -197,7 +222,12 @@ Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexer
 
 Soft vs hard: gates are prompt-enforced unless backed by repo settings. Branch protection with required CI turns G3/G4 hard.
 
-**Repo prerequisites:** Projects workflow "item closed → set status Done" enabled · "Automatically delete head branches" enabled · `Closes #N` in every PR body (`/pr_submit` does this).
+**Repo prerequisites**, by tier:
+
+- All tiers: "Automatically delete head branches" enabled.
+- `github-projects`: Projects workflow "item closed → set status Done" enabled · `Closes #N` in every PR body (`/pr_submit` does this).
+- `labels`: `Closes #N` in every PR body. The five `status:*` labels exist (`/workflow_setup` creates them).
+- `beads`: `bd` on PATH with a reachable database, which needs a running `dolt sql-server` — see `docs/sop/beads-setup.md`. PR bodies must **not** carry `Closes #N`.
 
 ## Sizing
 

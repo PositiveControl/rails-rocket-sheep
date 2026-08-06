@@ -59,16 +59,32 @@ After approval:
 **Clean working tree:** `git status` — uncommitted changes → ask user: stash or commit first.
 
 **Feature branch:**
-```bash
-git branch --list "{{BRANCH_PREFIX}}/<ISSUE_NUMBER>/*"
-```
-- Exists → `git checkout {{BRANCH_PREFIX}}/<ISSUE_NUMBER>/<slug>`
-- Not → `git checkout main && git pull && git checkout -b {{BRANCH_PREFIX}}/<ISSUE_NUMBER>/<short-slug>`
 
-**Board → In Progress:**
+The `<ID>` segment is the tracker's identifier — a bare number under `github-projects` and `labels` (`1613`), or the bead ID under `beads` (`bd-a3f2dd`, from `tst-a3f2dd` with the prefix normalised to `bd-`). It is the thread ID that ties branch, task file, and PR together.
+
+```bash
+git branch --list "{{BRANCH_PREFIX}}/<ID>/*"
+```
+- Exists → `git checkout {{BRANCH_PREFIX}}/<ID>/<slug>`
+- Not → `git checkout main && git pull && git checkout -b {{BRANCH_PREFIX}}/<ID>/<short-slug>`
+
+**Mark In Progress** — tier `{{TRACKER}}`:
+
+`github-projects`:
 ```bash
 gh api graphql -f query='{ repository(owner: "{{GITHUB_ORG}}", name: "{{GITHUB_REPO}}") { issue(number: <ISSUE_NUMBER>) { projectItems(first: 5) { nodes { id project { title } } } } } }'
 gh project item-edit --project-id {{PROJECT_ID}} --id <ITEM_ID> --field-id {{STATUS_FIELD_ID}} --single-select-option-id {{STATUS_IN_PROGRESS}}
+```
+
+`beads`:
+```bash
+bd update <ID> --claim
+```
+Atomic — sets assignee to you and status to `in_progress`, and **fails if someone else already claimed it**. A failure here is real information: stop and pick different work rather than forcing it.
+
+`labels`:
+```bash
+gh issue edit <ISSUE_NUMBER> --add-label "status:in-progress" --remove-label "status:todo"
 ```
 
 ### Next step
@@ -80,7 +96,8 @@ Plan approved and branch ready. Run: /implement <ISSUE_NUMBER>
 ## Reference
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
 - Task template: .llm/tasks/task_template.llm.md
-- Branch convention: `{{BRANCH_PREFIX}}/<issue>/<slug>`
+- Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number, or `bd-<hash>` under tier `beads`
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}
-- Status option IDs: Blocked={{STATUS_BLOCKED}}, Todo={{STATUS_TODO}}, In Progress={{STATUS_IN_PROGRESS}}, Up for Review={{STATUS_UP_FOR_REVIEW}}, Done={{STATUS_DONE}}
+- Tracker tier: `{{TRACKER}}`
+- Status option IDs (tier `github-projects`): Blocked={{STATUS_BLOCKED}}, Todo={{STATUS_TODO}}, In Progress={{STATUS_IN_PROGRESS}}, Up for Review={{STATUS_UP_FOR_REVIEW}}, Done={{STATUS_DONE}}
 - Sizing: PR target 100–600 added lines / 5–15 files

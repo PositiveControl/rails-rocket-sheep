@@ -96,7 +96,7 @@ gh pr create --base main --title "{{PR_TITLE_PREFIX}} | <ISSUE_NUMBER> | <Short 
 ## Changes
 <Brief description of each file or area changed, drawn from task file's Next Actions or commit messages>
 
-Closes #<ISSUE_NUMBER>
+<CLOSING_LINE>
 
 ## Test plan
 - [ ] CI pipeline passes
@@ -106,7 +106,17 @@ EOF
 )"
 ```
 
-Match the PR title convention from previous PRs: `{{PR_TITLE_PREFIX}} | <number> | <description>`. The `Closes #<ISSUE_NUMBER>` line is required — it drives post-merge automation (issue close → board Done).
+**PR title and `<CLOSING_LINE>` depend on the tracker tier `{{TRACKER}}`:**
+
+| Tier | Title | `<CLOSING_LINE>` |
+|---|---|---|
+| `github-projects` | `{{PR_TITLE_PREFIX}} \| <number> \| <description>` | `Closes #<ISSUE_NUMBER>` |
+| `beads` | `{{PR_TITLE_PREFIX}} \| bd-<hash> \| <description>` | *omit entirely* |
+| `labels` | `{{PR_TITLE_PREFIX}} \| <number> \| <description>` | `Closes #<ISSUE_NUMBER>` |
+
+Under `github-projects` and `labels`, the `Closes #` line is **required** — it is what closes the issue on merge, and under `github-projects` it also drives the board's "item closed → Done" workflow.
+
+Under `beads` there is no GitHub issue to close, so emitting `Closes #` would either do nothing or close an unrelated issue that happens to share the number. Omit it. Reconciliation happens instead at the start of the next `/pick`, which finds beads sitting in `lifecycle:up_for_review` whose PR has merged and closes them. That is deliberate: no CI job, no webhook, and it self-heals if a session is skipped.
 
 **Do not hand-write a stack list in the body** — Step 4b generates it.
 
@@ -128,9 +138,24 @@ It regenerates the ordered stack list in **every** PR of the stack, so a new PR 
 
 Narrative stack context still belongs in the body prose — `Stacked on #NNNN`, review order, "retarget to `main` once #NNNN merges". The footer only carries the ordered list.
 
-### Step 5: Update GitHub Project status and label
+### Step 5: Mark Up for Review
 
-Move the issue to "Up for Review" on the project board and add the label.
+Tier `{{TRACKER}}`. Follow only the matching branch.
+
+**`beads`:**
+```bash
+bd set-state <ID> lifecycle=up_for_review
+bd update <ID> --external-ref gh-<PR_NUMBER>
+```
+`set-state` records an event bead (the audit trail) *and* attaches a queryable `lifecycle:up_for_review` label. The `external-ref` is what the next `/pick` uses to find the PR and close the bead once it merges — **without it, reconciliation cannot work**, so do not skip it.
+
+**`labels`:**
+```bash
+gh issue edit <ISSUE_NUMBER> --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --add-label "status:up-for-review" --remove-label "status:in-progress"
+gh issue edit <ISSUE_NUMBER> --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --add-label "{{REVIEW_LABEL}}"
+```
+
+**`github-projects`** — move the issue to "Up for Review" on the board and add the label.
 
 First get the project item ID:
 ```bash
@@ -147,7 +172,7 @@ Add the "{{REVIEW_LABEL}}" label to the issue:
 gh issue edit <ISSUE_NUMBER> --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --add-label "{{REVIEW_LABEL}}"
 ```
 
-Replace `<ISSUE_NUMBER>` with the value from `$ARGUMENTS`.
+Replace `<ISSUE_NUMBER>` (or `<ID>`) with the value from `$ARGUMENTS`.
 
 **Note:** If the project board update fails with a missing `project` scope error, inform the user they need to run `gh auth refresh -s project` and skip this step — do not block the PR workflow.
 
@@ -197,7 +222,7 @@ If there are human reviewers who need to approve, mention that.
 
 ### Next step
 
-Merge is human judgment — a reviewer approves and clicks merge. After merge, automation takes over: `Closes #N` closes the issue, the Projects "item closed" workflow sets the board to Done, and GitHub auto-deletes the branch. No cleanup command.
+Merge is human judgment — a reviewer approves and clicks merge. After merge, GitHub auto-deletes the branch under every tier. Under `github-projects` and `labels`, `Closes #N` closes the issue, and under `github-projects` the Projects "item closed" workflow then sets the board to Done. Under `beads` nothing happens at merge time by design — the next `/pick` reconciles the bead closed. No cleanup command in any tier.
 
 After the PR is merged, suggest:
 
@@ -212,6 +237,7 @@ PR merged! Automation handles issue close, board → Done, and branch deletion.
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
 - PR title convention: `{{PR_TITLE_PREFIX}} | <issue_number> | <description>`
 - Branch convention: `{{BRANCH_PREFIX}}/<issue_number>/<slug>`
+- Tracker tier: `{{TRACKER}}`
 - Fast CI checks (poll these): scan_ruby, scan_js, lint
 - Slow CI checks (skip polling, ran locally): test
 - Informational checks (ignore): CodeQL / Analyze
@@ -222,4 +248,4 @@ PR merged! Automation handles issue close, board → Done, and branch deletion.
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}
 - Status option IDs: Blocked={{STATUS_BLOCKED}}, Todo={{STATUS_TODO}}, In Progress={{STATUS_IN_PROGRESS}}, Up for Review={{STATUS_UP_FOR_REVIEW}}, Done={{STATUS_DONE}}
 - If project board update fails with scope error: suggest `gh auth refresh -s project`, skip and continue
-- Repo prerequisites for post-merge automation: Projects workflow "item closed → Done" enabled; "Automatically delete head branches" enabled; `Closes #N` in every PR body
+- Repo prerequisites for post-merge automation: "Automatically delete head branches" enabled (all tiers) · Projects workflow "item closed → Done" enabled and `Closes #N` in every PR body (tier `github-projects`) · `Closes #N` only (tier `labels`) · neither, reconciliation via `/pick` (tier `beads`)

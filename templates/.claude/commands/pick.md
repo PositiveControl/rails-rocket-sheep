@@ -1,8 +1,28 @@
 # Pick
 
-Entry door to the workflow. Show **my** prioritized ready work from GitHub Projects, then route the selected item to the right next command based on its shape and board state.
+Entry door to the workflow. Show **my** prioritized ready work, then route the selected item to the right next command based on its shape and state.
+
+**Tracker tier: `{{TRACKER}}`** — one of `github-projects`, `beads`, `labels`. Resolved once by `/workflow_setup`; follow only the branch matching that literal.
 
 ## Instructions
+
+### Step 0: Reconcile finished work (tiers `beads` and `labels` only)
+
+Skip entirely under `github-projects` — its board automation already closes issues on merge.
+
+The other tiers have no `Closes #n` equivalent, so reconcile lazily here instead of via CI or a webhook. Self-healing: if a session is skipped, the next one catches up.
+
+**`beads`:**
+```bash
+bd list --label lifecycle:up_for_review --json
+```
+For each result, take its `external_ref` (`gh-<n>`, written by `/pr_submit`) and check whether that PR merged:
+```bash
+gh pr list --state merged --search "<n>" --json number,title --limit 5
+```
+Merged → `bd close <id>`. Report what was reconciled in one line; say nothing when there is nothing to close.
+
+**`labels`:** same shape, using `gh issue list --label "status:up-for-review"` and closing merged ones with `gh issue close <n>`.
 
 ### Step 1: Fetch my open issues
 
@@ -10,9 +30,18 @@ Entry door to the workflow. Show **my** prioritized ready work from GitHub Proje
 gh issue list --assignee $(gh api user --jq .login) --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --state open --json number,title,labels --limit 100
 ```
 
-### Step 2: Enrich with project board data
+Under `beads`, use the bead list as the source of work instead:
+```bash
+bd ready                          # open, no active blockers
+bd list --status in_progress      # already claimed — NOT returned by bd ready
+bd blocked                        # blocked, with blockers named
+```
 
-Per issue: fetch project fields (status, priority, size, iteration, story points) + parent/sibling context via a single batched GraphQL query — one alias per issue (alias must not start with a digit; prefix `i`, e.g. `i1606: issue(number: 1606)`):
+Run all three. `bd ready` applies blocker-aware semantics and **excludes anything already in progress**, so the second call is required for a complete picture — and `bd ready --assignee <name>` filters ready work down to items already assigned, which is usually empty. Don't substitute it for the pair.
+
+### Step 2: Enrich with state
+
+**Tier `github-projects`** — per issue, fetch project fields (status, priority, size, iteration, story points) + parent/sibling context via a single batched GraphQL query. One alias per issue; an alias must not start with a digit, so prefix `i` (e.g. `i1606: issue(number: 1606)`):
 
 ```graphql
 {
@@ -38,6 +67,18 @@ Per issue: fetch project fields (status, priority, size, iteration, story points
   }
 }
 ```
+
+**Tier `beads`** — `bd ready` / `bd list` / `bd blocked` already carry status, priority, type, and assignee. For dependency context on a selected item:
+
+```bash
+bd show <id> --json      # full record, including external_ref
+bd children <id>         # epic → child tree
+bd dep tree <id>         # blockers and blocked-by
+```
+
+`bd` models dependencies natively, so the parent/sibling tree comes free rather than being reconstructed from sub-issue edges.
+
+**Tier `labels`** — status comes from the `status:*` label already on each issue in Step 1. Parent/sibling context is unavailable; skip the tree. This tier trades context for having no setup.
 
 ### Step 3: Filter (optional iteration window)
 
@@ -73,10 +114,22 @@ Fetch full details of the selection (`gh issue view <n>`), then route by shape +
 State the route explicitly: "This is a sized Todo issue → run `/task_plan 1606`". Sizing is enforced here, at the door — an oversized or unshaped issue never goes straight to task planning.
 
 ## Reference
+- Tracker tier: `{{TRACKER}}`
 - GitHub username: `gh api user --jq .login`
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
-- Project: #{{PROJECT_NUMBER}} "{{PROJECT_NAME}}" (owner: {{GITHUB_ORG}})
-- Board statuses: Blocked, Todo, In Progress, Up for Review, Done
+- Project (tier `github-projects`): #{{PROJECT_NUMBER}} "{{PROJECT_NAME}}" (owner: {{GITHUB_ORG}})
+- Lifecycle states, and how each tier stores them:
+
+  | State | `github-projects` | `beads` | `labels` |
+  |---|---|---|---|
+  | Todo | board status Todo | `status: open` | `status:todo` |
+  | In Progress | board status In Progress | `status: in_progress` | `status:in-progress` |
+  | Up for Review | board status Up for Review | `lifecycle=up_for_review` (label + event) | `status:up-for-review` |
+  | Done | board status Done | `status: closed` | issue closed |
+  | Blocked | board status Blocked | `status: blocked` / `bd blocked` | `status:blocked` |
+
+  `beads` has no native "Up for Review" status — `bd set-state <id> lifecycle=up_for_review` records an event bead *and* attaches a queryable `lifecycle:up_for_review` label, which is what Step 0 reconciles against.
 - Priority: P0, P1, P2 · Size: XS, S, M, L, XL
 - Task files: `.llm/tasks/<issue>_<slug>.md`
 - `gh` commands fail → suggest `gh auth status`
+- `bd` commands fail with "no beads database found" → beads needs a running `dolt sql-server`. Suggest starting it, then `bd init`. See `docs/sop/beads-setup.md`

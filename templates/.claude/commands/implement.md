@@ -7,13 +7,14 @@ Execute an approved task plan. Idempotent — first run after `/task_plan` appro
 ### Step 1: Resolve the issue
 
 1. `$ARGUMENTS` given → use it
-2. Otherwise parse from the current branch name (`{{BRANCH_PREFIX}}/<issue>/<slug>`)
+2. Otherwise parse from the current branch name (`{{BRANCH_PREFIX}}/<id>/<slug>`). The `<id>` segment is
+   either a bare number (`1613`) or a bead ID (`bd-a3f2dd`) depending on the tracker tier — accept both.
 3. Neither works → ask, or suggest `/pick`
 
 ### Step 2: Load state
 
-1. Read `.llm/tasks/<issue>_*.md` — goal, acceptance criteria, Next Actions, progress log. **No task file → stop, run `/task_plan <issue>` first.** Never implement without an approved plan.
-2. Verify the branch: on `{{BRANCH_PREFIX}}/<issue>/*`? If not, check it out. `git status` + `git log origin/main..HEAD --oneline` — what's already committed.
+1. Read `.llm/tasks/<id>_*.md` — goal, acceptance criteria, Next Actions, progress log. **No task file → stop, run `/task_plan <issue>` first.** Never implement without an approved plan.
+2. Verify the branch: on `{{BRANCH_PREFIX}}/<id>/*`? If not, check it out. `git status` + `git log origin/main..HEAD --oneline` — what's already committed.
 3. Cross-check progress log vs actual commits — the log can lag reality; commits are truth.
 
 ### Step 3: Orient
@@ -49,7 +50,7 @@ Criteria remain → keep looping or report the blocker.
 
 ## Reference
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
-- Task files: `.llm/tasks/<issue>_<slug>.md`
-- Branch convention: `{{BRANCH_PREFIX}}/<issue>/<slug>`
+- Task files: `.llm/tasks/<id>_<slug>.md`
+- Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number or `bd-<hash>`
 - Test runner: `bin/test` (specific file: `bin/test <path-to-test-file>`), system: `bin/rails test:system`
 - Sizing: PR target 100–600 added lines / 5–15 files
