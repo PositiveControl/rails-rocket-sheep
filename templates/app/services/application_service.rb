@@ -87,7 +87,7 @@ class ApplicationService
   # @param errors [String, Array<String>] the error message(s)
   # @return [Result] a failed result
   def failure(errors)
-    errors = [errors] unless errors.is_a?(Array)
+    errors = [ errors ] unless errors.is_a?(Array)
     Result.new(success: false, value: nil, errors: errors)
   end
 

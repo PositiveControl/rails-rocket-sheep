@@ -28,15 +28,25 @@ def source_paths
   [File.join(TEMPLATE_ROOT, "templates"), TEMPLATE_ROOT]
 end
 
-def template_file(source, destination = nil)
+def template_file(source, destination = nil, **options)
   destination ||= source.sub(/\.tt$/, "")
-  template source, destination
+  template source, destination, **options
 end
 
-def copy_template_file(source, destination = nil)
+def copy_template_file(source, destination = nil, **options)
   destination ||= source
-  copy_file source, destination
+  copy_file source, destination, **options
 end
+
+# Solid Stack configs are re-copied in after_bundle because Rails 8 runs
+# `solid_cache:install solid_queue:install solid_cable:install` after bundling,
+# which overwrites whatever the template wrote during the main pass.
+SOLID_CONFIGS = %w[
+  config/queue.yml
+  config/cache.yml
+  config/cable.yml
+  config/recurring.yml
+].freeze
 
 # =============================================================================
 # Phase 1: Gem Configuration
@@ -127,17 +137,9 @@ say "Configuring application...", :green
 remove_file "app/models/application_record.rb"
 template_file "app/models/application_record.rb.tt"
 
-# Solid Queue configuration
-copy_template_file "config/queue.yml"
-
-# Solid Cache configuration
-copy_template_file "config/cache.yml"
-
-# Solid Cable configuration
-copy_template_file "config/cable.yml"
-
-# Recurring jobs configuration
-copy_template_file "config/recurring.yml"
+# Solid Stack configuration (queue, cache, cable, recurring) is written in
+# after_bundle, not here — see SOLID_CONFIGS above. Writing it now would make
+# Rails' own solid_*:install generators prompt the user to overwrite it.
 
 # =============================================================================
 # Phase 4: Development Environment
@@ -145,28 +147,28 @@ copy_template_file "config/recurring.yml"
 
 say "Configuring development environment...", :green
 
-# Configure Bullet for N+1 detection
+# Bullet (N+1 detection) and letter_opener_web (email preview).
+#
+# Both go in a single injection, indented to match the file. Two separate
+# `before: /^end\s*$/` injections would not work: the first one writes an
+# unindented `end` of its own, which the second injection then matches — so the
+# second block lands inside the Bullet `after_initialize` block instead of at
+# config level.
 inject_into_file "config/environments/development.rb", before: /^end\s*$/ do
-  <<~RUBY
+  <<~RUBY.indent(2)
 
-  # Bullet N+1 query detection
-  config.after_initialize do
-    Bullet.enable = true
-    Bullet.bullet_logger = true
-    Bullet.console = true
-    Bullet.rails_logger = true
-    Bullet.add_footer = true
-  end
-  RUBY
-end
+    # Bullet N+1 query detection
+    config.after_initialize do
+      Bullet.enable = true
+      Bullet.bullet_logger = true
+      Bullet.console = true
+      Bullet.rails_logger = true
+      Bullet.add_footer = true
+    end
 
-# Configure letter_opener_web for email preview
-inject_into_file "config/environments/development.rb", before: /^end\s*$/ do
-  <<~RUBY
-
-  # Email preview in development
-  config.action_mailer.delivery_method = :letter_opener_web
-  config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
+    # Email preview in development
+    config.action_mailer.delivery_method = :letter_opener_web
+    config.action_mailer.default_url_options = { host: "localhost", port: 3000 }
   RUBY
 end
 
@@ -193,8 +195,8 @@ template_file "config/deploy.yml.tt"
 # Docker configuration
 template "Dockerfile.tt", "Dockerfile", force: true
 
-# Docker entrypoint script
-template_file "bin/docker-entrypoint.tt"
+# Docker entrypoint script (Rails 8 ships its own — ours runs migrations)
+template_file "bin/docker-entrypoint.tt", force: true
 chmod "bin/docker-entrypoint", 0755
 
 # macOS-friendly test script
@@ -250,8 +252,8 @@ copy_template_file "app/helpers/progress_bar_helper.rb"
 
 say "Setting up SEO foundation...", :green
 
-# robots.txt with sensible defaults
-copy_template_file "public/robots.txt"
+# robots.txt with sensible defaults (Rails 8 ships a minimal one)
+copy_template_file "public/robots.txt", force: true
 
 # Structured data helper (jsonld_tag + iso8601_duration)
 copy_template_file "app/helpers/structured_data_helper.rb"
@@ -275,6 +277,10 @@ say "Configuring testing...", :green
 # VCR support
 copy_template_file "test/support/vcr.rb"
 
+# Generator override: stock fixtures emit two identical placeholder records,
+# which violate any unique index (notably Devise's email) on first test run.
+copy_template_file "lib/templates/test_unit/model/fixtures.yml"
+
 # Update test_helper to require VCR
 inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/ do
   <<~RUBY
@@ -290,8 +296,8 @@ end
 
 say "Setting up code quality tools...", :green
 
-# Rubocop configuration
-copy_template_file ".rubocop.yml"
+# Rubocop configuration (Rails 8 ships its own omakase file)
+copy_template_file ".rubocop.yml", force: true
 
 # =============================================================================
 # Phase 12: Documentation
@@ -352,7 +358,11 @@ RUBY
 
 # Create home view directory and view
 empty_directory "app/views/home"
-create_file "app/views/home/index.html.slim", <<~'SLIM'
+# Note: unquoted heredoc — app_name is interpolated now, at generation time.
+# The Devise helpers are guarded because no User model exists until the
+# developer runs `rails g devise User`; without the guard the home page raises
+# on first boot.
+create_file "app/views/home/index.html.slim", <<~SLIM
   .min-h-screen.bg-gradient-to-br.from-indigo-900.via-purple-900.to-pink-800.flex.items-center.justify-center
     .text-center.p-8
       / Rocket Sheep Logo
@@ -370,13 +380,16 @@ create_file "app/views/home/index.html.slim", <<~'SLIM'
         | Rails 8 • Solid Stack • Kamal Deploy
 
       .space-x-4
-        - if user_signed_in?
+        - if respond_to?(:user_signed_in?) && user_signed_in?
           .text-purple-200.mb-4
             | Welcome back!
           = link_to "Sign Out", destroy_user_session_path, data: { turbo_method: :delete }, class: "px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 backdrop-blur border border-white/20 transition"
-        - else
+        - elsif respond_to?(:new_user_session_path)
           = link_to "Sign In", new_user_session_path, class: "px-6 py-3 bg-white text-purple-900 font-semibold rounded-lg hover:bg-purple-100 transition"
           = link_to "Sign Up", new_user_registration_path, class: "px-6 py-3 bg-white/10 text-white rounded-lg hover:bg-white/20 backdrop-blur border border-white/20 transition"
+        - else
+          p.text-purple-200.text-sm
+            | Run <code class="font-mono">rails g devise User</code> to enable authentication
 
       .mt-12.text-purple-400.text-sm
         | Ready to build something amazing
@@ -434,6 +447,12 @@ after_bundle do
   say "Running post-bundle setup...", :green
 
   # Note: PostgreSQL 13+ has gen_random_uuid() built-in, no pgcrypto needed
+
+  # Rails 8 runs solid_cache/solid_queue/solid_cable installers after bundling,
+  # which overwrite the Solid Stack configs written during the main pass.
+  # Re-apply ours now that those generators have finished.
+  say "Restoring Solid Stack configuration...", :yellow
+  SOLID_CONFIGS.each { |config| copy_template_file config, force: true }
 
   # Install Devise
   say "Installing Devise...", :yellow

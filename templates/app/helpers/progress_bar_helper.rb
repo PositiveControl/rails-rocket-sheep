@@ -21,12 +21,12 @@ module ProgressBarHelper
   def progress_bar(current:, max:, label: nil, color: "blue", show_percentage: false, size: :md, animate: false)
     return "" if max.zero?
 
-    percentage = [(current.to_f / max * 100).round, 100].min
+    percentage = [ (current.to_f / max * 100).round, 100 ].min
     height = case size
-             when :sm then "h-1"
-             when :lg then "h-4"
-             else "h-2"
-             end
+    when :sm then "h-1"
+    when :lg then "h-4"
+    else "h-2"
+    end
 
     bar_color = "bg-#{color}-500"
     track_color = "bg-#{color}-100 dark:bg-#{color}-900/30"
@@ -59,11 +59,11 @@ module ProgressBarHelper
 
     color = if percentage >= danger_threshold
               "red"
-            elsif percentage >= warning_threshold
+    elsif percentage >= warning_threshold
               "yellow"
-            else
+    else
               "green"
-            end
+    end
 
     progress_bar(
       current: current,

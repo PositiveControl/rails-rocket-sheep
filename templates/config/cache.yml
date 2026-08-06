@@ -1,10 +1,15 @@
 # Solid Cache configuration
 # https://github.com/rails/solid_cache
+#
+# Values are ERB-evaluated at boot, so durations and sizes must be wrapped in
+# ERB tags. Without them, YAML reads `1.week.to_i` as a literal string.
 
 default: &default
   store_options:
-    max_age: 1.week.to_i
-    max_size: 256.megabytes
+    # Cap age of the oldest cache entry to fulfill retention policies
+    max_age: <%= 1.week.to_i %>
+    max_size: <%= 256.megabytes %>
+    namespace: <%= Rails.env %>
 
 development:
   <<: *default
@@ -14,6 +19,9 @@ test:
 
 production:
   <<: *default
+  # Connects to the `cache` database defined in config/database.yml
+  database: cache
   store_options:
-    max_age: 1.month.to_i
-    max_size: 1.gigabyte
+    max_age: <%= 1.month.to_i %>
+    max_size: <%= 1.gigabyte %>
+    namespace: <%= Rails.env %>

@@ -1,0 +1,19 @@
+# Read about fixtures at
+# https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+#
+# Fixtures are intentionally empty by default.
+#
+# The stock Rails generator emits two placeholder records with identical column
+# values, which raises PG::UniqueViolation as soon as the table has a unique
+# index — Devise's `email` column being the usual first casualty.
+#
+# Add fixtures deliberately, with values that satisfy your uniqueness
+# constraints:
+#
+# alice:
+#   email: alice@example.com
+#   name: Alice
+#
+# bob:
+#   email: bob@example.com
+#   name: Bob

@@ -1,5 +1,8 @@
 # Solid Cable configuration for Action Cable
 # https://github.com/rails/solid_cable
+#
+# Development uses solid_cable rather than :async so that behaviour matches
+# production. The `cable` database is defined in config/database.yml.
 
 development:
   adapter: solid_cable
@@ -7,6 +10,7 @@ development:
     database:
       writing: cable
   polling_interval: 0.1.seconds
+  message_retention: 1.day
 
 test:
   adapter: test
@@ -17,3 +21,4 @@ production:
     database:
       writing: cable
   polling_interval: 0.1.seconds
+  message_retention: 1.day

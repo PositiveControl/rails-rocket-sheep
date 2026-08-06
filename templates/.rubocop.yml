@@ -4,6 +4,17 @@
 inherit_gem:
   rubocop-rails-omakase: rubocop.yml
 
+AllCops:
+  Exclude:
+    # Generated verbatim by `devise:install` — reformatting it makes diffing
+    # against upstream on a Devise upgrade painful for no benefit.
+    - "config/initializers/devise.rb"
+    # Generated verbatim by `paper_trail:install`.
+    - "db/migrate/*_create_versions.rb"
+    # Schema files are generated, never hand-edited.
+    - "db/schema.rb"
+    - "db/*_schema.rb"
+
 # Add any project-specific overrides below
 # Example:
 # Style/StringLiterals:

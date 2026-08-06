@@ -22,7 +22,7 @@ VCR.configure do |config|
   # :all - Always record (useful for debugging)
   config.default_cassette_options = {
     record: :once,
-    match_requests_on: [:method, :uri, :body]
+    match_requests_on: [ :method, :uri, :body ]
   }
 
   # Allow real HTTP connections for localhost (for system tests)
