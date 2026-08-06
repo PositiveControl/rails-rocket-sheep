@@ -88,7 +88,7 @@ accessories:
   db:
     image: postgres:16
     host: YOUR_SERVER_IP
-    port: 5432
+    port: "127.0.0.1:5432:5432"
     env:
       clear:
         POSTGRES_USER: <%= app_name %>
