@@ -47,7 +47,7 @@ Devise, pre-configured for Turbo (`navigational_formats` set correctly — the f
 - **UUID primary keys** on every table, wired through the generators so `rails g model` does the right thing automatically
 - **Discard** available for soft deletes, opt-in per table — `destroy` is the default, and PaperTrail can reify a destroyed record
 - **PaperTrail** with `--with-changes` for a full audit trail
-- **Pagy** for pagination, wired into `ApplicationController` and `ApplicationHelper` so `pagy(scope)` works out of the box
+- **Pagy** for pagination, wired into `ApplicationController` so `pagy(scope)` works out of the box
 
 ### Service objects with a Result type
 
@@ -189,7 +189,7 @@ Each generated app also ships: `docs/rules/` (37 rules + a routing index), `docs
 
 ## Requirements
 
-- Ruby 3.2+ (developed and tested on 3.4)
+- Ruby 3.3+ (Pagy 43 sets the floor; developed and tested on 4.0)
 - Rails 8.0+
 - PostgreSQL 13+ (uses built-in `gen_random_uuid()`, no pgcrypto extension needed)
 - Node.js — only if you swap Tailwind for a bundler-based frontend

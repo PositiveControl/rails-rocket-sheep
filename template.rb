@@ -74,14 +74,14 @@ gem "discard"                # Soft deletes
 gem "paper_trail"            # Audit trail / versioning
 
 # Pagination
-gem "pagy", "~> 9.0"
+gem "pagy", "~> 43.6"
 
 # Templates
 gem "slim-rails"
 gem "view_component", "~> 4.0"   # UI components with tests
 
 # Email (optional - Resend API)
-gem "resend", "~> 0.17"
+gem "resend", "~> 1.7"
 
 # Development gems
 gem_group :development do
@@ -273,12 +273,12 @@ end
 
 # Pagy is installed but Rails does not wire it up. Do it here so "every index
 # paginates" is a rule someone can actually follow — see docs/rules/pagination.md.
+#
+# Pagy 43 replaced the old Pagy::Backend / Pagy::Frontend pair with a single
+# Pagy::Method module. The view helpers now live on the Pagy instance
+# (@pagy.series_nav), so ApplicationHelper needs no include at all.
 inject_into_class "app/controllers/application_controller.rb", "ApplicationController" do
-  "  include Pagy::Backend\n\n"
-end
-
-inject_into_file "app/helpers/application_helper.rb", after: "module ApplicationHelper\n" do
-  "  include Pagy::Frontend\n"
+  "  include Pagy::Method\n\n"
 end
 
 # =============================================================================

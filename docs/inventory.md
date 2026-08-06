@@ -81,7 +81,7 @@ flowchart TB
 | UUID primary keys | ✅ | Wired through generators |
 | Soft deletes | ✅ | Discard installed, opt-in per table; `destroy` is the default |
 | Audit trail | ✅ | PaperTrail `--with-changes` |
-| Pagination | ✅ | Pagy, included in `ApplicationController` and `ApplicationHelper` |
+| Pagination | ✅ | Pagy, `Pagy::Method` included in `ApplicationController` |
 | Query objects | ➖ | Documented pattern, no base class — `app/queries/` on first use |
 | Policy objects | ➖ | Documented pattern, no base class — `app/policies/` on first use |
 | Auth | ✅ | Devise (Turbo-configured) + Petergate |
@@ -202,7 +202,9 @@ GitHub validates issue-form schema server-side only. A malformed form silently f
 
 #### Maintenance, ongoing
 
-**10. Re-verify against each Rails release.** The template patches specific Rails files by matching their content (`config/application.rb`, `config/environments/development.rb`, the layout). Rails 8.1 or 9 can break *generation* — already-generated apps are unaffected. Nobody is scheduled to do this, and it's how the product quietly dies.
+**10. Re-verify against each Rails release.** The template patches specific Rails files by matching their content (`config/application.rb`, `config/environments/development.rb`, the layout). A Rails release can break *generation* — already-generated apps are unaffected. Nobody is scheduled to do this, and it's how the product quietly dies.
+
+Last verified 2026-08-06 against **Ruby 4.0.6 / Rails 8.1.3.1**: all anchors still match, generated app is green on `bin/test`, `bin/rubocop`, `bin/brakeman`. Rails 9 is the next exposure.
 
 #### Unmeasured assumption
 
