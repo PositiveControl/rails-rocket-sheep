@@ -33,7 +33,7 @@ Work through Next Actions in order. Per logical unit:
 
 Rules in force:
 
-- **Conventions**: CLAUDE.md is the single source — do not restate rules in the task file
+- **Conventions**: `docs/rules/` is the single source, routed by `docs/rules/INDEX.md` — do not restate rules in the task file
 - **Scope escape**: forecast passes ~600 added lines, or new acceptance criteria surface → STOP. Split a sub-issue (`gh issue create`, link to parent), note it in the task file, land the current slice clean
 - **Segue valve**: rabbit hole, plan contradiction, or theory-war debugging → suggest `/segue <question>` instead of burning the session
 - Remove all debugging code before finishing

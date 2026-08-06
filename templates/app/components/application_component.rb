@@ -23,7 +23,7 @@
 # which writes the class, a sidecar app/components/alert_component/alert_component.html.slim,
 # and a test.
 #
-# See docs/system/ui-patterns.md for the full guidance.
+# See docs/rules/components.md for the full guidance.
 class ApplicationComponent < ViewComponent::Base
   # Join class name fragments, dropping blanks.
   #

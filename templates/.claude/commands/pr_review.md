@@ -89,7 +89,7 @@ Before own assessment, read all existing review comments. Avoids duplicating poi
 
 ### Step 5: Load review standards
 
-Read `CLAUDE.md` — the single source for style, testing, and process conventions — and use it as the primary review criteria for Step 6, alongside the general criteria below.
+Read `CLAUDE.md` for the non-negotiables, then use `docs/rules/INDEX.md` to pull the rules matching the changed files. Those are the primary review criteria for Step 6, alongside the general criteria below.
 
 ### Step 6: Read relevant project documentation
 

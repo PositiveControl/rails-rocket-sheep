@@ -272,7 +272,7 @@ copy_template_file "app/components/application_component.rb"
 end
 
 # Pagy is installed but Rails does not wire it up. Do it here so "every index
-# paginates" is a rule someone can actually follow — see docs/system/design-patterns.md.
+# paginates" is a rule someone can actually follow — see docs/rules/pagination.md.
 inject_into_class "app/controllers/application_controller.rb", "ApplicationController" do
   "  include Pagy::Backend\n\n"
 end
@@ -350,10 +350,13 @@ copy_template_file ".rubocop.yml", force: true
 
 say "Creating documentation...", :green
 
-# CLAUDE.md for AI assistants
-template "CLAUDE.md", "CLAUDE.md"
+# CLAUDE.md for the generated app. Lives at templates/CLAUDE.md.tt so it is
+# unmistakably an artifact this template writes, not this repo's own agent
+# instructions — the repo's CLAUDE.md sits at the root and describes how to
+# work on template.rb itself.
+template_file "CLAUDE.md.tt"
 
-# Four-directory doc canon. Every workflow command in .claude/commands reads
+# Doc canon. Every workflow command in .claude/commands reads
 # and writes these paths, so the names are load-bearing — don't rename them
 # without updating the commands.
 #
@@ -366,13 +369,21 @@ empty_directory "docs/plans"
 empty_directory "docs/qa"
 
 template_file "docs/system/models.md.tt"
-copy_template_file "docs/system/design-patterns.md"
-copy_template_file "docs/system/ui-patterns.md"
 copy_template_file "docs/system/architecture.md"
 copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
 copy_template_file "docs/sop/beads-setup.md"
 copy_template_file "docs/sop/find-slow-tests.md"
+
+# Sharded conventions. One rule per file with frontmatter (applies_to globs,
+# trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
+# agent can use it — no harness-specific loading. An agent reads the index and
+# then only the rules that match the file it is editing.
+RULE_FILES = Dir.glob(File.join(TEMPLATE_ROOT, "templates/docs/rules/*.md"))
+                .map { |path| "docs/rules/#{File.basename(path)}" }.freeze
+
+empty_directory "docs/rules"
+RULE_FILES.each { |rule| copy_template_file rule }
 
 # =============================================================================
 # Phase 12b: Agent Workflow

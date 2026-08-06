@@ -81,7 +81,7 @@ Delete the file. Nothing reads it at runtime.
 ## AI agents
 
 **Does this only work with Claude Code?**
-No. `CLAUDE.md` is the single source, and three pointers route other tools to it:
+No. `docs/rules/` is the single source — plain markdown with YAML frontmatter, no harness features — and every pointer routes to the same `docs/rules/INDEX.md`:
 
 - **Claude Code** — reads `CLAUDE.md` and `.claude/commands/`
 - **Cursor** — reads `.cursor/rules/conventions.mdc` and `.cursor/commands/`, both shipped. The commands are the same files, mirrored at generation time rather than forked.

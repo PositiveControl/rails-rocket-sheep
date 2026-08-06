@@ -1,0 +1,179 @@
+# <%= app_name.titleize %>
+
+Rails 8 application built with the Solid Stack architecture.
+
+## Quick Start
+
+```bash
+bin/dev              # Start development server with Tailwind watcher
+bin/test             # Run tests (single worker on macOS)
+bin/rails console    # Rails console
+bin/rails db:migrate # Run migrations
+bin/rubocop          # Run linter
+bin/brakeman         # Security analysis
+```
+
+## Tech Stack
+
+- **Backend:** Rails 8 + PostgreSQL, UUID primary keys
+- **Frontend:** Hotwire (Turbo + Stimulus), Tailwind CSS, Slim (not ERB)
+- **Components:** ViewComponent (`app/components`, `ApplicationComponent`)
+- **Pagination:** Pagy (wired into `ApplicationController`)
+- **Solid Stack:** Solid Queue, Solid Cache, Solid Cable — all database-backed, no Redis
+- **Auth:** Devise + Petergate
+- **Deployment:** Kamal 2 with Docker
+- **Quality:** RuboCop (Rails Omakase), Brakeman, Bullet, Slowpoke
+
+## Finding the rule that applies
+
+**Conventions are one rule per file in `docs/rules/`. Do not read them all.**
+
+Start at [`docs/rules/INDEX.md`](docs/rules/INDEX.md). It routes three ways:
+
+1. **By the file you are editing** — the `applies_to` glob table
+2. **By symptom** — `grep -l "<keyword>" docs/rules/*.md`, or the trigger table
+3. **By rule id** — the file is always `docs/rules/<id>.md`
+
+The index costs ~1,300 tokens; a rule costs 150–500. Reading the whole directory
+is a mistake, not diligence.
+
+## Non-negotiables
+
+The short list. Each one has a rule file with the reasoning, the worked example,
+and the "when not to" — follow the link before you argue with the rule.
+
+- **Tests first.** `bin/test` passes before you claim anything works. `bin/rubocop`
+  and `bin/brakeman` clean. Fix flaky tests immediately, even when unrelated to
+  your change.
+- **Form failures render with `status: :unprocessable_content`.** Without it Turbo
+  discards the response and the form silently freezes → `docs/rules/turbo-status.md`
+- **Controllers stay RESTful** — seven actions, a new verb gets a new controller,
+  actions under ~10 lines → `docs/rules/controllers.md`
+- **Every index paginates** → `docs/rules/pagination.md`
+- **Scope every lookup** (`current_user.orders.find(...)`) and let the miss raise
+  → `docs/rules/exception-boundary.md`
+- **Business logic goes in `ApplicationService`**, not controllers, not callbacks.
+  Transactions live there → `docs/rules/service-objects.md`
+- **Multi-model forms use `ApplicationForm`.** Never `accepts_nested_attributes_for`
+  → `docs/rules/form-objects.md`
+- **Scopes, never class methods** returning relations → `docs/rules/scopes.md`
+- **Callbacks touch only their own record** → `docs/rules/callbacks.md`
+- **Slim only, never ERB.** Tailwind bracket classes need the `class=""` form
+  → `docs/rules/slim-gotchas.md`
+- **Deletes are real by default.** Discard is opt-in per table → `docs/rules/deletes.md`
+- **Six sanctioned directories under `app/`** — `services`, `forms`, `queries`,
+  `policies`, `lib`, `components`. A seventh needs an ADR → `docs/rules/pattern-budget.md`
+- **Update `docs/` when behaviour changes**, and `grep` for an existing doc first.
+
+## Development workflow
+
+- **Planning:** non-trivial features get a design doc in `docs/plans/` before code
+- **Collaborative:** explain findings and reasoning; stop often for feedback
+- **TDD:** write tests before code; commit in functional chunks when green. Stop
+  when tests fail to present context and discuss next steps
+- **Commits:** small, focused, clear messages
+- **Slow tests:** Slowpoke flags anything over 500ms after each run. Fix the cause
+  or state why it's inherent — don't let the report become noise
+  (`docs/sop/find-slow-tests.md`)
+
+Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
+
+```
+/pick (entry, routes by state) → /feature_plan → /task_plan → /implement → /pr_submit → human merge → automation
+```
+
+- `/pick` is the entry door for every session — it surfaces ready work and routes it
+- Four gates: design approved (G1), plan approved (G2), suite green (G3), comments resolved (G4)
+- Sizing: 100–600 added lines per PR; issue acceptance criteria ≤5 bullets. Forecast
+  passes 600 lines mid-implementation → stop, split, land the current slice
+- `/segue` is the escape valve — isolate a tangent, merge findings back without
+  polluting the workstream
+
+Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
+
+## Testing
+
+```bash
+bin/test                              # All tests
+bin/test test/models/                 # Directory
+bin/test test/models/user_test.rb:42  # Specific line
+```
+
+Slowpoke reports any test over 500ms and prints nothing when the suite is clean.
+Tune per run with `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`,
+`SLOWPOKE_CI`; project defaults are in `test/support/slowpoke.rb`. A slow test is
+usually a test creating records its assertion never touches — `docs/sop/find-slow-tests.md`.
+
+`binding.pry` drops into a debugger anywhere. VCR wraps external HTTP:
+`vcr_cassette("external_api/fetch_data") { ... }`.
+
+## SEO
+
+robots.txt, dynamic `/sitemap.xml`, meta description and canonical URL with
+per-page `content_for` overrides, `StructuredDataHelper#jsonld_tag` for JSON-LD,
+integration tests in `test/integration/seo_test.rb`, and a weekly Lighthouse CI
+workflow. Adding a page: `docs/sop/add-seo-to-a-page.md`.
+
+## Deployment
+
+Kamal 2. Configure `config/deploy.yml`, fill `.kamal/secrets`, then
+`kamal setup` and `kamal deploy`. Production needs `RAILS_MASTER_KEY`,
+`DATABASE_URL`, and `POSTGRES_PASSWORD`. Server hardening:
+`docs/sop/harden-a-kamal-server.md`.
+
+## Documentation
+
+Docs follow a canon. The workflow commands in `.claude/commands/` read and write
+these exact paths — don't rename them.
+
+| Directory | Holds | Written by |
+|-----------|-------|------------|
+| `docs/rules/` | One convention per file + `INDEX.md` | Hand-maintained; see the index's own rules |
+| `docs/plans/` | Design docs for features | `/feature_plan` |
+| `docs/system/` | Architecture state — how things currently work | `/pr_submit`, `/update_docs` |
+| `docs/sop/` | Procedures someone will repeat | `/pr_submit`, `/update_docs` |
+| `docs/qa/` | Manual test guides | `/pr_qa` |
+
+`docs/system/` holds `architecture.md` (ADRs — *why* a rule exists and what was
+accepted) and `models.md`. Rules say what to
+do; ADRs say why it was chosen. Don't merge them.
+
+`.llm/README.md` indexes committed docs. Conventions are single-sourced in
+`docs/rules/`; task files in `.llm/tasks/` reference them and never restate them.
+
+## Project Structure
+
+```
+app/
+├── lib/                    # Registries and config modules
+├── models/                 # ActiveRecord models
+├── services/               # Service objects (inherit ApplicationService)
+├── forms/                  # Form objects (inherit ApplicationForm)
+├── components/             # ViewComponents (inherit ApplicationComponent)
+├── controllers/            # RESTful controllers
+├── jobs/                   # Background jobs (Solid Queue)
+├── helpers/                # View helpers
+├── views/                  # Slim templates
+└── javascript/controllers/ # Stimulus controllers
+
+# Created on first use, not shipped empty:
+#   app/queries/   Query objects — reads joining ≥2 models
+#   app/policies/  Record-level authorization
+
+docs/                       # names are load-bearing
+├── rules/                  # One convention per file
+│   └── INDEX.md            #   Router — start here
+├── plans/                  # Design docs (/feature_plan)
+├── system/                 # Architecture state
+│   ├── architecture.md     #   Architecture Decision Records
+│   └── models.md           #   Model documentation
+├── sop/                    # Procedures / how-tos
+└── qa/                     # Manual test guides
+
+.claude/commands/           # 19 workflow slash commands (tracked, shared)
+.llm/
+├── tasks/                  # Task files — local scratch, gitignored
+└── threads/                # Segue threads — local scratch, gitignored
+bin/pr-stack                # Stacked-PR footer generator (used by /pr_submit)
+WORKFLOW.md                 # Lifecycle spec + diagrams
+```

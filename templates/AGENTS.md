@@ -1,16 +1,22 @@
 # Agent Instructions
 
-**The conventions for this repository live in [`CLAUDE.md`](CLAUDE.md). Read it before making any change.**
+**Start with [`CLAUDE.md`](CLAUDE.md) — the stack, the non-negotiables, and how to
+find the rule that applies. Read it before making any change.**
+
+Individual conventions are one rule per file in
+[`docs/rules/`](docs/rules/INDEX.md). `CLAUDE.md` names each rule in a line and
+links to it; the rule file carries the reasoning, the worked example, and the
+"when not to."
 
 This file exists so tools that look for `AGENTS.md` find their way there. It is a
-pointer, not a second source — conventions are single-sourced in `CLAUDE.md`, and
-anything restated here would drift.
+pointer, not a second source — anything restated here would drift.
 
 ## Orientation
 
 | What | Where |
 |---|---|
 | Coding conventions, patterns, anti-patterns | `CLAUDE.md` |
+| Individual rules, one per file — **read the index, then only what applies** | `docs/rules/INDEX.md` |
 | Development lifecycle, gates, sizing rules | `WORKFLOW.md` |
 | Workflow commands | `.claude/commands/` (mirrored to `.cursor/commands/`) |
 | Index of committed documentation | `.llm/README.md` |
@@ -62,4 +68,14 @@ Run `workflow_setup` once before first use.
 - Update `docs/` when behaviour changes, and `grep` for an existing doc first
 
 The full reasoning behind each of these, with worked examples of the right and
-wrong version, is in `CLAUDE.md`.
+wrong version, is in the matching `docs/rules/` file.
+
+## Finding a rule without reading everything
+
+`docs/rules/` holds one convention per file. `docs/rules/INDEX.md` routes three ways:
+by the path you are editing, by symptom, or by rule id (`docs/rules/<id>.md`). Each
+rule file carries `applies_to` globs and `triggers` keywords in its frontmatter, so
+`grep -l "<keyword>" docs/rules/*.md` also works.
+
+**Read the index, then only the rules it points you to.** Reading the whole
+directory is a mistake, not diligence.

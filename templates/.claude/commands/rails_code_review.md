@@ -23,7 +23,7 @@ $ARGUMENTS
 
 ## Review Standards
 
-This app follows `CLAUDE.md` — it is the single source for conventions. This command reviews *against* those conventions; it does not restate them.
+This app's conventions are one rule per file in `docs/rules/`, routed by `docs/rules/INDEX.md`; `CLAUDE.md` carries the non-negotiables. This command reviews *against* those conventions; it does not restate them. Route to the rules that match the changed files rather than reading the whole directory.
 
 Stack:
 - Rails 8 Solid Stack — Solid Queue, Solid Cache, Solid Cable, each on its own database

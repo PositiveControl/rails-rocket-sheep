@@ -58,7 +58,7 @@
 #
 # A form object may call a service. A service must never know a form exists.
 #
-# See docs/system/design-patterns.md for where this sits relative to services.
+# See docs/rules/form-objects.md for where this sits relative to services.
 class ApplicationForm
   include ActiveModel::Model
   include ActiveModel::Attributes

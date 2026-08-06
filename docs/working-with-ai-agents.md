@@ -84,8 +84,8 @@ This section alone prevents a recurring class of failure.
 ### Two pattern docs, one index
 
 `CLAUDE.md` states the rules in short form and points at the reasoning:
-`docs/system/design-patterns.md` for the backend (controllers, services, forms,
-queries, policies, jobs, caching) and `docs/system/ui-patterns.md` for the view
+`docs/rules/` for the backend (controllers, services, forms,
+queries, policies, jobs, caching) and the view
 layer. Both carry a "when not to" for every pattern and a table of patterns
 explicitly rejected — repository, CQRS, hexagonal, interactor chains, DI
 containers.
@@ -118,7 +118,7 @@ Keep it dense. `CLAUDE.md` is loaded into context on every session, so length is
 
 ## The docs directories
 
-The generated app ships a four-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
+The generated app ships `docs/rules/` (one convention per file, with a routing index) plus a four-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
 
 | Directory | Contents | Written by |
 |---|---|---|
@@ -136,5 +136,5 @@ The point is continuity. An agent that writes a plan in session one can read it 
 ## Honest limitations
 
 - **Conventions drift under pressure.** An agent deep in a long debugging session will violate `CLAUDE.md` occasionally. It reduces divergence; it doesn't eliminate it.
-- **Claude Code is the primary target, but not the only one.** `CLAUDE.md` is the single source; `.cursor/rules/conventions.mdc` and `AGENTS.md` point to it, and the workflow commands are mirrored to `.cursor/commands/` from the same source files. A tool with no slash-command concept can still be told to follow a command file directly. What doesn't transfer is hooks — those are Claude Code-specific, so enforcement (as opposed to instruction) is weaker elsewhere.
+- **Claude Code is the primary target, but not the only one.** `docs/rules/` is the single source and it is plain markdown with YAML frontmatter, readable by anything; `CLAUDE.md`, `.cursor/rules/conventions.mdc`, and `AGENTS.md` all route to the same index, and the workflow commands are mirrored to `.cursor/commands/` from the same source files. A tool with no slash-command concept can still be told to follow a command file directly. What doesn't transfer is hooks — those are Claude Code-specific, so enforcement (as opposed to instruction) is weaker elsewhere.
 - **Opinionated means opinionated.** If you dislike service objects or Slim, this template is fighting you rather than helping. That's a reason not to buy it, and it's better said here than discovered later.

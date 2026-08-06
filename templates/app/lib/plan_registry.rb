@@ -25,7 +25,7 @@
 # when values must change without a deploy. Not before: a table turns every
 # feature check into a query and every typo into a runtime nil.
 #
-# See docs/system/design-patterns.md for when to reach for this.
+# See docs/rules/registries.md for when to reach for this.
 module PlanRegistry
   # Nested under the module on purpose — Zeitwerk expects plan_registry.rb to
   # define PlanRegistry and anything inside it. A top-level `Plan` here would

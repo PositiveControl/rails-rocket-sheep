@@ -24,7 +24,7 @@ Rocket Sheep front-loads the opinions:
 
 - **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `ApplicationForm` for multi-model forms, `ApplicationComponent` for UI units, `Data`-based registries for fixed variant sets, PaperTrail for audit trails, Discard for the tables that genuinely need soft deletes. The agent extends existing patterns instead of inventing new ones.
 - **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, UUIDs everywhere — with worked examples of both the right and wrong version.
-- **Anti-patterns are named explicitly.** `CLAUDE.md` and `docs/system/design-patterns.md` name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
+- **Anti-patterns are named explicitly.** `CLAUDE.md` and the `docs/rules/` files name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
 - **The pattern budget is fixed.** Six sanctioned directories under `app/`: `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh requires an ADR. Sprawl is the failure mode of a pattern catalogue, so the catalogue names its own limit.
 - **Docs have a home.** `docs/system/architecture.md` for ADRs, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
 
@@ -151,7 +151,7 @@ Slowpoke prints any test over 500ms after the run and nothing at all when the su
 
 ### Frontend
 
-Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules are documented in `docs/system/ui-patterns.md` — the failures they prevent are silent ones.
+Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules each get their own rule file in `docs/rules/` — the failures they prevent are silent ones.
 
 ---
 
@@ -165,12 +165,13 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 | [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
-| [Patterns](docs/patterns.md) | Service objects, registries, form objects, components, soft deletes, audit trails — with worked examples |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
 | [FAQ](docs/faq.md) | Ruby/Rails versions, removing pieces, upgrades, licensing |
 
-Each generated app also ships its own docs: `docs/system/architecture.md`, `docs/system/design-patterns.md`, `docs/system/ui-patterns.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
+
+Each generated app also ships: `docs/rules/` (36 rules + a routing index), `docs/system/architecture.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 

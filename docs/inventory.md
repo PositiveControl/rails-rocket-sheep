@@ -57,7 +57,7 @@ flowchart TB
 | Item | Status | Notes |
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs |
-| Pattern reference docs | ✅ | `docs/system/design-patterns.md` (backend) + `ui-patterns.md` (views), each with when-not-to and rejected patterns |
+| Pattern reference docs | ✅ | `docs/rules/` — 36 single-rule files + `INDEX.md` routing by path, symptom, or id. Backend and views both |
 | Workflow commands | ✅ | 19 commands, `/pick` → merge |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them) |

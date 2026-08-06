@@ -22,14 +22,22 @@ Design docs for features. Written before issues are created, approved at gate G1
 *None yet.*
 <!-- plans:end -->
 
+## Rules — `docs/rules/`
+
+One convention per file, with `applies_to` globs and `trigger` keywords in
+frontmatter. Not a narrative — a lookup table.
+
+- [Rule index](../docs/rules/INDEX.md) — routes by file path, by symptom, or by rule id
+
+Read the index and then only the rules it points to. This directory is not
+indexed line-by-line here on purpose; the index is the index.
+
 ## System — `docs/system/`
 
 How things currently work. Architecture state, not intentions.
 
 <!-- system:start -->
 - [Architecture Decision Records](../docs/system/architecture.md) — decisions taken and their consequences
-- [Design Patterns](../docs/system/design-patterns.md) — backend patterns: controllers, services, forms, queries, jobs
-- [UI Patterns](../docs/system/ui-patterns.md) — components, partials, Turbo, Stimulus, Slim, Tailwind
 - [Models](../docs/system/models.md) — model reference
 <!-- system:end -->
 
@@ -56,8 +64,9 @@ Manual test guides. Written by `/pr_qa` for flows that automated tests don't cov
 
 ## Conventions
 
-Coding conventions, style, and process rules live in `CLAUDE.md` at the repo
-root — the single source. Docs here describe *this system*; they never restate
-conventions.
+Coding conventions are one rule per file in `docs/rules/`, routed by
+`docs/rules/INDEX.md`. `CLAUDE.md` at the repo root carries the non-negotiables
+in one line each and links out. Docs here describe *this system*; they never
+restate conventions.
 
 Workflow lifecycle, gates, and sizing rules: `WORKFLOW.md`.

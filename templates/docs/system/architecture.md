@@ -100,7 +100,7 @@ Use Slim instead of ERB for all views.
 - (+) Enforces proper indentation
 - (+) Less visual noise than ERB
 - (-) Learning curve for ERB developers
-- (-) Some Tailwind syntax requires workarounds (see ui-patterns.md)
+- (-) Some Tailwind syntax requires workarounds (see docs/rules/slim-gotchas.md)
 
 ---
 
@@ -125,7 +125,7 @@ logic-free markup reused within one resource, and must declare strict locals.
 - (+) Explicit constructor interface — no ambient instance variables
 - (+) Variants live in one frozen hash instead of scattered conditionals
 - (-) One more dependency, and a second place view code can live
-- (-) Over-application produces a component per div; the partial/component line is in ui-patterns.md
+- (-) Over-application produces a component per div; the partial/component line is in docs/rules/view-code-placement.md
 
 ---
 
@@ -141,7 +141,7 @@ runs takes four hops.
 **Decision:**
 Six pattern directories are sanctioned: `services`, `forms`, `queries`, `policies`,
 `lib` (registries), `components`. Each has a stated trigger in
-`docs/system/design-patterns.md`. A seventh top-level directory under `app/` requires
+`docs/rules/pattern-budget.md`. A seventh top-level directory under `app/` requires
 an ADR. Explicitly rejected: repository pattern, CQRS/event sourcing, hexagonal
 architecture, interactor chains, DI containers, `accepts_nested_attributes_for`.
 
