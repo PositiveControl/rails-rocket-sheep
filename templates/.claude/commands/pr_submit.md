@@ -102,7 +102,6 @@ Closes #<ISSUE_NUMBER>
 - [ ] CI pipeline passes
 - [ ] <specific test scenarios from the task file's acceptance criteria>
 
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )"
 ```

@@ -1,0 +1,33 @@
+---
+description: Project conventions, patterns, and development workflow
+alwaysApply: true
+---
+
+# Project Conventions
+
+**The conventions for this repository live in `CLAUDE.md` at the repo root. Read
+it before making any change.**
+
+This file is a pointer, not a second source. Conventions are single-sourced in
+`CLAUDE.md` so the two cannot drift.
+
+## Orientation
+
+| What | Where |
+|---|---|
+| Coding conventions, patterns, anti-patterns | `CLAUDE.md` |
+| Development lifecycle, gates, sizing rules | `WORKFLOW.md` |
+| Workflow commands | `.cursor/commands/` (mirrored from `.claude/commands/`) |
+| Index of committed documentation | `.llm/README.md` |
+| Design docs · architecture · procedures · QA guides | `docs/plans` · `docs/system` · `docs/sop` · `docs/qa` |
+
+## Non-negotiables
+
+- `bin/test` must pass before claiming anything works
+- `bin/rubocop` and `bin/brakeman` must be clean
+- Business logic goes in service objects (`ApplicationService`), not controllers
+- Slim templates, never ERB, in application views
+- Tailwind bracket classes need the `class=""` attribute form — Slim parses `[`
+  as attribute syntax
+- Fix flaky tests immediately; never skip them
+- Update `docs/` when behaviour changes, and grep for an existing doc first

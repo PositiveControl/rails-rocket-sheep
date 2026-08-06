@@ -65,7 +65,7 @@ flowchart TB
 | Project `.claude/settings.json` | ✅ | Allowlist + deny rules; credentials blocked from context |
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
-| Cross-tool parity | ⚠️ | `AGENTS.md` pointer ships; no `.cursorrules` |
+| Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
 | MCP config | ❌ | No `.mcp.json` |
 
 ### Application
@@ -133,7 +133,33 @@ flowchart LR
 
 ### ⏸ Blocked
 
-**3. PR and issue templates — ~30 min.** `.github/PULL_REQUEST_TEMPLATE.md` and `.github/ISSUE_TEMPLATE/` are GitHub-specific by definition, so their shape depends on the tracker-abstraction decision. Waiting on that segue.
+**3. PR and issue templates — ~30 min.** Unblocked by the tracker segue, but now the last step of a three-phase piece of work rather than a standalone task — the PR template must be tier-neutral, with `Closes #n` injected by `/pr_submit` only under the GitHub-Projects tier. See *Tracker tiering* below.
+
+---
+
+## Decided: tracker tiering
+
+Settled by segue `.llm/threads/2026-08-06-tracker-abstraction.md` (merged). Full plan: `~/.claude/plans/composed-leaping-abelson.md`.
+
+**Three tiers, resolved once by `/workflow_setup` into a `{{TRACKER}}` token:**
+
+| Tier | For | State machine |
+|---|---|---|
+| `github-projects` | Today's buyer | Projects v2 board, `Closes #n` automation — unchanged |
+| `beads` | GitHub Issues without a board | `bd` CLI, detected not shipped; real dependency semantics via `bd ready` |
+| `labels` | No tracker at all | `status:*` labels; nothing hard-fails |
+
+**Rejected, so they don't get re-tread:** Jira/Linear adapters (the interface is ~4 verbs, but the thread ID breaks entirely — `Closes #n` is GitHub-native and `prefix/n/slug` keys off a repo-local integer; Jira means smart-commits and a second convention set, not an adapter swap). Shipping `bd init` in `template.rb` — beads needs a running `dolt sql-server`, so the cost is CLI + second binary + daemon added to a product that today needs only Postgres.
+
+**Coupling is three layers, not one:** forge ops (9 files calling `gh` — not worth abstracting, Jira shops still host code on GitHub), the Projects v2 board (5 files, ~4 verbs — the only real coupling), and issue-number-as-thread-ID (a convention, zero calls).
+
+**Phases:**
+
+1. **Agent-harness parity (~4h)** — ✅ done. Command prose neutralised, commands mirrored to `.cursor/commands/` from the same source files, `.cursor/rules/conventions.mdc` added, `AGENTS.md` gained a commands table so a harness with no slash-command concept can be told to follow a file directly.
+2. **Tracker tiering (~1.5–2d)** — the expensive part. `/workflow_setup` gains a tier question; `pick`, `feature_plan`, `task_plan`, `pr_submit`, `implement` branch on the token. Lazy reconciliation in `/pick` replaces the lost `Closes #n` automation.
+3. **Item 3 (~30m)** — tier-neutral PR template, GitHub-tier issue templates.
+
+**Load-bearing assumption, unmeasured:** that a minority of small Rails shops on GitHub use Projects v2 rather than plain Issues. This justifies the beads tier existing. If Projects v2 is near-universal among buyers, Phase 2 is over-built. The design doesn't collapse if it's wrong — it just costs more than it returns.
 
 ### Remaining
 

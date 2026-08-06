@@ -72,7 +72,13 @@ Delete the file. Nothing reads it at runtime.
 ## AI agents
 
 **Does this only work with Claude Code?**
-The conventions file is named `CLAUDE.md` because that's what Claude Code loads automatically. The *content* is tool-agnostic. For Cursor, symlink or copy it to `.cursorrules`; other tools have their own filename conventions.
+No. `CLAUDE.md` is the single source, and three pointers route other tools to it:
+
+- **Claude Code** — reads `CLAUDE.md` and `.claude/commands/`
+- **Cursor** — reads `.cursor/rules/conventions.mdc` and `.cursor/commands/`, both shipped. The commands are the same files, mirrored at generation time rather than forked.
+- **Anything else** — `AGENTS.md` carries an orientation table and a commands table. Cursor and a growing number of tools read `AGENTS.md` natively.
+
+For a tool with no slash-command concept, the commands still work — they're markdown instruction files. Tell the agent to "follow `.claude/commands/pr_submit.md`".
 
 **Do I still need to review what the agent writes?**
 Yes. This reduces divergence between sessions — it doesn't replace review. An agent deep in a long debugging session will violate the conventions occasionally.

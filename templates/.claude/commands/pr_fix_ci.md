@@ -122,7 +122,7 @@ Group related fixes into logical commits:
 git add <files>
 git commit -m "<descriptive message>
 
-Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>"
+Co-Authored-By: <your agent's co-author line, if it has one>"
 ```
 
 Push:

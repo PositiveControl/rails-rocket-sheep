@@ -109,7 +109,7 @@ Apply/verify (each needs repo or org admin — if a call fails, list it for a hu
 Summarize what was written (config file, filled commands, `CLAUDE.md` section, automation settings, and anything left for a human). Then print exactly:
 
 ```
-Setup complete. Restart your Claude session to load the new commands, then run:
+Setup complete. Reload commands in your agent tool, then run:
 
   /pick
 ```

@@ -346,6 +346,18 @@ WORKFLOW_COMMANDS = Dir.glob(File.join(TEMPLATE_ROOT, "templates/.claude/command
 empty_directory ".claude/commands"
 WORKFLOW_COMMANDS.each { |command| copy_template_file command }
 
+# Mirror the same files to .cursor/commands/, which Cursor reads as slash
+# commands. Same source, second destination — never a fork, or the two copies
+# drift and the tool-neutrality claim stops being true.
+empty_directory ".cursor/commands"
+WORKFLOW_COMMANDS.each do |command|
+  copy_template_file command, command.sub(".claude/", ".cursor/")
+end
+
+# Cursor project rules. Like AGENTS.md, a pointer to CLAUDE.md rather than a
+# second copy of the conventions.
+copy_template_file ".cursor/rules/conventions.mdc"
+
 # Project permissions + hooks. The allowlist covers this template's own
 # binstubs and read-only git/gh operations, so an agent stops asking to run
 # `bin/test`. The deny list keeps credentials out of the context window and

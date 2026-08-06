@@ -99,7 +99,7 @@ git commit -m "Address PR review comments
 
 - <brief description of each fix>
 
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
+Co-Authored-By: <your agent's co-author line, if it has one>"
 ```
 
 ### Step 6: Push and resolve conversations

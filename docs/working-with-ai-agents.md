@@ -116,5 +116,5 @@ The point is continuity. An agent that writes a plan in session one can read it 
 ## Honest limitations
 
 - **Conventions drift under pressure.** An agent deep in a long debugging session will violate `CLAUDE.md` occasionally. It reduces divergence; it doesn't eliminate it.
-- **This is tuned for Claude Code.** The file is named `CLAUDE.md` because that's what Claude Code loads automatically. Cursor reads `.cursorrules`, and other tools use other conventions — the content transfers, the filename doesn't. Symlinking works.
+- **Claude Code is the primary target, but not the only one.** `CLAUDE.md` is the single source; `.cursor/rules/conventions.mdc` and `AGENTS.md` point to it, and the workflow commands are mirrored to `.cursor/commands/` from the same source files. A tool with no slash-command concept can still be told to follow a command file directly. What doesn't transfer is hooks — those are Claude Code-specific, so enforcement (as opposed to instruction) is weaker elsewhere.
 - **Opinionated means opinionated.** If you dislike service objects or Slim, this template is fighting you rather than helping. That's a reason not to buy it, and it's better said here than discovered later.

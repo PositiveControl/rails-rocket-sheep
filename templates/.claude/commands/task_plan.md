@@ -26,7 +26,7 @@ Issue has a parent (or links a design doc)? Read the matching `docs/plans/*-desi
 4. Find existing tests for the affected area
 5. Check for an existing `.llm/tasks/` file for this issue number (exists → consider `/implement $ARGUMENTS` instead)
 
-Be thorough — understanding current code is critical for a good plan. Use the Explore agent or Glob/Grep/Read. Blocked on a decision the issue doesn't answer? Suggest `/segue <question>`.
+Be thorough — understanding current code is critical for a good plan. Use a dedicated search pass (a subagent, if your tool has them) or plain glob/grep/read. Blocked on a decision the issue doesn't answer? Suggest `/segue <question>`.
 
 ### Step 4: Create the task file
 
