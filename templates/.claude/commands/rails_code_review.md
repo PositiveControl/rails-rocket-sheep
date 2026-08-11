@@ -52,6 +52,8 @@ Work each section. Nothing relevant → skip the section.
 - Does the code do what it intends? Logic errors, off-by-one mistakes?
 - Edge cases handled: nil values, empty collections, boundary conditions?
 - State transitions correct and guarded against invalid sequences?
+- A write into a join or state table — is this the only writer? If not, do the others do the same thing, or should they route through one chokepoint? (`docs/rules/invariants.md`)
+- A guard or condition keyed to a status — does a path actually write that state, and does the condition mean the status or something it merely correlates with (ownership, "still held", paid-for)?
 - Background jobs idempotent — safe to run twice?
 - Services return a `Result`, and every caller checks `success?` before using `value`?
 
@@ -132,6 +134,7 @@ What that rule can't tell you, and you have to judge from the change itself:
 - New columns have appropriate defaults and null constraints?
 - Indexes added in the same migration as the column?
 - Data migration needed alongside the schema migration?
+- Second backfill task in this subsystem? A cluster is a design finding — state is written in more places than it should be — not just another task to write (`docs/system/invariant-drift.md`).
 - **Large-table changes**: PostgreSQL takes an `ACCESS EXCLUSIVE` lock for many `ALTER TABLE` operations. Adding a column with a volatile default, adding a `NOT NULL` constraint, or creating an index without `algorithm: :concurrently` will block writes for the duration. Flag any of these on a table expected to be large, and require `disable_ddl_transaction!` where `concurrently` is used.
 - Does the migration target the right database? Queue, cache, and cable have their own `migrations_paths` — a migration in the wrong directory silently applies to the wrong database.
 

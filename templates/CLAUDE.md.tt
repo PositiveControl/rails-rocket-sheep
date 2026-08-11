@@ -137,8 +137,9 @@ these exact paths — don't rename them.
 | `docs/qa/` | Manual test guides | `/pr_qa` |
 
 `docs/system/` holds `architecture.md` (ADRs — *why* a rule exists and what was
-accepted) and `models.md`. Rules say what to
-do; ADRs say why it was chosen. Don't merge them.
+accepted), `models.md`, and `invariant-drift.md` (why a rule that must hold on many
+paths ends up holding on only some). Rules say what to do; ADRs and system docs say
+why. Don't merge them.
 
 `.llm/README.md` indexes committed docs. Conventions are single-sourced in
 `docs/rules/`; task files in `.llm/tasks/` reference them and never restate them.

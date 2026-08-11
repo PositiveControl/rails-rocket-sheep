@@ -3,8 +3,8 @@ id: optional-patterns
 title: Optional patterns — value objects, status columns, concerns
 applies_to: ["app/models/**/*.rb", "app/models/concerns/**/*.rb", "app/lib/**/*.rb"]
 triggers: ["value object", "Money", "enum", "state machine", "status column", "transition", "concern", "ActiveSupport::Concern", "Publishable", "Sluggable", "fat model"]
-see_also: ["registries", "current-attributes"]
-tokens: 420
+see_also: ["registries", "current-attributes", "invariants"]
+tokens: 540
 ---
 
 # Optional patterns
@@ -54,6 +54,23 @@ end
 
 Add a state machine gem only when transitions need guards, callbacks, and an audit
 of who moved what. Three states with one legal path do not need one.
+
+Two ways a status column goes wrong once it has more than one flow:
+
+- **A value that means different things in two directions is two concepts.** If two
+  consumers of one status assume opposite things — one reads `returned` as "the buyer
+  sent it back", another as "we restocked it" — every downstream rule built on it
+  (editability, visibility, search scopes) applies the wrong half to half the records.
+  Split the concept. When splitting is too invasive, make every consumer also test
+  direction, with a test per consumer.
+- **Terminal states need something that reaches them.** A state no flow transitions
+  *into* is a flow that never finishes. Count rows per state against real data —
+  `Model.group(:status).count` — and treat a zero in a value you shipped months ago as
+  a finding. Give each terminal state a test that drives a full flow into it, asserting
+  the state after any queue or callback the flow spans.
+
+Why an overloaded or unreachable status stays invisible in review:
+[`../system/invariant-drift.md`](../system/invariant-drift.md).
 
 ## Concerns — and when they're a smell
 

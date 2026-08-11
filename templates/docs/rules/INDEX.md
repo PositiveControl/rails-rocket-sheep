@@ -32,12 +32,12 @@ Editing a file that matches → read these rules.
 |---|---|
 | `config/routes.rb` | [controllers](controllers.md) |
 | `app/controllers/**` | [controllers](controllers.md) · [turbo-status](turbo-status.md) · [pagination](pagination.md) · [exception-boundary](exception-boundary.md) · [rate-limiting](rate-limiting.md) · [policy-objects](policy-objects.md) |
-| `app/services/**` | [service-objects](service-objects.md) · [jobs](jobs.md) |
+| `app/services/**` | [service-objects](service-objects.md) · [jobs](jobs.md) · [invariants](invariants.md) |
 | `app/forms/**` | [form-objects](form-objects.md) |
 | `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) |
 | `app/policies/**` | [policy-objects](policy-objects.md) |
 | `app/lib/**` | [registries](registries.md) |
-| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) |
+| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) · [invariants](invariants.md) |
 | `app/models/concerns/**` | [optional-patterns](optional-patterns.md) |
 | `app/jobs/**`, `config/queue.yml` | [jobs](jobs.md) |
 | `app/views/**/*.slim` | [slim-gotchas](slim-gotchas.md) · [partials](partials.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [empty-states](empty-states.md) · [forms-ui](forms-ui.md) · [accessibility](accessibility.md) · [n-plus-one](n-plus-one.md) · [caching](caching.md) |
@@ -48,6 +48,7 @@ Editing a file that matches → read these rules.
 | `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) |
 | `test/**` | [testing](testing.md) |
 | `test/components/**` | [testing](testing.md) · [components](components.md) |
+| `docs/plans/**` | [design-docs](design-docs.md) |
 | Adding a new directory under `app/` | [pattern-budget](pattern-budget.md) · [rejected-patterns](rejected-patterns.md) |
 
 ## Route by symptom
@@ -67,6 +68,9 @@ Editing a file that matches → read these rules.
 | Plans, tiers, product types, a fixed set of variants | [registries](registries.md) |
 | `def self.something` returning a relation | [scopes](scopes.md) |
 | A save that mysteriously writes another table | [callbacks](callbacks.md) |
+| The same state write in more than one service, or "is this the only writer?" | [invariants](invariants.md) |
+| A rule that must hold on several code paths | [invariants](invariants.md) |
+| Writing a design doc, or a plan's status table | [design-docs](design-docs.md) |
 | Slow page, Bullet warning, a query per row | [n-plus-one](n-plus-one.md) |
 | Soft deletes, `discarded_at`, restoring a record | [deletes](deletes.md) |
 | Change history, who changed what | [audit-trail](audit-trail.md) |
@@ -112,7 +116,7 @@ Editing a file that matches → read these rules.
 | [policy-objects](policy-objects.md) | 400 | Record-level auth vs Petergate roles |
 | [registries](registries.md) | 520 | `Data` objects, `fetch`, capabilities not identities |
 | [scopes](scopes.md) | 160 | Scopes, never class methods |
-| [callbacks](callbacks.md) | 300 | Same record only, `after_commit` for jobs |
+| [callbacks](callbacks.md) | 400 | Same record only, `after_commit` for jobs, intent vs occurrence |
 | [n-plus-one](n-plus-one.md) | 320 | `includes`, `counter_cache`, aggregate in SQL |
 | [deletes](deletes.md) | 380 | `destroy` by default, Discard opt-in, the `.kept` tax |
 | [audit-trail](audit-trail.md) | 220 | PaperTrail, scoped with `only:` |
@@ -120,7 +124,8 @@ Editing a file that matches → read these rules.
 | [caching](caching.md) | 340 | Solid Cache, russian-doll, always key by user |
 | [safe-migrations](safe-migrations.md) | 220 | Concurrent indexes, two-deploy column removal |
 | [database-conventions](database-conventions.md) | 150 | UUIDs, foreign keys, composite indexes |
-| [optional-patterns](optional-patterns.md) | 420 | Value objects, status columns, concerns |
+| [invariants](invariants.md) | 260 | One writer, one chokepoint; gate on the fact, not a correlate |
+| [optional-patterns](optional-patterns.md) | 540 | Value objects, status columns, concerns, overloaded/terminal states |
 | [current-attributes](current-attributes.md) | 140 | Two acceptable uses, and why |
 | [pattern-budget](pattern-budget.md) | 480 | Six directories, DRY triggers, ADR for a seventh |
 | [rejected-patterns](rejected-patterns.md) | 280 | Repository, CQRS, hexagonal, interactors, DI, decorators |
@@ -137,9 +142,10 @@ Editing a file that matches → read these rules.
 | [forms-ui](forms-ui.md) | 260 | `form_with`, error summary, field errors |
 | [empty-states](empty-states.md) | 180 | The state everyone forgets |
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
-| [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
+| [testing](testing.md) | 760 | Minitest + fixtures, which layer tests what, VCR, invariant tests |
+| [design-docs](design-docs.md) | 140 | Design-doc tables owned by the subject, not the flow |
 
-**Total corpus:** ~13,400 tokens across 37 rules. Typical read: this index (~1,700)
+**Total corpus:** ~14,100 tokens across 39 rules. Typical read: this index (~1,700)
 plus one or two rules (~150–560). Reading the whole corpus is a bug, not thoroughness.
 
 ---

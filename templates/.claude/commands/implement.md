@@ -28,7 +28,7 @@ Work through Next Actions in order. Per logical unit:
 1. Implement per the plan
 2. Write tests for new functionality — framework, fixtures, layering, and HTTP recording per `docs/rules/testing.md`
 3. Run the affected tests — green before moving on
-4. Commit — one logical unit, message explains *why* (e.g., "Add scroll-to-bottom after Turbo Stream add", not "Update controller")
+4. Commit — one logical unit, message explains *why* (e.g., "Add scroll-to-bottom after Turbo Stream add", not "Update controller"). If the message states a system rule (*we always / never / only …*), grep it holds everywhere first or name the exception; if it cites another class as precedent, list the siblings you checked — `docs/system/invariant-drift.md`
 5. Append one dated bullet to the task file's progress log
 
 Rules in force:

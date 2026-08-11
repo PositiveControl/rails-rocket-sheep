@@ -3,8 +3,8 @@ id: testing
 title: Tests — Minitest, fixtures, VCR, which layer tests what
 applies_to: ["test/**/*.rb", "test/fixtures/**/*.yml"]
 triggers: ["fixture", "fixtures", "VCR", "cassette", "WebMock", "factory", "FactoryBot", "RSpec", "what should I test", "integration test", "system test", "assert_difference", "slow test", "TDD"]
-see_also: ["components", "service-objects", "turbo-status", "jobs"]
-tokens: 660
+see_also: ["components", "service-objects", "turbo-status", "jobs", "invariants"]
+tokens: 760
 ---
 
 # Tests
@@ -35,6 +35,23 @@ Which of them a given branch has to run is `/pr_submit`'s call, from the diff.
 Every new public method and every controller action gets a test: the happy path
 **and** the failure that matters (invalid input, unauthorized, missing record).
 A method with only a happy-path test is untested for the case that will page you.
+
+## Invariant tests
+
+A rule that must hold across several code paths — "we only list items we hold",
+"this record can't be double-charged" — gets **one** test that enumerates every entry
+point and asserts the same properties for each. A test named after the rule but living
+in one service's file cannot fail when a sibling service breaks it, and the path that
+predates both has no test at all. See [invariants](invariants.md).
+
+- **Derive the enumeration from code**, so a new path fails by omission instead of
+  being silently uncovered: iterate STI subclasses, a [registry](registries.md)'s
+  `all`, or the association's writers — not a hand-listed array that the next author
+  forgets to extend.
+- **Every guard gets a test that constructs the blocked state and asserts the block.**
+  A `before_action` or view conditional keyed to a status no path produces protects
+  nothing and reads as correct forever. If you cannot construct the blocked state, the
+  guard or its writer is wrong — both are findings.
 
 ## Fixtures
 
