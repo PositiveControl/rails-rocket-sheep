@@ -110,6 +110,9 @@ Review the code using the criteria from the language-specific review doc (Step 5
 - Bugs or logic errors
 - Security vulnerabilities (injection, XSS, mass assignment, etc.)
 - Data integrity issues (missing validations, unsafe migrations, race conditions)
+- A commit or PR body stating a system rule (*we always / never / only …*) whose diff proves it in one file — grep the claim across the repo and confirm it holds, or the message names the exception (`docs/system/invariant-drift.md`)
+- A change that creates or transitions a domain record without stating what happens to each model it touches — "nothing" is a fine answer, but it has to be stated (`docs/system/invariant-drift.md`)
+- A second backfill task in one subsystem — treat the cluster as a design finding (state written in more places than one), not just another task to land (`docs/system/invariant-drift.md`)
 - Missing or broken tests for new behavior
 - Significant performance issues
 

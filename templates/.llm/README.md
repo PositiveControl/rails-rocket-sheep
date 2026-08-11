@@ -39,6 +39,7 @@ How things currently work. Architecture state, not intentions.
 <!-- system:start -->
 - [Architecture Decision Records](../docs/system/architecture.md) — decisions taken and their consequences
 - [Models](../docs/system/models.md) — model reference
+- [Invariant drift](../docs/system/invariant-drift.md) — why a rule that must hold on many paths holds on only some, and how to catch it
 <!-- system:end -->
 
 ## SOP — `docs/sop/`
