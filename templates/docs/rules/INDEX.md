@@ -37,7 +37,7 @@ Editing a file that matches → read these rules.
 | `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) |
 | `app/policies/**` | [policy-objects](policy-objects.md) |
 | `app/lib/**` | [registries](registries.md) |
-| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) |
+| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) · [seeds](seeds.md) |
 | `app/models/concerns/**` | [optional-patterns](optional-patterns.md) |
 | `app/jobs/**`, `config/queue.yml` | [jobs](jobs.md) |
 | `app/views/**/*.slim` | [slim-gotchas](slim-gotchas.md) · [partials](partials.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [empty-states](empty-states.md) · [forms-ui](forms-ui.md) · [accessibility](accessibility.md) · [n-plus-one](n-plus-one.md) · [caching](caching.md) |
@@ -45,7 +45,8 @@ Editing a file that matches → read these rules.
 | `app/helpers/**` | [view-code-placement](view-code-placement.md) |
 | `app/javascript/controllers/**` | [stimulus](stimulus.md) · [tailwind-build](tailwind-build.md) |
 | `app/views/**/*.turbo_stream.slim` | [turbo-streams](turbo-streams.md) |
-| `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) |
+| `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) · [seeds](seeds.md) |
+| `db/seeds.rb`, `db/seeds/**` | [seeds](seeds.md) |
 | `test/**` | [testing](testing.md) |
 | `test/components/**` | [testing](testing.md) · [components](components.md) |
 | Adding a new directory under `app/` | [pattern-budget](pattern-budget.md) · [rejected-patterns](rejected-patterns.md) |
@@ -74,6 +75,8 @@ Editing a file that matches → read these rules.
 | `Rails.cache`, fragment caching, staleness | [caching](caching.md) |
 | A migration against a table with real rows | [safe-migrations](safe-migrations.md) |
 | UUIDs, foreign keys, indexes | [database-conventions](database-conventions.md) |
+| A new model, process, or dependency that dev data should mirror | [seeds](seeds.md) |
+| `db:seed` duplicating rows or failing on a rerun | [seeds](seeds.md) |
 | Money, enums/state machines, a fat model | [optional-patterns](optional-patterns.md) |
 | `Current.user` | [current-attributes](current-attributes.md) |
 | Writing a test, a fixture, or a VCR cassette | [testing](testing.md) |
@@ -120,6 +123,7 @@ Editing a file that matches → read these rules.
 | [caching](caching.md) | 340 | Solid Cache, russian-doll, always key by user |
 | [safe-migrations](safe-migrations.md) | 220 | Concurrent indexes, two-deploy column removal |
 | [database-conventions](database-conventions.md) | 150 | UUIDs, foreign keys, composite indexes |
+| [seeds](seeds.md) | 210 | Idempotent seeds, kept in step with models and processes |
 | [optional-patterns](optional-patterns.md) | 420 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 140 | Two acceptable uses, and why |
 | [pattern-budget](pattern-budget.md) | 480 | Six directories, DRY triggers, ADR for a seventh |
@@ -139,7 +143,7 @@ Editing a file that matches → read these rules.
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~13,400 tokens across 37 rules. Typical read: this index (~1,700)
+**Total corpus:** ~13,600 tokens across 38 rules. Typical read: this index (~1,700)
 plus one or two rules (~150–560). Reading the whole corpus is a bug, not thoroughness.
 
 ---
