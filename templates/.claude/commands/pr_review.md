@@ -110,6 +110,7 @@ Review the code using the criteria from the language-specific review doc (Step 5
 - Bugs or logic errors
 - Security vulnerabilities (injection, XSS, mass assignment, etc.)
 - Data integrity issues (missing validations, unsafe migrations, race conditions)
+- Seeds left out of step: a new model, process, or dependency landed without a matching idempotent `db/seeds.rb` update (`docs/rules/seeds.md`)
 - Missing or broken tests for new behavior
 - Significant performance issues
 

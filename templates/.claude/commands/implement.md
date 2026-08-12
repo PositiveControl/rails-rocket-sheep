@@ -27,9 +27,10 @@ Work through Next Actions in order. Per logical unit:
 
 1. Implement per the plan
 2. Write tests for new functionality — framework, fixtures, layering, and HTTP recording per `docs/rules/testing.md`
-3. Run the affected tests — green before moving on
-4. Commit — one logical unit, message explains *why* (e.g., "Add scroll-to-bottom after Turbo Stream add", not "Update controller")
-5. Append one dated bullet to the task file's progress log
+3. Added or changed a model, a process, or a dependency? Update `db/seeds.rb` in the same unit so dev data stays in step — idempotently, per `docs/rules/seeds.md`
+4. Run the affected tests — green before moving on
+5. Commit — one logical unit, message explains *why* (e.g., "Add scroll-to-bottom after Turbo Stream add", not "Update controller")
+6. Append one dated bullet to the task file's progress log
 
 Rules in force:
 
