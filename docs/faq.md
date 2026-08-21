@@ -8,10 +8,14 @@
 Ruby 3.3+ (Pagy 43 sets the floor) and Rails 8.0+. Last verified by generating an app against Ruby 4.0.6 and Rails 8.1.3.1 on 2026-08-06.
 
 **Does it work with SQLite or MySQL?**
-No. The template removes `sqlite3` and assumes PostgreSQL throughout — UUID primary keys via `gen_random_uuid()`, and a four-database Solid Stack configuration. Porting to MySQL means rewriting `config/database.yml` and choosing a different primary key strategy.
+PostgreSQL, MySQL, or MariaDB — pass `--database=` to `rails new` and the template follows it. `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, and `mariadb-trilogy` all work, and each gets a matching `config/database.yml`, Kamal accessory, and Dockerfile.
+
+SQLite is refused, before any file is written. The Solid Stack wants four databases and no deployment target here is set up for it.
+
+The one convention that differs is primary keys: UUIDs on PostgreSQL, Rails' default bigint on MySQL, because MySQL has no native uuid type. `docs/rules/database-conventions.md` in your app states both halves and `CLAUDE.md` says which one you have.
 
 **Why PostgreSQL 13 specifically?**
-`gen_random_uuid()` became a built-in in PostgreSQL 13. On earlier versions you'd need the `pgcrypto` extension enabled.
+`gen_random_uuid()` became a built-in in PostgreSQL 13. On earlier versions you'd need the `pgcrypto` extension enabled. This only applies to PostgreSQL apps — MySQL apps use bigint keys and need nothing extra.
 
 **Will it work when Rails 8.1 or 9 ships?**
 The template writes plain Rails files, so there's no gem to become incompatible. What can break is the template's *generation* step — it patches specific files (`config/application.rb`, `config/environments/development.rb`, the layout) by matching on their content. If Rails changes those files, the injections may need updating. Apps already generated are unaffected.
@@ -44,7 +48,9 @@ No, but the template's home view and the generated `CLAUDE.md` assume it. Removi
 ## Things that surprise people
 
 **Why does `rails g model` create UUID primary keys?**
-The template configures `config.generators` with `primary_key_type: :uuid`. Consequence: foreign keys must be declared as `t.uuid :parent_id`, not `t.references`. Get this wrong and you'll see a type mismatch error when adding the foreign key.
+On PostgreSQL, the template configures `config.generators` with `primary_key_type: :uuid`. Consequence: foreign keys must be declared as `t.uuid :parent_id`, not `t.references`. Get this wrong and you'll see a type mismatch error when adding the foreign key.
+
+On MySQL it doesn't — keys are Rails' default bigint, and `t.references :parent, foreign_key: true` is the correct form. Two databases, two conventions, both in `docs/rules/database-conventions.md`; [ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md) has the reasoning.
 
 **Why are there four databases in development?**
 Solid Queue, Solid Cache, and Solid Cable each get their own, matching the production layout. It means job or cache tables never appear in your primary `schema.rb`, and you can move any of them to a separate host later by changing one environment variable.
@@ -130,7 +136,7 @@ There are no version tags yet, so the commit is the identifier. `--ref` takes a 
 ## Support
 
 **Something's broken in generation.**
-Open an issue with your Ruby version, Rails version, PostgreSQL version, and the generator output. Generation problems are usually version-specific and worth fixing for everyone.
+Open an issue with your Ruby version, Rails version, database and version, and the generator output. Generation problems are usually version-specific and worth fixing for everyone.
 
 **Something's broken in my app.**
 Once generated, it's a normal Rails app — normal Rails debugging applies. The generated `docs/` and `CLAUDE.md` cover the template-specific patterns.

@@ -32,7 +32,7 @@ This app's conventions are one rule per file in `docs/rules/`, routed by `docs/r
 
 Stack:
 - Rails 8 Solid Stack — Solid Queue, Solid Cache, Solid Cable, each on its own database
-- PostgreSQL, UUID primary keys on every table
+- PostgreSQL with UUID primary keys, *or* MySQL/MariaDB with bigint — the Tech Stack line in `CLAUDE.md` says which, and several checks below depend on it
 - Hotwire (Turbo Frames, Turbo Streams, Stimulus)
 - Slim templates, Tailwind CSS
 - Devise (Turbo-configured) + Petergate for roles
@@ -74,14 +74,14 @@ In the shape given by **Output format** below. Then name what runs next: `/pr_su
 - **XSS**: `raw` and `html_safe` must be justified. User content escaped.
 - **Mass Assignment**: `assign_attributes` / `update` use permitted params.
 - **Sensitive Data**: no credentials, tokens, or PII in logs, comments, or hardcoded strings.
-- **UUID enumeration**: UUID PKs prevent ID guessing — flag anywhere a sequential or predictable identifier is exposed instead.
+- **ID enumeration**: on UUID keys, flag anywhere a sequential or predictable identifier is exposed instead. On bigint keys the primary key *is* sequential — flag a bare `id` in a public URL or API response where walking it would leak, and require a slug or random token.
 - **Soft deletes**: discarded records must not leak through a query that forgot `.kept` — especially in authorization checks and API responses. A new `include Discard::Model` needs a stated reason (user-facing restore, audit obligation, foreign keys that must stay valid); `default_scope -> { kept }` is always wrong.
 
 ### 3. Performance
 
 - **N+1 Queries**: check every `.each` over an ActiveRecord collection. Associations eager-loaded with `includes` / `preload` / `eager_load`? Bullet is enabled in development — an N+1 reaching review means it was ignored.
 - **Missing Indexes**: new columns used in `WHERE`, `ORDER BY`, or as foreign keys need indexes, added in the same migration. Composite indexes for frequently combined filters.
-- **UUID index cost**: UUID keys are 16 bytes and randomly ordered. Flag redundant or unused indexes on high-write tables.
+- **Index cost**: UUID keys are 16 bytes and randomly ordered, so redundant or unused indexes on high-write tables cost more than they would on bigint. Flag them either way; weight it heavier on UUIDs.
 - **Unbounded Queries**: `Model.all` or scopes without `.limit` on tables that grow need Pagy.
 - **Counter Caches**: association counts displayed → counter cache or `.size`, never `.count` inside a loop.
 - **Caching**: expensive or repeated computation → `Rails.cache` (Solid Cache). Cache keys nameable and expirable?
@@ -97,7 +97,7 @@ In the shape given by **Output format** below. Then name what runs next: `/pr_su
 - **Scopes over class methods** for all queries.
 - **RESTful routing**: custom actions genuinely non-CRUD, or should this be a new resource?
 - **Callbacks**: avoid `after_save` / `after_create` for side effects that should be explicit (emails, notifications). Call them from a service.
-- **UUID foreign keys**: `t.uuid :parent_id` with `add_foreign_key` — not `t.references` without a type, which silently produces a bigint mismatch.
+- **Foreign key types**: on UUID keys, `t.uuid :parent_id` with an explicit `add_foreign_key` — `t.references` without a type silently produces a bigint mismatch. On bigint keys, `t.references :parent, foreign_key: true` is correct and the explicit form is noise. Check which database first ([database-conventions](../../docs/rules/database-conventions.md)).
 - **Form objects**: a submit that writes two or more models, or carries fields that aren't columns, belongs in `app/forms/` inheriting `ApplicationForm`. Flag `accepts_nested_attributes_for` outright.
 - **Query objects**: a read joining two or more models belongs in `app/queries/` and must return a relation, never an array. Flag `.to_a` followed by Ruby `select` / `sort_by`.
 - **Policies**: record-level authorization (`can this user edit this record`) belongs in a policy object used by both controller and view. Flag the same ownership conditional copy-pasted into a view and a controller. Petergate stays for role-level access.
@@ -143,7 +143,7 @@ What that rule can't tell you, and you have to judge from the change itself:
 - New columns have appropriate defaults and null constraints?
 - Indexes added in the same migration as the column?
 - Data migration needed alongside the schema migration?
-- **Large-table changes**: PostgreSQL takes an `ACCESS EXCLUSIVE` lock for many `ALTER TABLE` operations. Adding a column with a volatile default, adding a `NOT NULL` constraint, or creating an index without `algorithm: :concurrently` will block writes for the duration. Flag any of these on a table expected to be large, and require `disable_ddl_transaction!` where `concurrently` is used.
+- **Large-table changes**: on PostgreSQL, many `ALTER TABLE` operations take an `ACCESS EXCLUSIVE` lock — a column with a volatile default, a `NOT NULL` constraint, or an index without `algorithm: :concurrently` blocks writes for the duration; require `disable_ddl_transaction!` wherever `concurrently` is used. On MySQL 8 most of these are online by default and `algorithm: :concurrently` raises, so flag it as an error rather than requiring it. Either way, flag the operation on a table expected to be large ([safe-migrations](../../docs/rules/safe-migrations.md)).
 - Does the migration target the right database? Queue, cache, and cable have their own `migrations_paths` — a migration in the wrong directory silently applies to the wrong database.
 
 ---

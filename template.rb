@@ -4,12 +4,13 @@
 #
 # Usage:
 #   rails new myapp --database=postgresql --template=path/to/template.rb
+#   rails new myapp --database=mysql      --template=path/to/template.rb
 #
 # What this template does:
 #   - Configures Rails 8 Solid Stack (Queue, Cache, Cable - all database-backed)
 #   - Sets up Kamal 2 deployment with PostgreSQL accessory
 #   - Adds Devise + Petergate for authentication and authorization
-#   - Configures UUID primary keys for all models
+#   - Configures UUID primary keys for all models (PostgreSQL only)
 #   - Adds ApplicationService base class with Result pattern
 #   - Adds ApplicationForm base class for multi-model form objects
 #   - Adds a Data-based registry pattern for fixed variant sets
@@ -65,6 +66,67 @@ TEMPLATE_ROOT =
 # singleton class to override Thor::Actions', and adopt.rb needs the same three
 # helpers plus the same stamp. See the comment at the top of preamble.rb.
 instance_eval(File.read(File.join(TEMPLATE_ROOT, "preamble.rb")), "preamble.rb")
+
+# =============================================================================
+# Database Family
+# =============================================================================
+
+# Rails already asked this question. `rails new --database=` picked the gem, the
+# CI service, and the adapter, so read the answer rather than prompting for it
+# again.
+#
+# Branch on the *family*, not the adapter: mysql2 and trilogy differ in the
+# driver and in nothing a convention cares about. The one place the family
+# genuinely diverges is primary keys — see
+# .agents/adr/0007-database-family-is-chosen-at-generation.md.
+DB_CHOICE = options[:database].to_s
+
+DB_ADAPTER =
+  case DB_CHOICE
+  when "postgresql" then "postgresql"
+  when "mysql", "mariadb-mysql" then "mysql2"
+  when "trilogy", "mariadb-trilogy" then "trilogy"
+  else
+    raise Thor::Error, <<~MSG
+      This template supports PostgreSQL and MySQL, and was given
+      --database=#{DB_CHOICE.empty? ? '(none)' : DB_CHOICE}.
+
+      The Solid Stack runs queue, cache, and cable in separate databases, which
+      SQLite can do but no deployment target here is set up for. Generate with
+      one of:
+
+        rails new #{app_name} --database=postgresql --template=...
+        rails new #{app_name} --database=mysql      --template=...
+        rails new #{app_name} --database=trilogy    --template=...
+
+      MariaDB works too (--database=mariadb-mysql / mariadb-trilogy).
+    MSG
+  end
+
+DB_FAMILY = DB_ADAPTER == "postgresql" ? :postgresql : :mysql
+POSTGRESQL = DB_FAMILY == :postgresql
+
+DB_LABEL =
+  if POSTGRESQL then "PostgreSQL"
+  elsif DB_CHOICE.start_with?("mariadb") then "MariaDB"
+  else "MySQL"
+  end
+
+# Primary keys are the one convention that cannot be shared. PostgreSQL has a
+# native uuid type and gen_random_uuid(); MySQL has neither, and faking it costs
+# a char(36) index and a type shim Rails does not ship. MySQL apps get Rails'
+# default bigint.
+DB_PRIMARY_KEY = POSTGRESQL ? "uuid" : "bigint"
+
+DB_ACCESSORY_IMAGE =
+  if POSTGRESQL then "postgres:16"
+  elsif DB_LABEL == "MariaDB" then "mariadb:11"
+  else "mysql:8.4"
+  end
+
+DB_PORT = POSTGRESQL ? 5432 : 3306
+
+say "Database: #{DB_LABEL} (adapter #{DB_ADAPTER}, #{DB_PRIMARY_KEY} primary keys)", :green
 
 # Solid Stack configs are re-copied in after_bundle because Rails 8 runs
 # `solid_cache:install solid_queue:install solid_cable:install` after bundling,
@@ -145,15 +207,30 @@ empty_directory "db/queue_migrate"
 empty_directory "db/cable_migrate"
 empty_directory "db/cache_migrate"
 
-# Configure generators for UUIDs
+# Configure generators. UUID primary keys are PostgreSQL-only: MySQL has no
+# native uuid type, so a MySQL app keeps Rails' default bigint.
 # `<<~` strips to column 0, so indent to the 4 spaces the class body uses —
 # otherwise every generated app starts with unindented config.
 inject_into_file "config/application.rb", after: "class Application < Rails::Application\n" do
+  generators = if POSTGRESQL
+    <<~RUBY
+      # Use UUIDs as primary keys by default
+      config.generators do |g|
+        g.orm :active_record, primary_key_type: :uuid
+      end
+    RUBY
+  else
+    <<~RUBY
+      # Primary keys are Rails' default bigint. MySQL has no native uuid type,
+      # and a char(36) key costs index size for no gain here.
+      config.generators do |g|
+        g.orm :active_record
+      end
+    RUBY
+  end
+
   <<~RUBY.indent(4)
-    # Use UUIDs as primary keys by default
-    config.generators do |g|
-      g.orm :active_record, primary_key_type: :uuid
-    end
+    #{generators.strip}
 
     # Autoload app/lib for registries and game config
     config.autoload_paths << Rails.root.join("app/lib")
@@ -245,13 +322,22 @@ chmod "bin/test", 0755
 
 # Kamal secrets directory
 empty_directory ".kamal"
+db_password_secrets =
+  if POSTGRESQL
+    "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
+  else
+    # Both, because the official MySQL image refuses to initialise without a
+    # root password and the app connects as MYSQL_USER.
+    "MYSQL_PASSWORD=$MYSQL_PASSWORD\nMYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
+  end
+
 create_file ".kamal/secrets", <<~SECRETS
   # Kamal deployment secrets
   # Load from environment or use direnv/dotenv
 
   KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD
   RAILS_MASTER_KEY=$(cat config/master.key 2>/dev/null || echo "")
-  POSTGRES_PASSWORD=$POSTGRES_PASSWORD
+  #{db_password_secrets}
   DATABASE_URL=$DATABASE_URL
   QUEUE_DATABASE_URL=$QUEUE_DATABASE_URL
   CABLE_DATABASE_URL=$CABLE_DATABASE_URL
@@ -509,7 +595,8 @@ GITIGNORE
 after_bundle do
   say "Running post-bundle setup...", :green
 
-  # Note: PostgreSQL 13+ has gen_random_uuid() built-in, no pgcrypto needed
+  # Note: on PostgreSQL 13+, gen_random_uuid() is built in — no pgcrypto needed.
+  # MySQL needs nothing here at all; its keys are bigint.
 
   # Rails 8 runs solid_cache/solid_queue/solid_cable installers after bundling,
   # which overwrite the Solid Stack configs written during the main pass.

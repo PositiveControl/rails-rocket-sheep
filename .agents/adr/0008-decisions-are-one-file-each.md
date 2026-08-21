@@ -31,8 +31,10 @@ gets its own marker block in `.llm/README.md`. `templates/docs/system/architectu
 is deleted; `docs/system/` keeps `models.md` and `vocabulary.md`.
 
 The eight shipped decisions moved across unchanged, keeping their numbers, so
-`ADR-002` is now `docs/adr/0002-uuid-primary-keys.md` and every rule that cited a
-number links the file that holds it.
+`ADR-002` is now `docs/adr/0002-primary-keys-follow-the-database.md` and every rule
+that cited a number links the file that holds it. A decision whose title changes
+gets a new slug and keeps its number; the number is the identity, the slug is a
+convenience.
 
 `adopt.rb` copies the directory by glob, in the same shape as `RULE_FILES`, which
 is what makes a ninth decision adoptable and updatable without a manifest edit.

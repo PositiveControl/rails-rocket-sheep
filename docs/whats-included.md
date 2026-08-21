@@ -6,7 +6,7 @@ Every gem and file the template adds, and the reason it's there. Nothing here is
 
 ## Gems added
 
-Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster, so the template doesn't re-add them. It removes `sqlite3` (this is a PostgreSQL template) and adds:
+Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster, so the template doesn't re-add them. It removes `sqlite3` (PostgreSQL or MySQL — SQLite is refused) and adds:
 
 | Gem | Group | Why |
 |---|---|---|
@@ -40,11 +40,11 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `config/cache.yml` | Solid Cache retention and size caps; connects to the `cache` database in production |
 | `config/cable.yml` | Solid Cable in development *and* production, so behaviour matches |
 | `config/recurring.yml` | Recurring job schedule scaffold |
-| `config/deploy.yml` | Kamal 2 with a PostgreSQL accessory |
+| `config/deploy.yml` | Kamal 2 with a database accessory matching your `--database=` — `postgres:16`, `mysql:8.4`, or `mariadb:11` |
 | `config/routes.rb` | Health check, sitemap, letter_opener mount, root |
 | `.rubocop.yml` | Rails Omakase base |
 
-`config/application.rb` is modified to set UUID primary keys on the generators, autoload `app/lib`, and generate ViewComponents with a sidecar directory.
+`config/application.rb` is modified to autoload `app/lib`, generate ViewComponents with a sidecar directory, and — on PostgreSQL — set UUID primary keys on the generators.
 
 > **Note:** the four Solid Stack configs are written twice — once during the main pass, and again in `after_bundle`. Rails 8 runs its own `solid_*:install` generators after bundling, and those overwrite anything already there. The second write is what actually survives.
 
@@ -61,7 +61,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `app/components/empty_state_component.rb` | Empty-collection state with an action slot |
 | `app/lib/plan_registry.rb` | Canonical registry — `Data` entries, `fetch` lookup, capability queries |
 | `app/lib/app_config.rb` | App-wide frozen constants: branding, feature flags, limits, timing |
-| `app/models/application_record.rb` | UUID primary keys, `implicit_order_column` |
+| `app/models/application_record.rb` | `implicit_order_column` on PostgreSQL, where UUID keys have no natural order |
 | `app/helpers/structured_data_helper.rb` | `jsonld_tag` and `iso8601_duration` |
 | `app/helpers/progress_bar_helper.rb` | Progress bar markup helper |
 | `app/javascript/controllers/toggle_controller.js` | Generic show/hide Stimulus controller |
@@ -112,7 +112,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `docs/sop/add-seo-to-a-page.md` | Adding SEO to a new page |
 | `docs/sop/find-slow-tests.md` | Reading the Slowpoke report and fixing what it flags |
 | `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
-| `docs/sop/extract-database-and-storage.md` | Moving Postgres off the app server |
+| `docs/sop/extract-database-and-storage.md` | Moving the database off the app server |
 
 `docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `adr`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
 
@@ -136,9 +136,9 @@ Stack tokens (test, lint, scan commands, default branch, CI job names) arrive pr
 
 Worth knowing, because these are the surprises:
 
-1. **SQLite is removed.** PostgreSQL only.
+1. **SQLite is removed.** PostgreSQL, MySQL, or MariaDB, chosen with `--database=` at generation.
 2. **Four databases, not one.** Queue, cable, and cache each get their own, in every environment.
-3. **UUID primary keys everywhere.** `rails g model` produces UUID PKs automatically. Foreign keys must be declared `t.uuid :parent_id`.
+3. **Primary keys follow the database.** On PostgreSQL, `rails g model` produces UUID PKs and foreign keys must be declared `t.uuid :parent_id`. On MySQL, keys are Rails' default bigint and `t.references :parent, foreign_key: true` is correct.
 4. **Slim, not ERB.** The layout stays ERB (Devise and Rails generators expect it), but application views are Slim.
 5. **Six pattern directories, not seven.** `services`, `forms`, `queries`, `policies`, `lib`, `components` — each with a stated trigger. A new one needs an ADR. Recorded as ADR-007.
 6. **Devise is installed but no `User` exists.** You run `rails g devise User` yourself.

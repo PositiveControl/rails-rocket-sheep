@@ -112,6 +112,12 @@ So on the first pass, read `docs/rules/INDEX.md` and make a decision per rule:
 - **Delete the rule.** A rule pointing at a class you do not have is worse than
   no rule, because an agent will believe it.
 
+One rule reads your app rather than asserting at it:
+`docs/rules/database-conventions.md` has a PostgreSQL half and a MySQL half, and
+the Tech Stack line in the generated `CLAUDE.md` says which applies. Adoption
+fills that line from your `config/database.yml` and `db/schema.rb`, so check it
+first — everything downstream routes off it.
+
 Then run `/workflow_setup` to fill the repo and board tokens the commands carry,
 and read `WORKFLOW.md`.
 

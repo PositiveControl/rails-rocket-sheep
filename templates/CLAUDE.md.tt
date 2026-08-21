@@ -25,7 +25,7 @@ bin/brakeman         # Security analysis
 
 ## Tech Stack
 
-- **Backend:** Rails 8 + PostgreSQL, UUID primary keys
+- **Backend:** Rails 8 + <%= DB_LABEL %> (`<%= DB_ADAPTER %>`), <%= DB_PRIMARY_KEY %> primary keys
 - **Frontend:** Hotwire (Turbo + Stimulus), Tailwind CSS, Slim (not ERB)
 - **Components:** ViewComponent (`app/components`, `ApplicationComponent`)
 - **Pagination:** Pagy (wired into `ApplicationController`)
@@ -136,7 +136,11 @@ workflow. Adding a page: `docs/sop/add-seo-to-a-page.md`.
 
 Kamal 2. Configure `config/deploy.yml`, fill `.kamal/secrets`, then
 `kamal setup` and `kamal deploy`. Production needs `RAILS_MASTER_KEY`,
-`DATABASE_URL`, and `POSTGRES_PASSWORD`. Server hardening:
+<% db_password_secret = {
+     postgresql: "`POSTGRES_PASSWORD`",
+     mysql: "`MYSQL_PASSWORD` plus `MYSQL_ROOT_PASSWORD`"
+   }[DB_FAMILY] || "your database's password secret" -%>
+`DATABASE_URL`, and <%= db_password_secret %>. Server hardening:
 `docs/sop/harden-a-kamal-server.md`.
 
 ## Documentation

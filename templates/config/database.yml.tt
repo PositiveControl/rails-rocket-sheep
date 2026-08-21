@@ -1,12 +1,17 @@
-# PostgreSQL multi-database configuration for Rails 8 Solid Stack
+# <%= DB_LABEL %> multi-database configuration for Rails 8 Solid Stack
 # Supports separate databases for queue, cable, and cache
 
 default: &default
-  adapter: postgresql
+  adapter: <%= DB_ADAPTER %>
+<% if POSTGRESQL -%>
   encoding: unicode
+<% else -%>
+  encoding: utf8mb4
+  collation: utf8mb4_unicode_ci
+<% end -%>
   pool: <%%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   host: <%%= ENV.fetch("DB_HOST") { "localhost" } %>
-  username: <%%= ENV.fetch("DB_USERNAME") { ENV["USER"] } %>
+  username: <%%= ENV.fetch("DB_USERNAME") { <%= POSTGRESQL ? 'ENV["USER"]' : '"root"' %> } %>
   password: <%%= ENV["DB_PASSWORD"] %>
 
 development:

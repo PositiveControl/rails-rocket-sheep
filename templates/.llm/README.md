@@ -48,7 +48,7 @@ Written by `/domain_model`.
 
 <!-- adr:start -->
 - [Rails 8 Solid Stack](../docs/adr/0001-rails-8-solid-stack.md) — database-backed jobs, cache, and cable instead of Redis
-- [UUID Primary Keys](../docs/adr/0002-uuid-primary-keys.md) — why every table's key is a UUID, and what it costs
+- [Primary Keys Follow the Database](../docs/adr/0002-primary-keys-follow-the-database.md) — UUIDs on PostgreSQL, bigints on MySQL, and what each costs
 - [Service Object Pattern](../docs/adr/0003-service-object-pattern.md) — where business logic lives, and the Result it returns
 - [Real Deletes by Default, Discard Opt-In](../docs/adr/0004-real-deletes-by-default-discard-opt-in.md) — when a model earns soft deletion
 - [Slim Templates](../docs/adr/0005-slim-templates.md) — why views are Slim and never ERB
@@ -64,7 +64,7 @@ Procedures somebody will need to repeat.
 <!-- sop:start -->
 - [Add SEO to a page](../docs/sop/add-seo-to-a-page.md) — meta tags, canonical URLs, JSON-LD, sitemap entry
 - [Harden a Kamal server](../docs/sop/harden-a-kamal-server.md) — firewall, SSH, unattended upgrades after `kamal setup`
-- [Extract database and storage](../docs/sop/extract-database-and-storage.md) — move PostgreSQL and Active Storage off the app server
+- [Extract database and storage](../docs/sop/extract-database-and-storage.md) — move the database and Active Storage off the app server
 - [Set up the beads tracker tier](../docs/sop/beads-setup.md) — only if `/workflow_setup` chose tier `beads`
 - [Find slow tests](../docs/sop/find-slow-tests.md) — read the Slowpoke report and act on it
 - [Update from the template](../docs/sop/update-from-the-template.md) — three-way merge the alignment layer against a newer template
