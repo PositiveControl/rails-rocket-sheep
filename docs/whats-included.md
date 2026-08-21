@@ -114,7 +114,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
 | `docs/sop/extract-database-and-storage.md` | Moving Postgres off the app server |
 
-`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
+`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. It is the rule corpus: hand-maintained, and read by the commands rather than written by them. Empty `docs/plans/` and `docs/qa/` directories complete the four-directory doc canon (`plans`, `system`, `sop`, `qa`), which is what the commands write into. All five names are load-bearing — the workflow commands route by those exact paths.
 
 ### Agent workflow
 

@@ -81,14 +81,18 @@ ruby:
 
 This section alone prevents a recurring class of failure.
 
-### Two pattern docs, one index
+### One rule per file, one index
 
-`CLAUDE.md` states the rules in short form and points at the reasoning:
-`docs/rules/` for the backend (controllers, services, forms,
-queries, policies, jobs, caching) and the view
-layer. Both carry a "when not to" for every pattern and a table of patterns
-explicitly rejected — repository, CQRS, hexagonal, interactor chains, DI
-containers.
+`CLAUDE.md` states the rules in short form and points at the reasoning. Every
+convention is a single file in `docs/rules/`, routed by `docs/rules/INDEX.md`:
+backend rules (controllers, services, forms, queries, policies, jobs, caching) and
+view rules (Slim, Tailwind, components, partials, Turbo, Stimulus) sit side by side,
+separated by the `applies_to` globs in each rule's frontmatter rather than by
+directory. An agent editing a `.slim` file is never routed to a controller rule.
+
+Rules carry a "when not to" where one exists, and the patterns explicitly rejected
+— repository, CQRS, hexagonal, interactor chains, DI containers — have their own
+rule in `docs/rules/rejected-patterns.md`.
 
 Keeping the detail out of `CLAUDE.md` matters for a boring reason: the same rule
 written in three places drifts, and the agent then has three answers.
@@ -101,10 +105,12 @@ written in three places drifts, and the agent then has three answers.
 
 Good additions:
 
+- A convention the agent should follow → a new file in `docs/rules/`, with full frontmatter (`id` matching the filename, `applies_to`, `triggers`, `see_also`, `tokens`) and a row in each of `INDEX.md`'s three tables. `CLAUDE.md` gets one line linking it, not a copy of it
 - A decision you made and don't want revisited → `docs/system/architecture.md` as an ADR, referenced from `CLAUDE.md`
 - A procedure with a specific correct order → `docs/sop/`
 - A mistake the agent keeps making → the anti-patterns section, with a before/after pair
 - A domain rule the code doesn't express → the conventions section
+- A word your team uses for a thing → `docs/system/vocabulary.md`, with the near-synonym to avoid. One word, one meaning, defined once
 
 Keep it dense. `CLAUDE.md` is loaded into context on every session, so length is a real cost. Prefer a tight example over a paragraph of prose.
 
@@ -118,12 +124,12 @@ Keep it dense. `CLAUDE.md` is loaded into context on every session, so length is
 
 ## The docs directories
 
-The generated app ships `docs/rules/` (one convention per file, with a routing index) plus a four-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
+The generated app ships the rule corpus in `docs/rules/` (one convention per file, with a routing index) plus the four-directory **doc canon** below. The canon is what the commands *write*; the rule corpus is hand-maintained and only read. The names are load-bearing — every workflow command in `.claude/commands/` routes by these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
 
 | Directory | Contents | Written by |
 |---|---|---|
 | `docs/plans/` | Design docs, written before issues exist | `/feature_plan` |
-| `docs/system/` | How things currently work — architecture state, ADRs, model reference | `/pr_submit`, `/update_docs` |
+| `docs/system/` | How things currently work — architecture state, ADRs, model reference, vocabulary | `/pr_submit`, `/update_docs` |
 | `docs/sop/` | Procedures someone will need to repeat | `/pr_submit`, `/update_docs` |
 | `docs/qa/` | Manual test guides for flows automated tests don't cover | `/pr_qa` |
 
