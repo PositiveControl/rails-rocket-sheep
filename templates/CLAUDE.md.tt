@@ -88,6 +88,12 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   passes 600 lines mid-implementation → stop, split, land the current slice
 - `/segue` is the escape valve — isolate a tangent, merge findings back without
   polluting the workstream
+- You invoke the chain. Four of the nineteen (`/run_lint`, `/test_fix`,
+  `/rails_code_review`, `/pr_fix_ci`) read and edit locally, so an agent may reach
+  for them when the situation fits; anything that posts, pushes, moves the board,
+  or sits at a gate is yours to type. `WORKFLOW.md` has the table and the reason
+  per command. No command invokes another one: "next: `/pr_submit`" is an
+  instruction to you
 
 Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
 

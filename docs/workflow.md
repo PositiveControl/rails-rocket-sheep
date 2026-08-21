@@ -16,6 +16,8 @@ Each command declares a one-line description and, where it takes one, an argumen
 
 Every command ends by naming the next one, so the workflow self-navigates. `/pick` is the entry door for every session — it surfaces prioritized ready work and routes each item by shape and tracker state.
 
+Naming the next command is a prompt for you, not a handoff: nothing here invokes another command on its own. Fifteen of the nineteen are yours to type, because they post, push, move the board, or stand at a gate. The other four (`/run_lint`, `/test_fix`, `/rails_code_review`, `/pr_fix_ci`) only read and edit locally, so an agent may reach for one mid-session when the situation fits. The generated app's `WORKFLOW.md` states which is which, per command, with the reason.
+
 ```mermaid
 flowchart LR
   PK["/pick"] --> FP["/feature_plan"]

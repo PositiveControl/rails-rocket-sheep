@@ -147,10 +147,12 @@ end
 # A router that omits a command is a router that lies.
 agents_md = File.read(File.join(TEMPLATES, "AGENTS.md"))
 workflow_md = File.read(File.join(TEMPLATES, "WORKFLOW.md"))
+invocation_table = workflow_md[/^## Who invokes what$.*?^## /m].to_s
 command_paths.each do |path|
   name = File.basename(path, ".md")
   findings << "templates/AGENTS.md: no entry for /#{name}" unless agents_md.include?(name)
   findings << "templates/WORKFLOW.md: 'Command inventory' has no entry for /#{name}" unless workflow_md.include?(name)
+  findings << "templates/WORKFLOW.md: 'Who invokes what' does not say who invokes /#{name}" unless invocation_table.include?("`/#{name}`")
 end
 
 # --- 7. Command frontmatter -------------------------------------------------

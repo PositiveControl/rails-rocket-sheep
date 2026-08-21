@@ -103,6 +103,11 @@ readable and the constants live in one place.
   runs next, in backticks, so the chain self-navigates. It is the *human* who
   types it: a command cannot invoke another command. Write "next: `/pr_submit`",
   never phrasing that implies the command will do it for you.
+- **Classify who invokes it.** A new command gets a row in `Who invokes what` in
+  `templates/WORKFLOW.md`, and `bin/lint-docs` checks the row exists. The test: a
+  command that reads and edits locally can be one an agent reaches for; a command
+  that posts, pushes, moves a board, or sits at a gate belongs to the human. Say
+  which in the row, with the reason.
 - **Plain markdown only.** No harness-specific loading, no feature only one tool
   supports. The routing has to work in Claude Code, Cursor, Codex, and a `grep`.
 - **Keep the tracker tiers straight.** A command that touches the tracker follows

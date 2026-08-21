@@ -229,6 +229,55 @@ Soft vs hard: gates are prompt-enforced unless backed by repo settings. Branch p
 - `labels`: `Closes #N` in every PR body. The five `status:*` labels exist (`/workflow_setup` creates them).
 - `beads`: `bd` on PATH with a reachable database, which needs a running `dolt sql-server` — see `docs/sop/beads-setup.md`. PR bodies must **not** carry `Closes #N`.
 
+## Who invokes what
+
+A command is a markdown file. Anyone who can read it can follow it: you by typing
+`/name`, or an agent already in a session that decides the situation fits. That
+second case is useful for some of these commands and wrong for others, so the
+split is stated rather than left to judgment.
+
+**The criterion.** An agent may reach for a command that reads the repo and edits
+files locally. A command that writes somewhere other people see, or that stands at
+a gate, is yours to invoke. Posting a review, moving a board item, opening a PR,
+resolving a conversation, and approving a plan are all decisions with an audience,
+and an agent choosing its own moment to do them removes the checkpoint the gate
+exists to create.
+
+| Command | Invoked by | Why |
+|---|---|---|
+| `/pick` | You | Chooses what to work on next; that is the session's premise, not a step in it |
+| `/feature_plan` | You | Ends at G1, and creates issues, which are commitment |
+| `/task_plan` | You | Ends at G2, and G2 is the approval that lets code start |
+| `/implement` | You | Starts from an approved plan; the approval is the entry condition |
+| `/pr_submit` | You | Opens a PR, moves the board, and carries G3 and G4 |
+| `/pr_review` | You | Posts review comments on someone else's work |
+| `/pr_comment_resolver` | You | Replies to and resolves conversations other people are reading |
+| `/pr_qa` | You | Guides a human through a manual pass; there is no pass without the human |
+| `/update_docs` | You | Rewrites and deletes across the doc tree; scope is a judgment call |
+| `/workflow_setup` | You | Interactive, once, and writes the config every other command reads |
+| `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge`, `/segue_kill` | You | The point is that *you* decided to stop the workstream |
+| `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
+| `/test_fix` | Either | The suite is already red; triage and a local fix are bounded work |
+| `/rails_code_review` | Either | Reads the branch and reports. It posts nothing |
+| `/pr_fix_ci` | Either, up to a point | Reading a failed run and fixing locally is fair game; pushing the fix is yours |
+
+**Either** means an agent may follow the file when the situation calls for it, and
+that you can still type it. It does not mean the agent should run it speculatively:
+`/test_fix` when the suite is red, not on a hunch.
+
+### A command cannot invoke a command
+
+Each command ends by naming what runs next, and that chain is what makes the
+workflow navigable. The naming is an instruction to **you**, not automation: there
+is no mechanism by which one of these files invokes another. `/pick` routing an
+epic to `/feature_plan` means it tells you to run `/feature_plan`.
+
+This matters when writing one. A step that reads "then run `/task_plan`" will not
+happen on its own. Either the step does the work inline, or the command ends and
+says what to type. Where a real handoff is wanted rather than a suggestion, the
+mechanism is a subagent definition under `.claude/agents/`, which this template
+does not ship yet.
+
 ## Sizing
 
 Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median of 1 day; 600+ took 3. An issue fits when its acceptance criteria fit in ≤5 testable bullets — more is an epic; decompose.
