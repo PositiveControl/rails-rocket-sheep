@@ -1,3 +1,7 @@
+---
+description: "Entry door: prioritized ready work, routed by shape and state"
+---
+
 # Pick
 
 Entry door to the workflow. Show **my** prioritized ready work, then route the selected item to the right next command based on its shape and state.

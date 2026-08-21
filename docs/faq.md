@@ -115,7 +115,9 @@ Within 30 days, where you haven't put a generated app into production. See LICEN
 No. Generated apps are yours. The template is applied once and leaves behind ordinary Rails files.
 
 **Are there updates?**
-The template is versioned and fixes are published, but there is no upgrade path *into* an already-generated app by design — once applied, the output is your code, not a dependency. Re-generating a fresh app picks up the current version.
+Fixes land on `main`, and there is no upgrade path *into* an already-generated app by design — once applied, the output is your code, not a dependency. Re-generating a fresh app picks up the current state.
+
+What a generated app *does* carry is its origin: the first lines of its `CLAUDE.md` name the template commit it came from and the date. That is what makes a stale convention diagnosable — quote the commit, diff the template's `docs/rules/` against your copy, and take what you want. There are no version tags yet, so the commit is the identifier.
 
 ---
 

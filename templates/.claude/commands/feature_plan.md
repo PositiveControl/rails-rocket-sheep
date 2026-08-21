@@ -1,3 +1,8 @@
+---
+description: "Explore a feature, write its design doc, cut sized sub-issues"
+argument-hint: '<issue number | "problem statement">'
+---
+
 # Feature Plan
 
 Plan a feature: explore → design doc → human approval → sized sub-issues + doc placeholders. Pass a parent issue number or a problem statement: `/feature_plan 2212` or `/feature_plan "returns for auction items"`.

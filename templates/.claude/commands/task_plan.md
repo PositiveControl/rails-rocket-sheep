@@ -1,3 +1,8 @@
+---
+description: "Plan one issue: task file, implementation plan, then a branch"
+argument-hint: "<issue number>"
+---
+
 # Task Plan
 
 Plan one issue's implementation: explore → task file → human approval → branch. Planning only — execution is `/implement`. Pass the issue number: `/task_plan 1613`.

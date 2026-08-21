@@ -2,6 +2,13 @@
 
 Rails 8 application built with the Solid Stack architecture.
 
+Generated from [Rails Rocket Sheep](https://github.com/PositiveControl/rails-rocket-sheep)
+at commit `<%= TEMPLATE_SHA %>` on <%= TEMPLATE_GENERATED_ON %>. Everything below,
+including `docs/rules/` and `.claude/commands/`, is a snapshot from that commit and
+is now this app's own code. Nothing tracks the template, so when a convention here
+disagrees with a newer version of it, this app's copy is what governs this app.
+Quote that commit when comparing.
+
 ## Quick Start
 
 ```bash
@@ -88,6 +95,12 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   passes 600 lines mid-implementation → stop, split, land the current slice
 - `/segue` is the escape valve — isolate a tangent, merge findings back without
   polluting the workstream
+- You invoke the chain. Four of the nineteen (`/run_lint`, `/test_fix`,
+  `/rails_code_review`, `/pr_fix_ci`) read and edit locally, so an agent may reach
+  for them when the situation fits; anything that posts, pushes, moves the board,
+  or sits at a gate is yours to type. `WORKFLOW.md` has the table and the reason
+  per command. No command invokes another one: "next: `/pr_submit`" is an
+  instruction to you
 
 Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
 
@@ -137,8 +150,14 @@ these exact paths — don't rename them.
 | `docs/qa/` | Manual test guides | `/pr_qa` |
 
 `docs/system/` holds `architecture.md` (ADRs — *why* a rule exists and what was
-accepted) and `models.md`. Rules say what to
+accepted), `models.md`, and `vocabulary.md`. Rules say what to
 do; ADRs say why it was chosen. Don't merge them.
+
+`vocabulary.md` defines the words this workflow uses in one place — thread ID,
+tracker tier, gate, contract slot, doc canon, pattern budget — with the wording to
+avoid where a term has a common near-synonym. Reach for it when a word in
+`WORKFLOW.md` or a command reads like jargon; don't restate a definition anywhere
+else.
 
 `.llm/README.md` indexes committed docs. Conventions are single-sourced in
 `docs/rules/`; task files in `.llm/tasks/` reference them and never restate them.

@@ -28,7 +28,17 @@ These are markdown instruction files, not executables. Tools with a slash-comman
 concept (Claude Code, Cursor) surface them as `/name`. **If yours doesn't, read
 and follow the file directly** — e.g. "follow `.claude/commands/pr_submit.md`".
 
-The chain is self-navigating: each command ends by naming the next.
+Each one opens with frontmatter carrying a one-line `description`, and an
+`argument-hint` if it takes an argument. That is enough to choose a command
+without opening it, whether a picker renders it for you or you `head` the file.
+
+The chain is self-navigating: each command ends by naming the next. That naming is
+an instruction to the human, not automation — no command invokes another.
+
+Most are for a person to run. `/run_lint`, `/test_fix`, `/rails_code_review`, and
+`/pr_fix_ci` read and edit locally, so an agent may follow one when the situation
+calls for it; anything that posts, pushes, moves a board, or stands at a gate is
+the human's to invoke. `WORKFLOW.md` carries the table under "Who invokes what".
 
 ```
 /pick (entry) → /feature_plan → /task_plan → /implement → /pr_submit → human merge

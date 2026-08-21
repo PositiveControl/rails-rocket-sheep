@@ -111,6 +111,12 @@ Good candidates as a project grows: blocking commits when the suite hasn't run, 
 
 ---
 
+## Who may invoke what
+
+The third guardrail is not a setting. A command is a markdown file, so an agent in a session can follow one without being asked, and for some of these that is useful: `/run_lint`, `/test_fix`, `/rails_code_review`, and `/pr_fix_ci` read the repo and edit locally, and nothing leaves the machine. The other fifteen post a review, push a branch, move a board item, or stand at one of the four gates, and those stay the human's to invoke — a gate with an agent on both sides is not a gate.
+
+The generated app's `WORKFLOW.md` states the split per command, with the reason, under "Who invokes what". It is prose rather than a flag because the harness has no per-command invocation switch; a real handoff would need a subagent definition, which the template does not ship yet.
+
 ## What this does not do
 
 Guardrails reduce the blast radius; they don't remove the need to review. An agent can still write logically wrong code that lints perfectly, and permissions constrain which commands run, not whether the change is correct.

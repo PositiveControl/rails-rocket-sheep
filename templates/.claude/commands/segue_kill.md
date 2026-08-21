@@ -1,6 +1,6 @@
 ---
-description: Abandon a segue that yielded nothing; record why and skip the merge
-argument-hint: [thread file path, optional]
+description: "Abandon a segue that yielded nothing; record why and skip the merge"
+argument-hint: "[thread file path, optional]"
 ---
 
 # Segue kill

@@ -31,17 +31,17 @@ Editing a file that matches → read these rules.
 | Path | Rules |
 |---|---|
 | `config/routes.rb` | [controllers](controllers.md) |
-| `app/controllers/**` | [controllers](controllers.md) · [turbo-status](turbo-status.md) · [pagination](pagination.md) · [exception-boundary](exception-boundary.md) · [rate-limiting](rate-limiting.md) · [policy-objects](policy-objects.md) |
+| `app/controllers/**` | [controllers](controllers.md) · [turbo-status](turbo-status.md) · [pagination](pagination.md) · [exception-boundary](exception-boundary.md) · [rate-limiting](rate-limiting.md) · [policy-objects](policy-objects.md) · [turbo-frames](turbo-frames.md) · [current-attributes](current-attributes.md) |
 | `app/services/**` | [service-objects](service-objects.md) · [jobs](jobs.md) |
 | `app/forms/**` | [form-objects](form-objects.md) |
 | `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) |
 | `app/policies/**` | [policy-objects](policy-objects.md) |
 | `app/lib/**` | [registries](registries.md) |
-| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) · [seeds](seeds.md) |
+| `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) · [deletes](deletes.md) · [audit-trail](audit-trail.md) · [seeds](seeds.md) · [current-attributes](current-attributes.md) |
 | `app/models/concerns/**` | [optional-patterns](optional-patterns.md) |
-| `app/jobs/**`, `config/queue.yml` | [jobs](jobs.md) |
-| `app/views/**/*.slim` | [slim-gotchas](slim-gotchas.md) · [partials](partials.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [empty-states](empty-states.md) · [forms-ui](forms-ui.md) · [accessibility](accessibility.md) · [n-plus-one](n-plus-one.md) · [caching](caching.md) |
-| `app/components/**` | [components](components.md) · [view-code-placement](view-code-placement.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [accessibility](accessibility.md) |
+| `app/jobs/**`, `config/queue.yml` | [jobs](jobs.md) · [current-attributes](current-attributes.md) |
+| `app/views/**/*.slim` | [slim-gotchas](slim-gotchas.md) · [partials](partials.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [empty-states](empty-states.md) · [forms-ui](forms-ui.md) · [accessibility](accessibility.md) · [n-plus-one](n-plus-one.md) · [caching](caching.md) · [turbo-frames](turbo-frames.md) |
+| `app/components/**` | [components](components.md) · [view-code-placement](view-code-placement.md) · [tailwind](tailwind.md) · [tailwind-build](tailwind-build.md) · [accessibility](accessibility.md) · [turbo-frames](turbo-frames.md) |
 | `app/helpers/**` | [view-code-placement](view-code-placement.md) |
 | `app/javascript/controllers/**` | [stimulus](stimulus.md) · [tailwind-build](tailwind-build.md) |
 | `app/views/**/*.turbo_stream.slim` | [turbo-streams](turbo-streams.md) |
@@ -49,6 +49,7 @@ Editing a file that matches → read these rules.
 | `db/seeds.rb`, `db/seeds/**` | [seeds](seeds.md) |
 | `test/**` | [testing](testing.md) |
 | `test/components/**` | [testing](testing.md) · [components](components.md) |
+| Anything under `app/`, when you are unsure which layer calls which | [write-path](write-path.md) |
 | Adding a new directory under `app/` | [pattern-budget](pattern-budget.md) · [rejected-patterns](rejected-patterns.md) |
 
 ## Route by symptom
@@ -143,7 +144,7 @@ Editing a file that matches → read these rules.
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~12,900 tokens across 38 rules. Typical read: this index (~1,900)
+**Total corpus:** ~12,560 tokens across 38 rules. Typical read: this index (~1,900)
 plus one or two rules (140–660). Reading the whole corpus is a bug, not thoroughness.
 
 These are the only read-cost figures in the repo. Other files point here rather

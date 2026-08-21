@@ -1,3 +1,8 @@
+---
+description: "Address the review comments on a PR and resolve the threads"
+argument-hint: "<PR number>"
+---
+
 # PR Comment Resolver
 
 Fetch review comments on PR, address them, resolve conversations. Pass PR number as argument: `/pr_comment_resolver 1760`

@@ -1,6 +1,11 @@
+---
+description: "Diagnose and fix a failing CI run on this branch's PR"
+argument-hint: "<PR number>"
+---
+
 # Fix CI
 
-Diagnose and fix CI/CD pipeline failures on current branch's PR. Pass PR number as argument: `/fix_ci 2038`
+Diagnose and fix CI/CD pipeline failures on current branch's PR. Pass PR number as argument: `/pr_fix_ci 2038`
 
 ## Instructions
 

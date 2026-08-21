@@ -82,3 +82,5 @@ Stated plainly so nobody buys the wrong thing:
 - **No background job dashboard.** Solid Queue's Mission Control is not wired up.
 
 Several of these are deliberate. A template that includes everything is a framework, and frameworks are the thing you eventually fight.
+
+Five of them are decided rather than merely absent, and the reasoning is written down: [billing](../.agents/out-of-scope/billing.md), [teams and multi-tenancy](../.agents/out-of-scope/teams-and-multi-tenancy.md), [an admin panel](../.agents/out-of-scope/admin-panel.md), [API scaffolding](../.agents/out-of-scope/api-scaffolding.md), and [a fourth tracker tier](../.agents/out-of-scope/more-tracker-tiers.md). Each says what to do instead, and what would change our mind. The rest — a component library, OmniAuth, a job dashboard — are simply not built yet, which is a different thing from declined.

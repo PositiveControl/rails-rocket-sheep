@@ -1,6 +1,6 @@
 ---
-description: Write findings and path forward, closing the segue thread
-argument-hint: [thread file path, optional]
+description: "Write findings and path forward, closing the segue thread"
+argument-hint: "[thread file path, optional]"
 ---
 
 # Segue close

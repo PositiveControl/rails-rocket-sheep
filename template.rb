@@ -57,6 +57,23 @@ TEMPLATE_ROOT =
     __dir__
   end
 
+# The commit this app was generated from. A generated app is a copy, not a
+# dependency: nothing here tracks the template, and no command pulls a newer rule
+# corpus. Recording the origin is what makes a stale convention diagnosable --
+# without it, "is this rule current?" has no answer from inside the app.
+TEMPLATE_SHA =
+  begin
+    sha = IO.popen(
+      ["git", "-C", TEMPLATE_ROOT.to_s, "rev-parse", "--short", "HEAD"],
+      err: File::NULL, &:read
+    ).to_s.strip
+    sha.empty? ? "unknown" : sha
+  rescue StandardError
+    "unknown" # no git, or a tarball with no history -- never fail generation for a stamp
+  end
+
+TEMPLATE_GENERATED_ON = Time.now.strftime("%Y-%m-%d")
+
 # =============================================================================
 # Helper Methods
 # =============================================================================
@@ -407,6 +424,7 @@ empty_directory "docs/qa"
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/architecture.md"
+copy_template_file "docs/system/vocabulary.md"
 copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
 copy_template_file "docs/sop/beads-setup.md"

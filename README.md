@@ -176,6 +176,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
 | [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
+| [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, for when you edit or add one |
 | [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
