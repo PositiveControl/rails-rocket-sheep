@@ -84,7 +84,7 @@ bin/rails app:template LOCATION=~/src/rails-rocket-sheep/adopt.rb
 git status
 ```
 
-You get the rules, the 23 workflow commands and their Cursor mirror, the doc
+You get the rules, the 24 workflow commands and their Cursor mirror, the doc
 canon, the hooks, the PR and issue templates, and the origin stamp — so
 `bin/rocket-sheep-update` works from then on. Keep the clone: it is what the
 update reads.

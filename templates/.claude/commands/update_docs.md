@@ -36,7 +36,8 @@ to it instead of restating it.
 | Directory | Holds | Notes |
 |---|---|---|
 | `docs/rules/` | One coding convention per file, plus `INDEX.md` | Hand-maintained. Adding a rule means full frontmatter and rows in all three INDEX tables. Never duplicate a rule anywhere else |
-| `docs/system/` | How things currently work | `architecture.md` holds ADRs, `models.md` the model reference. State, not intentions |
+| `docs/adr/` | One decision per file, numbered | Why a rule exists and what was accepted. Owned by `/domain_model` |
+| `docs/system/` | How things currently work | `models.md` the model reference, `vocabulary.md` the glossary. State, not intentions |
 | `docs/sop/` | Procedures somebody will repeat | Written from a mistake, or from a sequence worked out by hand |
 | `docs/plans/` | Design docs for features | Owned by `/feature_plan`. Complete or delete placeholders here, never leave them listed |
 | `docs/qa/` | Manual test guides | Owned by `/pr_qa` |
@@ -44,8 +45,8 @@ to it instead of restating it.
 Two boundaries that matter:
 
 - **Rules say what to do; ADRs say why it was chosen.** A convention goes in
-  `docs/rules/`; the decision behind it and the cost accepted go in
-  `docs/system/architecture.md`. Don't merge the two.
+  `docs/rules/`; the decision behind it and the cost accepted go in `docs/adr/`,
+  one file per decision. Don't merge the two.
 - **Docs describe this system. They never restate conventions.** Conventions are
   single-sourced in `docs/rules/`; everything else links to them.
 
@@ -59,48 +60,29 @@ covering the same ground means one of them becomes a link. Delete a doc whose
 subject no longer exists rather than leaving it to mislead.
 
 If `docs/system/` is genuinely empty (an app whose shipped docs were removed),
-rebuild the minimum: `architecture.md` for decisions, `models.md` for the model
-reference. Do not scaffold beyond what a reader needs now.
+rebuild the minimum: `models.md` for the model reference, `vocabulary.md` for the
+glossary. Decisions belong in `docs/adr/`, one file each. Do not scaffold beyond
+what a reader needs now.
 
-### Step 5: Record the decisions, and sharpen the vocabulary
+### Step 5: Hand off the decisions and the vocabulary
 
-Two things a doc pass finds that are not docs.
+A doc pass turns up two things that are not docs, and `/domain_model` owns both:
 
-**A decision that was taken and never written down.** It earns a section in
-`docs/system/architecture.md` when all three are true, and is skipped when any one
-is missing:
+- **A decision taken and never written down.** It becomes an ADR in `docs/adr/`
+  when it is hard to reverse, surprising without context, and the result of a real
+  trade-off. That test, and the writing, are Step 4 and Step 5 of
+  `/domain_model` — do not restate them here.
+- **A word doing two jobs.** The code and the docs using different words for one
+  thing, one word covering two, or a definition the code has outgrown. The
+  glossary is `docs/system/vocabulary.md`, and the same command sharpens it.
 
-1. **Hard to reverse** — changing your mind later costs something real.
-2. **Surprising without context** — a future reader will look at the code and
-   wonder why on earth it was done this way.
-3. **The result of a real trade-off** — there were genuine alternatives, and one
-   was picked for stated reasons.
-
-Easy to reverse → it will just get reversed. Unsurprising → nobody will wonder.
-No alternative → there is nothing to record beyond "we did the obvious thing".
-What does qualify: architectural shape, a technology choice carrying lock-in, an
-explicit boundary ("X owns this data, everything else references it by ID"), a
-deliberate deviation from the obvious path, a constraint invisible in the code,
-and a rejected alternative whose rejection was subtle. Three sentences is a
-complete ADR: the context, the decision, and the cost accepted. Sections are not
-sections until they add something.
-
-**A word doing two jobs.** `docs/system/vocabulary.md` holds one meaning per term
-plus the near-synonym to avoid. Add to it when this pass turns one up:
-
-- The code and the docs use different words for the same thing → pick one, define
-  it there, and change the other.
-- One word covers two things (`account` meaning both the customer and the login)
-  → name them separately, and say which is which.
-- A term in the docs no longer matches what the code does → the code is the
-  truth; fix the definition, or fix the code and say so.
-
-Keep it a glossary. No implementation detail, no spec, no scratch notes: those
-have homes above.
+Collect what this pass found, then say what needs `/domain_model` and stop
+short of rewriting the glossary inline: a term settled mid-doc-pass without the
+user in the room is a term that gets re-argued.
 
 ### Step 6: Re-sync `.llm/README.md`
 
-The index has marker blocks per directory — `plans`, `system`, `sop`, `qa`. Edit
+The index has marker blocks per directory — `plans`, `adr`, `system`, `sop`, `qa`. Edit
 between the markers, one line per doc: a relative link plus the question that doc
 answers.
 
@@ -126,7 +108,7 @@ you found that needs a decision rather than a doc (that is an ADR, or an issue).
 - Doc index: `.llm/README.md` — committed docs only, marker blocks per directory
 - Conventions: `docs/rules/` + `docs/rules/INDEX.md` — single-sourced, never restated elsewhere
 - Read-cost figures for the rule corpus live in `docs/rules/INDEX.md` only
-- ADRs: `docs/system/architecture.md` — the three-part test is in Step 5
+- ADRs: `docs/adr/NNNN-<slug>.md`, one per decision — the test for whether one is owed lives in `/domain_model`
 - Vocabulary, one meaning per term: `docs/system/vocabulary.md`
 - Lifecycle, gates, sizing: `WORKFLOW.md`
 - Local scratch, never indexed: `.llm/tasks/`, `.llm/threads/`

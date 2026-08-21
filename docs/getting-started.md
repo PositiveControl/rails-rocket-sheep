@@ -123,9 +123,10 @@ app/
 docs/                        # Names are load-bearing
 ├── rules/                   # One convention per file + INDEX.md router
 ├── plans/                   # Feature design docs
+├── adr/                     # One decision per file — record decisions here
 ├── system/
-│   ├── architecture.md      # ADRs — record decisions here
-│   └── models.md            # Model documentation
+│   ├── models.md            # Model documentation
+│   └── vocabulary.md        # One meaning per term
 ├── sop/                     # Procedures / how-tos
 └── qa/                      # Manual test guides
 

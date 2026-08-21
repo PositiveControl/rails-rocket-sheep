@@ -4,7 +4,7 @@ The words this app's workflow and rules use, and what each one means here. One
 term, one meaning: where a word has drifted, the alternative to avoid is named.
 
 Definitions only. What to do lives in `docs/rules/`, the lifecycle in
-`WORKFLOW.md`, decisions in `docs/system/architecture.md`.
+`WORKFLOW.md`, decisions in `docs/adr/`.
 
 ## The workflow
 
@@ -69,7 +69,8 @@ keywords in frontmatter so the index can route to it. A rule says *what to do*.
 *Avoid*: "the conventions doc" (there is no single one), "the style guide".
 
 **ADR**
-A decision and the cost accepted for it, in `docs/system/architecture.md`. An ADR
+A decision and the cost accepted for it, one file per decision in `docs/adr/`,
+numbered `NNNN-<slug>.md`. An ADR
 says *why* a rule exists. Rules and ADRs are never merged: a rule that argues with
 itself is a rule nobody can check.
 

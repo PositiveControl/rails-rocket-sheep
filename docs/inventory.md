@@ -13,7 +13,7 @@ flowchart TB
   subgraph AGENT ["Agent alignment layer"]
     CM["CLAUDE.md<br/>conventions + anti-patterns"]
     WF["WORKFLOW.md<br/>lifecycle spec"]
-    CMD[".claude/commands/<br/>23 slash commands"]
+    CMD[".claude/commands/<br/>24 slash commands"]
     IDX[".llm/README.md<br/>doc index"]
     TSK[".llm/tasks/<br/>resumable task files"]
   end
@@ -58,7 +58,7 @@ flowchart TB
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
 | Pattern reference docs | ✅ | `docs/rules/` — 38 single-rule files + `INDEX.md` routing by path, symptom, or id. Backend, views, and tests |
-| Workflow commands | ✅ | 23 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
+| Workflow commands | ✅ | 24 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
@@ -240,7 +240,7 @@ Not gaps to fill — things to be honest about.
 
 **Jira and Linear buyers still aren't served.** The three tiers cover GitHub Projects, GitHub Issues via beads, and no tracker at all — but a shop whose issues live in Jira gets the fourteen tracker-independent commands and nothing else. That was a deliberate call (the thread ID doesn't survive the move; see [workflow](workflow.md)), but the sales page must say so rather than letting buyers discover it.
 
-**23 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 23 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
+**24 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 24 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
 
 **Template generation is version-coupled.** The template patches specific Rails files by matching their content. Rails 8.1 or 9 could break generation. Already-generated apps are unaffected, but the product needs re-verification against each Rails release, and that's ongoing maintenance nobody is scheduled to do.
 

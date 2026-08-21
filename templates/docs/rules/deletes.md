@@ -46,4 +46,4 @@ That covers "an admin deleted the wrong thing" without taxing every query. It do
 *not* restore associations or keep foreign keys valid in the meantime — when those
 matter, use Discard.
 
-Rationale and consequences: ADR-004 in [`../system/architecture.md`](../system/architecture.md).
+Rationale and consequences: [ADR 0004](../adr/0004-real-deletes-by-default-discard-opt-in.md).

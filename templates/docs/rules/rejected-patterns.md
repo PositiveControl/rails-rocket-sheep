@@ -10,7 +10,7 @@ tokens: 280
 # Rejected patterns
 
 Not neutral omissions — deliberately excluded. If a PR introduces one, it needs an
-ADR in [`../system/architecture.md`](../system/architecture.md) explaining what changed.
+ADR in [`../adr/`](../adr/) explaining what changed.
 
 | Pattern | Why not |
 |---|---|

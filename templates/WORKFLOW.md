@@ -269,6 +269,7 @@ exists to create.
 | `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge`, `/segue_kill` | You | The point is that *you* decided to stop the workstream |
 | `/grill` | Either | Asks questions and writes nothing. An agent may open one when a decision is missing; the decisions stay yours, and so does the gate the grilling feeds |
 | `/research` | Either | Reads primary sources and writes one doc locally. Nothing is posted, and nothing is committed until you commit it |
+| `/domain_model` | Either | Challenges a term and writes what you settle. An agent may open one on a word doing two jobs; the definitions are still yours to agree |
 | `/diagnose` | Either | Builds a loop, probes locally, fixes what the loop proves. Same bounded shape as `/test_fix` |
 | `/resolve_conflicts` | Either | The merge is already stopped on your machine; resolving and committing is local. Pushing the result is yours |
 | `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
@@ -321,6 +322,7 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/grill` | Optional | Interview a design in rounds; empty frontier before a gate, not a substitute for it |
 | `/research` | Optional | Primary sources → one cited write-up in the doc canon |
+| `/domain_model` | Optional | Sharpen one term or decision; writes `docs/system/vocabulary.md` and `docs/adr/` |
 | `/diagnose` | Optional | Hard bug or slow path: tight loop first, then repro, ranked theories, fix, cleanup |
 | `/resolve_conflicts` | Optional | Finish a conflicted merge or rebase; regenerate what must not be hand-merged |
 | `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge` | Optional | Isolated discussion thread; findings-only merge-back |
@@ -331,7 +333,7 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 
 ## Documentation rules
 
-- Doc canon: `docs/rules` (one convention per file + `INDEX.md`), `docs/plans` (design docs), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
+- Doc canon: `docs/rules` (one convention per file + `INDEX.md`), `docs/plans` (design docs), `docs/adr` (one decision per file, numbered), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
 - `.llm/README.md` indexes **committed docs only**; `.llm/tasks/` and `.llm/threads/` are local scratch (gitignored)
 - Doc updates happen at defined points only: `/feature_plan` creates placeholders, `/pr_submit` completes-or-deletes them (+ index dupe/dead-link check), `/update_docs` for deep passes
 - Never merge a PR leaving a Draft placeholder behind

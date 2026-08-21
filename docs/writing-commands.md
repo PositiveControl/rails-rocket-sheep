@@ -1,6 +1,6 @@
 # Writing a workflow command
 
-The 23 files in `templates/.claude/commands/` are the product's moving parts. Each
+The 24 files in `templates/.claude/commands/` are the product's moving parts. Each
 one is read by an agent working in somebody else's repository, with no author
 present to clarify it. This page is the shape they share, and the bar a new one
 clears before it ships.

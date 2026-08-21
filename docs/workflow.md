@@ -1,10 +1,10 @@
 # The Agent Workflow
 
-Every generated app ships with 23 slash commands that drive work from "what should I do next" through to a merged PR. This is the piece that turns the conventions in `CLAUDE.md` from advice into a process.
+Every generated app ships with 24 slash commands that drive work from "what should I do next" through to a merged PR. This is the piece that turns the conventions in `CLAUDE.md` from advice into a process.
 
 Full spec, diagrams, and gate definitions live in the generated app's `WORKFLOW.md`. This page is the orientation.
 
-Each command declares a one-line description and, where it takes one, an argument hint. Claude Code and Cursor render those in their command pickers, so the set is browsable without opening 23 files.
+Each command declares a one-line description and, where it takes one, an argument hint. Claude Code and Cursor render those in their command pickers, so the set is browsable without opening 24 files.
 
 ---
 
@@ -144,6 +144,7 @@ Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there �
 | `/rails_code_review` | Core | Rails-specific review against this stack's conventions |
 | `/grill` | Optional | Interview a design in rounds until nothing is silently assumed |
 | `/research` | Optional | Primary sources → one cited write-up in the doc canon |
+| `/domain_model` | Optional | Sharpen a term or a decision; writes the glossary and `docs/adr/` |
 | `/diagnose` | Optional | Hard bug or slow path: a loop that goes red first, then the fix |
 | `/resolve_conflicts` | Optional | Finish a conflicted merge or rebase, and prove the tree green |
 | `/segue` ×5 | Optional | Isolated discussion threads with findings-only merge-back |

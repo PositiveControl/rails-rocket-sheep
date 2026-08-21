@@ -101,7 +101,7 @@ In the shape given by **Output format** below. Then name what runs next: `/pr_su
 - **Form objects**: a submit that writes two or more models, or carries fields that aren't columns, belongs in `app/forms/` inheriting `ApplicationForm`. Flag `accepts_nested_attributes_for` outright.
 - **Query objects**: a read joining two or more models belongs in `app/queries/` and must return a relation, never an array. Flag `.to_a` followed by Ruby `select` / `sort_by`.
 - **Policies**: record-level authorization (`can this user edit this record`) belongs in a policy object used by both controller and view. Flag the same ownership conditional copy-pasted into a view and a controller. Petergate stays for role-level access.
-- **Pattern budget**: six sanctioned directories under `app/` — `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh needs an ADR in `docs/system/architecture.md`.
+- **Pattern budget**: six sanctioned directories under `app/` — `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh needs an ADR in `docs/adr/`, which `/domain_model` writes.
 - **Turbo / Hotwire**:
   - **Form failures render `status: :unprocessable_content`.** A 200 makes Turbo discard the response and the form silently freezes. Flag every `render :new` / `render :edit` without it.
   - Turbo Stream responses come from the controller by default. Model `broadcasts_to` is for genuine multi-user push only — flag it where the person who clicked is the only one who needs the update.
@@ -172,6 +172,6 @@ Direct and specific. Reference file paths and line numbers. Show corrected snipp
 ## Reference
 - Base for the diff: `origin/main`
 - Conventions, routed by path or symptom: `docs/rules/INDEX.md`
-- A seventh directory under `app/` needs an ADR: `docs/system/architecture.md`
+- A seventh directory under `app/` needs an ADR: `docs/adr/`, written by `/domain_model`
 - Reviewing someone else's PR by number instead: `/pr_review`
 - Missing tests are a finding at the same severity as the code they would cover

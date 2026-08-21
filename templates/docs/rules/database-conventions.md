@@ -16,5 +16,5 @@ tokens: 150
 - **Indexing:** composite indexes for frequently filtered column pairs.
 - **Ordering:** UUIDs have no natural order — `implicit_order_column` is set.
 
-Rationale and consequences: ADR-002 in [`../system/architecture.md`](../system/architecture.md).
+Rationale and consequences: [ADR 0002](../adr/0002-uuid-primary-keys.md).
 Applying any of this to a live table: [safe-migrations](safe-migrations.md).

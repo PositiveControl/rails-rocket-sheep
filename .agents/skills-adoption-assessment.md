@@ -4,8 +4,16 @@
 commands (`/grill`, `/resolve_conflicts`, `/research`, `/diagnose`), A5 folded into
 `/update_docs` Step 5, G6 added as `/pr_review` Step 7, the three stolen
 conventions added to `docs/writing-commands.md`, A6 recorded as gap 12 in
-`docs/inventory.md`, and the command count moved 19 → 23 across every site.
+`docs/inventory.md`, and the command count moved 19 → 24 across every site.
 `bin/lint-docs` is clean. Section 3 stands: the commands did not become skills.
+
+**Superseding A5:** `domain-modeling` was then adopted in full as `/domain_model`,
+and with it the skill's ADR path convention. Decisions are now one file each in
+`docs/adr/` (see [ADR 0008](adr/0008-decisions-are-one-file-each.md)), and
+`/update_docs` Step 5 hands off to the command rather than restating the
+three-part test, so the test lives in one place. Point 7 of section 1's
+"Worth taking" list called this a fold into an existing command; the fold turned
+out to be the smaller half of it.
 
 Source surveyed:
 `../skills` (35 skills across `engineering/`, `productivity/`, `misc/`,
