@@ -3,7 +3,7 @@
 ## Context
 
 Cursor reads slash commands from `.cursor/commands/`, Claude Code from
-`.claude/commands/`. The same 23 files have to be in both places in a generated
+`.claude/commands/`. The same 24 files have to be in both places in a generated
 app, and the product claims to work in either tool.
 
 Three ways to get a file into two directories: commit it twice, symlink one to the

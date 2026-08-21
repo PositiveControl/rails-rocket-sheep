@@ -124,4 +124,4 @@ A one-off block of markup used once on one page. Write it inline. Components pay
 for themselves through reuse and testing; a component with one caller and no logic
 is a [partial](partials.md) that costs three files.
 
-Rationale and consequences: ADR-006 in [`../system/architecture.md`](../system/architecture.md).
+Rationale and consequences: [ADR 0006](../adr/0006-viewcomponent-for-ui-units.md).

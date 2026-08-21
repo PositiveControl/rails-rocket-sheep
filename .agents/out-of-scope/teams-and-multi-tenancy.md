@@ -27,7 +27,7 @@ a `default_scope` it never thought about.
 - Building an app that is fundamentally about teams with granular roles? Bullet
   Train is built around exactly that.
 - Adding tenancy here: pick the model deliberately, write it as an ADR in
-  `docs/system/architecture.md`, and put the scoping in policies and query objects
+  `docs/adr/`, and put the scoping in policies and query objects
   rather than a `default_scope`. `docs/rules/deletes.md` explains why an implicit
   default scope is the pattern that bites.
 

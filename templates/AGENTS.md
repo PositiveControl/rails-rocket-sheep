@@ -20,7 +20,7 @@ pointer, not a second source — anything restated here would drift.
 | Development lifecycle, gates, sizing rules | `WORKFLOW.md` |
 | Workflow commands | `.claude/commands/` (mirrored to `.cursor/commands/`) |
 | Index of committed documentation | `.llm/README.md` |
-| Design docs · architecture · procedures · QA guides | `docs/plans` · `docs/system` · `docs/sop` · `docs/qa` |
+| Design docs · decisions · architecture · procedures · QA guides | `docs/plans` · `docs/adr` · `docs/system` · `docs/sop` · `docs/qa` |
 
 ## Commands
 
@@ -36,7 +36,8 @@ The chain is self-navigating: each command ends by naming the next. That naming 
 an instruction to the human, not automation — no command invokes another.
 
 Most are for a person to run. `/run_lint`, `/test_fix`, `/diagnose`,
-`/resolve_conflicts`, `/research`, `/rails_code_review`, and `/pr_fix_ci` read and
+`/resolve_conflicts`, `/research`, `/domain_model`, `/rails_code_review`, and
+`/pr_fix_ci` read and
 edit locally, so an agent may follow one when the situation calls for it; anything
 that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 `WORKFLOW.md` carries the table under "Who invokes what".
@@ -50,6 +51,7 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `pick` | Entry door. Surfaces ready work and routes it by shape and state |
 | `grill` | Interview a design in rounds until nothing is silently assumed |
 | `research` | Answer a question from primary sources, write it into the doc canon |
+| `domain_model` | Sharpen the vocabulary; write settled terms and decisions down |
 | `feature_plan` | Explore → design doc → sized sub-issues + doc placeholders |
 | `task_plan` | Design doc → task file + implementation plan → branch |
 | `implement` | Idempotent resume: load task file, execute, commit per logical unit |

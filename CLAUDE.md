@@ -55,7 +55,7 @@ templates/               Everything copied into the generated app.
 ├── docs/rules/          38 single-rule convention files + INDEX.md
 ├── docs/system/         ADRs, models reference
 ├── docs/sop/            Procedures
-├── .claude/commands/    23 workflow commands (mirrored to .cursor/commands/)
+├── .claude/commands/    24 workflow commands (mirrored to .cursor/commands/)
 ├── .cursor/rules/       Cursor pointer to the same index
 ├── .llm/                Task template, doc index
 ├── bin/rocket-sheep-update  Three-way merges a newer template into an app
@@ -199,7 +199,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   symptom, full list.
 - **Rules say what to do. ADRs say why it was chosen.** There are two ADR homes,
   because there are two products: decisions about a *generated app* go in
-  `templates/docs/system/architecture.md` and ship, and decisions about *this
+  `templates/docs/adr/`, one file per decision, and ship, and decisions about *this
   generator* go in [.agents/adr/](.agents/adr/) and do not. Don't merge either
   pair.
 - **A word gets one meaning, defined once.** The shipped vocabulary is
@@ -225,10 +225,12 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   a three-way merge the owner asks for rather than a channel
   ([0005](.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)), and
   why adoption installs the alignment layer and nothing else
-  ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)), and
+  ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)),
   why the database family is read from `rails new` while only primary keys
   diverge
-  ([0007](.agents/adr/0007-database-family-is-chosen-at-generation.md)).
+  ([0007](.agents/adr/0007-database-family-is-chosen-at-generation.md)), and why a
+  generated app's decisions are one file each in `docs/adr/`
+  ([0008](.agents/adr/0008-decisions-are-one-file-each.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
@@ -237,7 +239,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   nothing: the hooks and `.claude/settings.json` are Claude Code only, and an
   agent elsewhere still reads the same rule. See
   [ADR 0001](.agents/adr/0001-plain-markdown-commands-not-skills.md).
-- **The 23 workflow commands are mirrored** from `.claude/commands/` to
+- **The 24 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
   one copy — there is only one source. `bin/rocket-sheep-update` merges both
   destinations for the same reason.

@@ -101,7 +101,7 @@ written in three places drifts, and the agent then has three answers.
 
 Good additions:
 
-- A decision you made and don't want revisited → `docs/system/architecture.md` as an ADR, referenced from `CLAUDE.md`
+- A decision you made and don't want revisited → an ADR in `docs/adr/`, referenced from `CLAUDE.md`
 - A procedure with a specific correct order → `docs/sop/`
 - A mistake the agent keeps making → the anti-patterns section, with a before/after pair
 - A domain rule the code doesn't express → the conventions section
@@ -118,12 +118,13 @@ Keep it dense. `CLAUDE.md` is loaded into context on every session, so length is
 
 ## The docs directories
 
-The generated app ships `docs/rules/` (one convention per file, with a routing index) plus a four-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
+The generated app ships `docs/rules/` (one convention per file, with a routing index) plus a five-directory doc canon. The names are load-bearing — every workflow command in `.claude/commands/` reads and writes these exact paths, so renaming one breaks the commands. They give an agent a place to put durable work:
 
 | Directory | Contents | Written by |
 |---|---|---|
 | `docs/plans/` | Design docs, written before issues exist | `/feature_plan` |
-| `docs/system/` | How things currently work — architecture state, ADRs, model reference | `/pr_submit`, `/update_docs` |
+| `docs/adr/` | One decision per file, numbered — why a rule exists | `/domain_model` |
+| `docs/system/` | How things currently work — model reference and the glossary | `/pr_submit`, `/update_docs` |
 | `docs/sop/` | Procedures someone will need to repeat | `/pr_submit`, `/update_docs` |
 | `docs/qa/` | Manual test guides for flows automated tests don't cover | `/pr_qa` |
 

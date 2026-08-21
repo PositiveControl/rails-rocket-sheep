@@ -159,8 +159,8 @@ than restating them, because a second copy goes stale the next time a rule lands
   to *route by path*, *route by symptom*, and *full list*.
 - The `id` and the filename must match. Other files reference rules by id.
 - Architecture *decisions* (why the rule exists, consequences accepted) stay as
-  ADRs in [`../system/architecture.md`](../system/architecture.md). Rules say what
-  to do; ADRs say why it was chosen. Don't merge them.
+  ADRs in [`../adr/`](../adr/), one file per decision. Rules say what to do; ADRs
+  say why it was chosen. Don't merge them.
 - Backend and view rules live side by side here. There is no separate view doc —
   `applies_to` globs are what separate them, and an agent editing a `.slim` file
   never sees a controller rule.

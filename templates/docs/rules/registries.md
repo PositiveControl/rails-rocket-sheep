@@ -68,5 +68,5 @@ every typo into a runtime `nil`.
 **Not a registry:** constants with no variants. Branding strings, upload limits,
 timeouts. Those are frozen constants — see `app/lib/app_config.rb`.
 
-There is no base class, deliberately. See ADR-008 in
-[`../system/architecture.md`](../system/architecture.md).
+There is no base class, deliberately. See
+[ADR 0008](../adr/0008-registries-as-data-objects.md).

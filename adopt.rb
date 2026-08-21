@@ -103,6 +103,7 @@ template_file "CLAUDE.md.tt"
 # without updating the commands.
 #
 #   docs/plans   design docs        (/feature_plan writes here)
+#   docs/adr     decisions, one per file (/domain_model writes here)
 #   docs/system  architecture state (/pr_submit completes placeholders here)
 #   docs/sop     procedures         (/pr_submit completes placeholders here)
 #   docs/qa      manual test guides (/pr_qa writes here)
@@ -111,8 +112,17 @@ empty_directory "docs/plans"
 empty_directory "docs/qa"
 
 template_file "docs/system/models.md.tt"
-copy_template_file "docs/system/architecture.md"
 copy_template_file "docs/system/vocabulary.md"
+
+# One decision per file, numbered, newest last. Globbed for the same reason the
+# rules are: adding a decision must not mean editing a manifest, or the ADR that
+# skips the edit is one adoption never installs and no update can reach.
+ADR_FILES = Dir.glob(File.join(TEMPLATE_ROOT, "templates/docs/adr/*.md"))
+               .map { |path| "docs/adr/#{File.basename(path)}" }.freeze
+
+empty_directory "docs/adr"
+ADR_FILES.each { |adr| copy_template_file adr }
+
 copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
 copy_template_file "docs/sop/beads-setup.md"

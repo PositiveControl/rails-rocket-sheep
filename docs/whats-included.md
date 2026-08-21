@@ -104,8 +104,8 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
-| `docs/system/architecture.md` | Architecture Decision Records, pre-seeded with the template's own five decisions |
-| `docs/rules/` (26 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
+| `docs/adr/` (8 files) | One decision per file, numbered — pre-seeded with the template's own eight |
+| `docs/rules/` (38 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
 | `docs/system/models.md` | Model documentation stub |
 | `docs/system/vocabulary.md` | What each workflow and doc term means, and the near-synonyms to avoid |
 | `CLAUDE.md` (first lines) | The template commit and date this app was generated from |
@@ -114,13 +114,13 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
 | `docs/sop/extract-database-and-storage.md` | Moving the database off the app server |
 
-`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
+`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `adr`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
 
 ### Agent workflow
 
 | File | Purpose |
 |---|---|
-| `.claude/commands/*.md` | 23 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| `.claude/commands/*.md` | 24 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
 | `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
 | `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
 | `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |

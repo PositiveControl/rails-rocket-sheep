@@ -26,7 +26,7 @@ Answer `$ARGUMENTS` from primary sources and leave the findings in the doc canon
    | How this system currently works | The existing doc in `docs/system/` that owns the subject |
    | A procedure someone will repeat | `docs/sop/<slug>.md` |
 
-   `grep` the doc canon first. A doc that already covers the ground gets extended, not duplicated. Do not invent a directory: the canon is `docs/rules`, `docs/plans`, `docs/system`, `docs/sop`, `docs/qa`.
+   `grep` the doc canon first. A doc that already covers the ground gets extended, not duplicated. Do not invent a directory: the canon is `docs/rules`, `docs/plans`, `docs/adr`, `docs/system`, `docs/sop`, `docs/qa`.
 
 5. Add the file to `.llm/README.md` between the marker block for its directory, one line: the link plus the question it answers.
 

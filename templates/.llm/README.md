@@ -37,10 +37,25 @@ indexed line-by-line here on purpose; the index is the index.
 How things currently work. Architecture state, not intentions.
 
 <!-- system:start -->
-- [Architecture Decision Records](../docs/system/architecture.md) — decisions taken and their consequences
 - [Models](../docs/system/models.md) — model reference
 - [Vocabulary](../docs/system/vocabulary.md) — what each workflow and doc term means here
 <!-- system:end -->
+
+## ADRs — `docs/adr/`
+
+One decision per file, numbered. *Why* a rule exists and what was accepted for it.
+Written by `/domain_model`.
+
+<!-- adr:start -->
+- [Rails 8 Solid Stack](../docs/adr/0001-rails-8-solid-stack.md) — database-backed jobs, cache, and cable instead of Redis
+- [Primary Keys Follow the Database](../docs/adr/0002-primary-keys-follow-the-database.md) — UUIDs on PostgreSQL, bigints on MySQL, and what each costs
+- [Service Object Pattern](../docs/adr/0003-service-object-pattern.md) — where business logic lives, and the Result it returns
+- [Real Deletes by Default, Discard Opt-In](../docs/adr/0004-real-deletes-by-default-discard-opt-in.md) — when a model earns soft deletion
+- [Slim Templates](../docs/adr/0005-slim-templates.md) — why views are Slim and never ERB
+- [ViewComponent for UI Units](../docs/adr/0006-viewcomponent-for-ui-units.md) — the component/partial line
+- [Pattern Budget](../docs/adr/0007-pattern-budget.md) — the six sanctioned directories, and what a seventh costs
+- [Registries as `Data` Objects](../docs/adr/0008-registries-as-data-objects.md) — fixed variant sets without a base class
+<!-- adr:end -->
 
 ## SOP — `docs/sop/`
 

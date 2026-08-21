@@ -152,13 +152,15 @@ these exact paths — don't rename them.
 |-----------|-------|------------|
 | `docs/rules/` | One convention per file + `INDEX.md` | Hand-maintained; see the index's own rules |
 | `docs/plans/` | Design docs for features | `/feature_plan` |
+| `docs/adr/` | One decision per file, numbered — why a rule exists | `/domain_model` |
 | `docs/system/` | Architecture state — how things currently work | `/pr_submit`, `/update_docs` |
 | `docs/sop/` | Procedures someone will repeat | `/pr_submit`, `/update_docs` |
 | `docs/qa/` | Manual test guides | `/pr_qa` |
 
-`docs/system/` holds `architecture.md` (ADRs — *why* a rule exists and what was
-accepted), `models.md`, and `vocabulary.md`. Rules say what to
-do; ADRs say why it was chosen. Don't merge them.
+`docs/adr/` holds one decision per file, numbered (`0001-<slug>.md`): *why* a rule
+exists and what was accepted for it. `docs/system/` holds `models.md` and
+`vocabulary.md`. Rules say what to do; ADRs say why it was chosen. Don't merge
+them.
 
 `vocabulary.md` defines the words this workflow uses in one place — thread ID,
 tracker tier, gate, contract slot, doc canon, pattern budget — with the wording to
@@ -192,13 +194,13 @@ docs/                       # names are load-bearing
 ├── rules/                  # One convention per file
 │   └── INDEX.md            #   Router — start here
 ├── plans/                  # Design docs (/feature_plan)
+├── adr/                    # One decision per file, numbered
 ├── system/                 # Architecture state
-│   ├── architecture.md     #   Architecture Decision Records
 │   └── models.md           #   Model documentation
 ├── sop/                    # Procedures / how-tos
 └── qa/                     # Manual test guides
 
-.claude/commands/           # 23 workflow slash commands (tracked, shared)
+.claude/commands/           # 24 workflow slash commands (tracked, shared)
 .llm/
 ├── tasks/                  # Task files — local scratch, gitignored
 └── threads/                # Segue threads — local scratch, gitignored

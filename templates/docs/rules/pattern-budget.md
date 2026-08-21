@@ -29,8 +29,8 @@ each holding two files nobody can tell apart.
 | `app/components/` | Rendered UI units | Markup has logic or variants, or is reused | [components](components.md) |
 
 **Six. Not seven.** A new top-level directory under `app/` is an architecture
-decision: record it as an ADR in [`../system/architecture.md`](../system/architecture.md)
-or don't create it.
+decision: record it as an ADR in [`../adr/`](../adr/), which `/domain_model`
+writes, or don't create it.
 
 The default for any given piece of code is still **a model method, a scope, or a
 controller action**. Reach for a pattern when plain Rails has actually run out.

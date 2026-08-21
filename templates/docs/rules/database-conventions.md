@@ -42,4 +42,5 @@ not both.
 - **Live tables:** applying any of this to a table with rows in it —
   [safe-migrations](safe-migrations.md).
 
-Rationale and consequences: ADR-002 in [`../system/architecture.md`](../system/architecture.md).
+Rationale and consequences: [ADR 0002](../adr/0002-primary-keys-follow-the-database.md).
+Applying any of this to a live table: [safe-migrations](safe-migrations.md).

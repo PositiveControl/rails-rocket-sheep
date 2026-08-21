@@ -25,7 +25,7 @@ The template writes plain Rails files, so there's no gem to become incompatible.
 ## Using it
 
 **Can I use it on an existing app?**
-The workflow, yes — `bin/rails app:template LOCATION=/path/to/adopt.rb` installs the alignment layer into any Rails app: rules, the 23 workflow commands and their Cursor mirror, `WORKFLOW.md`, `CLAUDE.md`, the doc canon, the hooks, the PR and issue templates. It touches no `Gemfile`, no `app/`, no `config/`, no `db/`, so it is safe to run and easy to revert.
+The workflow, yes — `bin/rails app:template LOCATION=/path/to/adopt.rb` installs the alignment layer into any Rails app: rules, the 24 workflow commands and their Cursor mirror, `WORKFLOW.md`, `CLAUDE.md`, the doc canon, the hooks, the PR and issue templates. It touches no `Gemfile`, no `app/`, no `config/`, no `db/`, so it is safe to run and easy to revert.
 
 The application code, no. `rails new --template` only applies to new apps, and the database, Kamal, and generator configuration cannot be retrofitted. The patterns are copyable by hand — `app/services/application_service.rb`, `app/forms/application_form.rb`, `app/lib/plan_registry.rb`, `app/components/`, the SEO helper and tests all drop in unchanged (components need the `view_component` gem).
 

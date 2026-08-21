@@ -28,7 +28,7 @@ Rocket Sheep front-loads the opinions:
 - **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, the primary-key convention your database gets — with worked examples of both the right and wrong version.
 - **Anti-patterns are named explicitly.** `CLAUDE.md` and the `docs/rules/` files name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
 - **The pattern budget is fixed.** Six sanctioned directories under `app/`: `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh requires an ADR. Sprawl is the failure mode of a pattern catalogue, so the catalogue names its own limit.
-- **Docs have a home.** `docs/system/architecture.md` for ADRs, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
+- **Docs have a home.** `docs/adr/` for decisions, one file each, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
 
 The result is that the tenth feature looks like the first one.
 
@@ -176,7 +176,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 | [Getting Started](docs/getting-started.md) | Prerequisites, first run, what to do in the first ten minutes |
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
-| [The Agent Workflow](docs/workflow.md) | The 23 slash commands, the four gates, sizing rules, setup |
+| [The Agent Workflow](docs/workflow.md) | The 24 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, for when you edit or add one |
 | [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the workflow into an app that isn't one |
@@ -187,7 +187,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 
 The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
 
-Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs/system/architecture.md`, `docs/system/models.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs/adr/` (eight decisions, one file each), `docs/system/models.md`, `docs/system/vocabulary.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 
