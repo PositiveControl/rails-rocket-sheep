@@ -4,7 +4,7 @@ title: Scopes, never class methods returning relations
 applies_to: ["app/models/**/*.rb"]
 triggers: ["scope", "class method", "def self.", "where", "returns nil", "chain broken", "relation"]
 see_also: ["query-objects", "n-plus-one"]
-tokens: 160
+tokens: 210
 ---
 
 # Scopes, not class methods

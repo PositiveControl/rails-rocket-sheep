@@ -26,7 +26,9 @@ COMMANDS_DIR = File.join(TEMPLATES, ".claude/commands")
 INDEX_PATH = File.join(RULES_DIR, "INDEX.md")
 IGNORE = "lint-docs:ignore"
 REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also tokens].freeze
-WORDS_PER_TOKEN = 0.75 # rough, so index self-cost is checked as a band not a value
+# Shared with bin/doc-tokens, which generates the per-rule figures. One estimator,
+# or the generator and the check disagree and every regenerated figure trips a finding.
+load File.expand_path("../templates/bin/doc-tokens", __dir__)
 MAX_DESCRIPTION = 80 # a picker line, not a paragraph
 LONG_FORM_LINES = 60 # over this, a command carries the Instructions/Reference frame
 
@@ -108,7 +110,7 @@ if claimed_lo && (claimed_lo != lo || claimed_hi != hi)
 end
 
 claimed_index = index[/this index \(~([\d,]+)\)/, 1]&.delete(",")&.to_i
-estimated_index = (index.split.size / WORDS_PER_TOKEN).round(-2)
+estimated_index = (index.length / CHARS_PER_TOKEN).round(-2)
 if claimed_index && (claimed_index - estimated_index).abs > estimated_index * 0.2
   findings << "INDEX.md: claims ~#{claimed_index} tokens for itself, estimate is ~#{estimated_index}"
 end

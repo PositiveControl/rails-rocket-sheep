@@ -4,7 +4,7 @@ title: Form objects — ApplicationForm, never nested attributes
 applies_to: ["app/forms/**/*.rb", "app/controllers/**/*.rb", "test/forms/**/*.rb"]
 triggers: ["form object", "ApplicationForm", "accepts_nested_attributes_for", "nested attributes", "multi-model form", "signup form", "wizard", "non-column field", "accept_terms"]
 see_also: ["service-objects", "turbo-status", "policy-objects"]
-tokens: 470
+tokens: 680
 ---
 
 # Form objects

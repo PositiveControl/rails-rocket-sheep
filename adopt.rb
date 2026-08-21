@@ -201,6 +201,12 @@ copy_template_file ".github/ISSUE_TEMPLATE/config.yml"
 copy_template_file "bin/pr-stack"
 chmod "bin/pr-stack", 0755
 
+# Keeps the `tokens:` figure in each rule's frontmatter honest. The routing budget
+# in docs/rules/INDEX.md is only worth something if those figures track the files,
+# and a rule body outlives the number somebody typed next to it.
+copy_template_file "bin/doc-tokens"
+chmod "bin/doc-tokens", 0755
+
 # Reconciles this layer with a newer template, three-way, from the stamp in
 # CLAUDE.md. It is inside the layer it updates, so it updates itself.
 copy_template_file "bin/rocket-sheep-update"

@@ -4,7 +4,7 @@ title: Every collection view has three states
 applies_to: ["app/views/**/index.html.slim", "app/views/**/*.slim"]
 triggers: ["empty state", "EmptyStateComponent", "no records", "blank page", "empty list", "nothing to show"]
 see_also: ["pagination", "components"]
-tokens: 180
+tokens: 250
 ---
 
 # Empty states

@@ -4,7 +4,7 @@ title: Controller shape — seven actions, thin actions
 applies_to: ["app/controllers/**/*.rb", "config/routes.rb"]
 triggers: ["custom action", "member route", "collection route", "fat controller", "new verb", "RESTful", "archive", "duplicate"]
 see_also: ["turbo-status", "exception-boundary", "pagination", "service-objects"]
-tokens: 420
+tokens: 630
 ---
 
 # Controller shape

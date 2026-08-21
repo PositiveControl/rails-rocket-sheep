@@ -4,7 +4,7 @@ title: Tests — Minitest, fixtures, VCR, which layer tests what
 applies_to: ["test/**/*.rb", "test/fixtures/**/*.yml"]
 triggers: ["fixture", "fixtures", "VCR", "cassette", "WebMock", "factory", "FactoryBot", "RSpec", "what should I test", "integration test", "system test", "assert_difference", "slow test", "TDD"]
 see_also: ["components", "service-objects", "turbo-status", "jobs"]
-tokens: 660
+tokens: 1010
 ---
 
 # Tests
