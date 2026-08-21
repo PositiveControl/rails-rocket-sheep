@@ -108,7 +108,7 @@ Editing a file that matches → read these rules.
 | [controllers](controllers.md) | 630 | Seven actions, new verb = new resource, thin actions |
 | [turbo-status](turbo-status.md) | 430 | 422 on validation failure, the frozen-form bug |
 | [pagination](pagination.md) | 350 | Pagy, every index paginates |
-| [rate-limiting](rate-limiting.md) | 320 | Rails 8 `rate_limit`, what to apply it to |
+| [rate-limiting](rate-limiting.md) | 330 | Rails 8 `rate_limit`, what to apply it to |
 | [exception-boundary](exception-boundary.md) | 400 | `rescue_from` once, scoped lookups |
 | [service-objects](service-objects.md) | 610 | `ApplicationService`, Result, transactions |
 | [form-objects](form-objects.md) | 680 | `ApplicationForm`, never nested attributes |

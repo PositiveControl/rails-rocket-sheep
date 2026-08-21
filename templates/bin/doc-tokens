@@ -16,7 +16,12 @@
 # English markdown with fenced code. It is deliberately not exact — it is a budget,
 # not a bill — but it is consistent, which is what makes the numbers comparable.
 
+# The one estimate for "what does this doc cost to read". bin/lint-docs loads this
+# file for the constant rather than keeping a second one — two estimators drifting
+# apart is the same failure as two copies of a convention.
 CHARS_PER_TOKEN = 3.8
+
+return unless $PROGRAM_NAME == __FILE__
 
 check = ARGV.include?("--check")
 RULES = File.expand_path(ARGV.find { |a| !a.start_with?("--") } || "../docs/rules", __dir__)
