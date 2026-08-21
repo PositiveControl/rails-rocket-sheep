@@ -239,6 +239,23 @@ Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}")).reject { |p| p.include?("/.git/") }
   end
 end
 
+# --- 9. Everything under templates/ actually ships --------------------------
+# A file added to templates/ that no `copy_template_file` names, and no glob
+# covers, is a file that silently never reaches a generated app.
+generator = File.read(File.join(ROOT, "template.rb"))
+literal_copies = generator.scan(/(?:copy_template_file|template_file)\s+"([^"]+)"/).flatten
+glob_dirs = generator.scan(%r{Dir\.glob\(File\.join\(TEMPLATE_ROOT,\s*"templates/([^"*]+)/\*}).flatten
+
+DOC_TREES = ["docs", ".llm", ".claude", ".cursor"].freeze
+Dir.glob(File.join(TEMPLATES, "**/*.{md,tt,mdc,json}"), File::FNM_DOTMATCH).sort.each do |path|
+  ref = path.sub("#{TEMPLATES}/", "")
+  next unless DOC_TREES.any? { |tree| ref.start_with?("#{tree}/") }
+  next if literal_copies.include?(ref) || literal_copies.include?(ref.sub(/\.tt\z/, ""))
+  next if glob_dirs.any? { |dir| File.dirname(ref) == dir.chomp("/") }
+
+  findings << "template.rb never copies #{ref}, so it does not ship"
+end
+
 # --- Report ------------------------------------------------------------------
 if findings.empty?
   puts "lint-docs: clean (#{rule_paths.size} rules, #{command_paths.size} commands)"

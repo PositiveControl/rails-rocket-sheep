@@ -60,7 +60,7 @@ flowchart TB
 | Pattern reference docs | ✅ | `docs/rules/` — 38 single-rule files + `INDEX.md` routing by path, symptom, or id. Backend, views, and tests |
 | Workflow commands | ✅ | 19 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
-| Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them) |
+| Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
 | Task template | ✅ | Resumable task file format |
 | `/workflow_setup` wizard | ✅ | Stack + CI tokens pre-filled; asks only repo/board/naming |

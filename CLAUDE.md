@@ -101,7 +101,7 @@ three `INDEX.md` tables with a matching token count, the read-cost figures in
 every command carries a parseable `description` (and an `argument-hint` wherever
 it reads `$ARGUMENTS`), every command opens with an H1 and carries the long-form
 frame once it passes 60 lines, every backticked `/name` a command mentions is a
-real command, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
+real command, every doc under `templates/` is one `template.rb` actually copies, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
 quoted in prose anywhere in the repo is the real one. Run it after touching
 `templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
 count. A line that legitimately names a different count, or a path the command
@@ -126,6 +126,12 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   `templates/docs/system/architecture.md` and ship, and decisions about *this
   generator* go in [.agents/adr/](.agents/adr/) and do not. Don't merge either
   pair.
+- **A word gets one meaning, defined once.** The shipped vocabulary is
+  `templates/docs/system/vocabulary.md`: thread ID, tracker tier, gate, contract
+  slot, doc canon, pattern budget, and the rest, each with the near-synonym to
+  avoid. Reaching for a new term for an existing thing is how "backlog" ends up
+  meaning two things; add the term there and use it everywhere, rather than
+  defining it again in place.
 - **A declined request gets a file, not a conversation.** A no with its reasoning
   attached is reversible on the reasoning; a no in a thread gets re-argued from
   scratch every few months. New ruling → a file in

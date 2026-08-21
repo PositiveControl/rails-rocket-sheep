@@ -203,6 +203,10 @@ Inclusion principle: a tool earns a core spot only if a lifecycle gate or transi
 
 ## Contract slots
 
+Terms used throughout this document (thread ID, tier, gate, contract slot, bead,
+segue, sizing) are defined once in [`docs/system/vocabulary.md`](docs/system/vocabulary.md).
+
+
 Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexers, personas, background agents) must not claim authority over any of them — silence competing instructions or don't run the tool.
 
 | Slot | Owner |

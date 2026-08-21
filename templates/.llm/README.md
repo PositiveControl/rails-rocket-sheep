@@ -39,6 +39,7 @@ How things currently work. Architecture state, not intentions.
 <!-- system:start -->
 - [Architecture Decision Records](../docs/system/architecture.md) — decisions taken and their consequences
 - [Models](../docs/system/models.md) — model reference
+- [Vocabulary](../docs/system/vocabulary.md) — what each workflow and doc term means here
 <!-- system:end -->
 
 ## SOP — `docs/sop/`

@@ -143,8 +143,14 @@ these exact paths — don't rename them.
 | `docs/qa/` | Manual test guides | `/pr_qa` |
 
 `docs/system/` holds `architecture.md` (ADRs — *why* a rule exists and what was
-accepted) and `models.md`. Rules say what to
+accepted), `models.md`, and `vocabulary.md`. Rules say what to
 do; ADRs say why it was chosen. Don't merge them.
+
+`vocabulary.md` defines the words this workflow uses in one place — thread ID,
+tracker tier, gate, contract slot, doc canon, pattern budget — with the wording to
+avoid where a term has a common near-synonym. Reach for it when a word in
+`WORKFLOW.md` or a command reads like jargon; don't restate a definition anywhere
+else.
 
 `.llm/README.md` indexes committed docs. Conventions are single-sourced in
 `docs/rules/`; task files in `.llm/tasks/` reference them and never restate them.
