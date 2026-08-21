@@ -5,9 +5,12 @@ Rails 8 application built with the Solid Stack architecture.
 Generated from [Rails Rocket Sheep](https://github.com/PositiveControl/rails-rocket-sheep)
 at commit `<%= TEMPLATE_SHA %>` on <%= TEMPLATE_GENERATED_ON %>. Everything below,
 including `docs/rules/` and `.claude/commands/`, is a snapshot from that commit and
-is now this app's own code. Nothing tracks the template, so when a convention here
-disagrees with a newer version of it, this app's copy is what governs this app.
-Quote that commit when comparing.
+is now this app's own code. Nothing is fetched behind your back, so when a
+convention here disagrees with a newer version of it, this app's copy is what
+governs this app. To take template changes deliberately, three-way merge them —
+`bin/rocket-sheep-update --check`, then
+[docs/sop/update-from-the-template.md](docs/sop/update-from-the-template.md).
+Leave the commit on the line above intact: it is where the merge starts from.
 
 ## Quick Start
 

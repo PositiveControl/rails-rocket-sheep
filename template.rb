@@ -57,40 +57,14 @@ TEMPLATE_ROOT =
     __dir__
   end
 
-# The commit this app was generated from. A generated app is a copy, not a
-# dependency: nothing here tracks the template, and no command pulls a newer rule
-# corpus. Recording the origin is what makes a stale convention diagnosable --
-# without it, "is this rule current?" has no answer from inside the app.
-TEMPLATE_SHA =
-  begin
-    sha = IO.popen(
-      ["git", "-C", TEMPLATE_ROOT.to_s, "rev-parse", "--short", "HEAD"],
-      err: File::NULL, &:read
-    ).to_s.strip
-    sha.empty? ? "unknown" : sha
-  rescue StandardError
-    "unknown" # no git, or a tarball with no history -- never fail generation for a stamp
-  end
-
-TEMPLATE_GENERATED_ON = Time.now.strftime("%Y-%m-%d")
-
 # =============================================================================
 # Helper Methods
 # =============================================================================
 
-def source_paths
-  [File.join(TEMPLATE_ROOT, "templates"), TEMPLATE_ROOT]
-end
-
-def template_file(source, destination = nil, **options)
-  destination ||= source.sub(/\.tt$/, "")
-  template source, destination, **options
-end
-
-def copy_template_file(source, destination = nil, **options)
-  destination ||= source
-  copy_file source, destination, **options
-end
+# `instance_eval`, not `require`: `source_paths` has to land on this generator's
+# singleton class to override Thor::Actions', and adopt.rb needs the same three
+# helpers plus the same stamp. See the comment at the top of preamble.rb.
+instance_eval(File.read(File.join(TEMPLATE_ROOT, "preamble.rb")), "preamble.rb")
 
 # Solid Stack configs are re-copied in after_bundle because Rails 8 runs
 # `solid_cache:install solid_queue:install solid_cable:install` after bundling,
@@ -354,8 +328,6 @@ copy_template_file "test/integration/seo_test.rb"
 copy_template_file ".github/workflows/lighthouse.yml"
 copy_template_file ".github/lighthouse-budget.json"
 
-# SEO how-to guide
-copy_template_file "docs/sop/add-seo-to-a-page.md"
 
 # =============================================================================
 # Phase 10: Testing Setup
@@ -399,121 +371,17 @@ say "Setting up code quality tools...", :green
 copy_template_file ".rubocop.yml", force: true
 
 # =============================================================================
-# Phase 12: Documentation
+# Phase 12: Alignment Layer
 # =============================================================================
 
-say "Creating documentation...", :green
-
-# CLAUDE.md for the generated app. Lives at templates/CLAUDE.md.tt so it is
-# unmistakably an artifact this template writes, not this repo's own agent
-# instructions — the repo's CLAUDE.md sits at the root and describes how to
-# work on template.rb itself.
-template_file "CLAUDE.md.tt"
-
-# Doc canon. Every workflow command in .claude/commands reads
-# and writes these paths, so the names are load-bearing — don't rename them
-# without updating the commands.
-#
-#   docs/plans   design docs        (/feature_plan writes here)
-#   docs/system  architecture state (/pr_submit completes placeholders here)
-#   docs/sop     procedures         (/pr_submit completes placeholders here)
-#   docs/qa      manual test guides (/pr_qa writes here)
-empty_directory "docs"
-empty_directory "docs/plans"
-empty_directory "docs/qa"
-
-template_file "docs/system/models.md.tt"
-copy_template_file "docs/system/architecture.md"
-copy_template_file "docs/system/vocabulary.md"
-copy_template_file "docs/sop/harden-a-kamal-server.md"
-copy_template_file "docs/sop/extract-database-and-storage.md"
-copy_template_file "docs/sop/beads-setup.md"
-copy_template_file "docs/sop/find-slow-tests.md"
-
-# Sharded conventions. One rule per file with frontmatter (applies_to globs,
-# trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
-# agent can use it — no harness-specific loading. An agent reads the index and
-# then only the rules that match the file it is editing.
-RULE_FILES = Dir.glob(File.join(TEMPLATE_ROOT, "templates/docs/rules/*.md"))
-                .map { |path| "docs/rules/#{File.basename(path)}" }.freeze
-
-empty_directory "docs/rules"
-RULE_FILES.each { |rule| copy_template_file rule }
-
-# =============================================================================
-# Phase 12b: Agent Workflow
-# =============================================================================
-
-say "Installing agent workflow commands...", :green
-
-# 19 slash commands driving the lifecycle:
-#   /pick → /feature_plan → /task_plan → /implement → /pr_submit → merge
-# Stack tokens (test/lint/scan commands, default branch) are pre-filled for
-# this stack. Repo and board tokens remain for `/workflow_setup` to fill.
-WORKFLOW_COMMANDS = Dir.glob(File.join(TEMPLATE_ROOT, "templates/.claude/commands/*.md"))
-                       .map { |path| ".claude/commands/#{File.basename(path)}" }.freeze
-
-empty_directory ".claude/commands"
-WORKFLOW_COMMANDS.each { |command| copy_template_file command }
-
-# Mirror the same files to .cursor/commands/, which Cursor reads as slash
-# commands. Same source, second destination — never a fork, or the two copies
-# drift and the tool-neutrality claim stops being true.
-empty_directory ".cursor/commands"
-WORKFLOW_COMMANDS.each do |command|
-  copy_template_file command, command.sub(".claude/", ".cursor/")
-end
-
-# Cursor project rules. Like AGENTS.md, a pointer to CLAUDE.md rather than a
-# second copy of the conventions.
-copy_template_file ".cursor/rules/conventions.mdc"
-
-# Project permissions + hooks. The allowlist covers this template's own
-# binstubs and read-only git/gh operations, so an agent stops asking to run
-# `bin/test`. The deny list keeps credentials out of the context window and
-# blocks history-destroying git commands.
-copy_template_file ".claude/settings.json"
-
-# Hooks turn two CLAUDE.md conventions into enforcement rather than advice:
-# RuboCop on edited Ruby, and the Slim/Tailwind bracket pitfall. The Stop hook
-# catches Draft doc placeholders left behind at the end of a session.
-copy_template_file "bin/hooks/post_edit"
-copy_template_file "bin/hooks/session_end"
-chmod "bin/hooks/post_edit", 0755
-chmod "bin/hooks/session_end", 0755
-
-# Tool-neutral pointer to CLAUDE.md, for agents that look for AGENTS.md
-copy_template_file "AGENTS.md"
-
-# PR and issue templates. /pr_submit writes a correct PR body on its own; these
-# carry the same conventions into PRs and issues opened by hand, which is where
-# they otherwise get dropped. The PR template is tier-neutral — it explains when
-# to add `Closes #` rather than hardcoding it, since tier `beads` must not.
-# Issue forms put the <=5-acceptance-criteria sizing rule at the point of
-# creation, which is where sizing actually gets decided.
-copy_template_file ".github/PULL_REQUEST_TEMPLATE.md"
-empty_directory ".github/ISSUE_TEMPLATE"
-copy_template_file ".github/ISSUE_TEMPLATE/feature.yml"
-copy_template_file ".github/ISSUE_TEMPLATE/bug.yml"
-copy_template_file ".github/ISSUE_TEMPLATE/config.yml"
-
-# Stacked-PR footer generator, called by /pr_submit
-copy_template_file "bin/pr-stack"
-chmod "bin/pr-stack", 0755
-
-# Local scratch: task files and segue threads. Gitignored — these are working
-# state for resuming a session, not artifacts to review.
-empty_directory ".llm/tasks"
-empty_directory ".llm/threads"
-copy_template_file ".llm/tasks/task_template.md"
-create_file ".llm/threads/.gitkeep", ""
-
-# Documentation index — committed docs only. /feature_plan adds placeholder
-# entries, /pr_submit completes-or-deletes them and checks for dead links.
-copy_template_file ".llm/README.md"
-
-# Workflow spec: lifecycle diagrams, gates, sizing rules
-copy_template_file "WORKFLOW.md"
+# Conventions, rules, the doc canon, workflow commands, hooks, and the PR/issue
+# templates. They live in adopt.rb rather than here because an app generated
+# without this template installs exactly the same set, with
+# `bin/rails app:template LOCATION=.../adopt.rb`, and a second copy of the list
+# would drift. `instance_eval` rather than Thor's `apply`: `apply` resolves its
+# argument through `find_in_source_paths` and would look for adopt.rb inside
+# templates/.
+instance_eval(File.read(File.join(TEMPLATE_ROOT, "adopt.rb")), "adopt.rb")
 
 # =============================================================================
 # Phase 13: Routes Configuration
@@ -616,6 +484,10 @@ RUBY
 say "Configuring git...", :green
 
 # Add to .gitignore
+# Only what this generator installs. The ignores that belong to the alignment
+# layer (agent scratch, local Claude settings, the update script's checkout)
+# are appended by adopt.rb, so they travel with the layer into an app that
+# adopts it later.
 append_to_file ".gitignore", <<~GITIGNORE
 
   # Kamal secrets
@@ -624,20 +496,6 @@ append_to_file ".gitignore", <<~GITIGNORE
   # Environment files
   .env*
   !.env.example
-
-  # Claude Code — local settings only. The workflow commands in
-  # .claude/commands/ are tracked deliberately: they are shared team
-  # convention, and every command assumes the others are present.
-  .claude/settings.local.json
-  .claude/*.local.json
-
-  # Agent scratch — task files and segue threads are per-developer working
-  # state for resuming a session, not reviewable artifacts. The task template
-  # itself is shared convention, so it stays tracked.
-  .llm/tasks/*
-  !.llm/tasks/task_template.md
-  .llm/threads/*
-  !.llm/threads/.gitkeep
 
   # IDE
   .idea/

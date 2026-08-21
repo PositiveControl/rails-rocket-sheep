@@ -21,7 +21,11 @@ The template writes plain Rails files, so there's no gem to become incompatible.
 ## Using it
 
 **Can I use it on an existing app?**
-Not as a template — `rails new` only applies to new apps. You can copy individual pieces: `app/services/application_service.rb`, `app/forms/application_form.rb`, `app/lib/plan_registry.rb`, `app/components/`, the SEO helper and tests, and `CLAUDE.md` all drop into an existing app unchanged (components need the `view_component` gem). The database, Kamal, and generator configuration do not.
+The workflow, yes — `bin/rails app:template LOCATION=/path/to/adopt.rb` installs the alignment layer into any Rails app: rules, the 19 workflow commands and their Cursor mirror, `WORKFLOW.md`, `CLAUDE.md`, the doc canon, the hooks, the PR and issue templates. It touches no `Gemfile`, no `app/`, no `config/`, no `db/`, so it is safe to run and easy to revert.
+
+The application code, no. `rails new --template` only applies to new apps, and the database, Kamal, and generator configuration cannot be retrofitted. The patterns are copyable by hand — `app/services/application_service.rb`, `app/forms/application_form.rb`, `app/lib/plan_registry.rb`, `app/components/`, the SEO helper and tests all drop in unchanged (components need the `view_component` gem).
+
+The catch worth knowing before you run it: the rules will describe patterns your app does not have. Read [Staying Current](staying-current.md) for what to do about that.
 
 **Can I generate more than one app with it?**
 Yes. Clone it locally and point `--template` at the local path — it's faster than fetching over HTTP each time, and it lets you keep your own modifications.
@@ -115,9 +119,11 @@ Within 30 days, where you haven't put a generated app into production. See LICEN
 No. Generated apps are yours. The template is applied once and leaves behind ordinary Rails files.
 
 **Are there updates?**
-Fixes land on `main`, and there is no upgrade path *into* an already-generated app by design — once applied, the output is your code, not a dependency. Re-generating a fresh app picks up the current state.
+Fixes land on `main`, and a generated app pulls them when it asks — never on its own. The first lines of a generated `CLAUDE.md` stamp the template commit the app came from, and `bin/rocket-sheep-update` three-way merges the alignment layer between that commit and a newer one: rules, commands, `WORKFLOW.md`, the doc canon, the hooks. `Gemfile`, `app/` and `config/` are never touched.
 
-What a generated app *does* carry is its origin: the first lines of its `CLAUDE.md` name the template commit it came from and the date. That is what makes a stale convention diagnosable — quote the commit, diff the template's `docs/rules/` against your copy, and take what you want. There are no version tags yet, so the commit is the identifier.
+Where only the template changed, you get the change. Where only you changed, you keep yours. Where both changed the same lines you get conflict markers, and you decide — the files are still yours, which is the point. `bin/rocket-sheep-update --check` shows what would move without writing anything. See [Staying Current](staying-current.md).
+
+There are no version tags yet, so the commit is the identifier. `--ref` takes a tag, branch, or SHA for the day there are.
 
 ---
 

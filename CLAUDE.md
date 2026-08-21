@@ -10,18 +10,34 @@ how you work on the generator.
 
 ## What this repo is
 
-A single Rails application template (`template.rb`, ~680 lines) plus a `templates/`
-tree of files it copies. There is no gem, no runtime, and no test suite. Running it
-produces a Rails 8 app; that app is the product.
+A Rails application template (`template.rb`, ~600 lines) plus a `templates/` tree of
+files it copies. There is no gem, no runtime, and no test suite. Running it produces
+a Rails 8 app; that app is the product.
 
 ```bash
 rails new myapp --database=postgresql --template=/path/to/rails-rocket-sheep/template.rb
+```
+
+There are two other ways in, and both go through the same file list. An app that
+already exists adopts the alignment layer on its own:
+
+```bash
+bin/rails app:template LOCATION=/path/to/rails-rocket-sheep/adopt.rb
+```
+
+and an app that already has the layer reconciles it against a newer template
+three-way, from the commit stamped in its `CLAUDE.md`:
+
+```bash
+bin/rocket-sheep-update --check
 ```
 
 ## Layout
 
 ```
 template.rb              The generator. Phased, top to bottom, with `say` banners.
+adopt.rb                 The alignment layer, and the definition of it. Two callers.
+preamble.rb              The three copy helpers and the origin stamp, shared by both.
 bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
 docs/writing-commands.md The shape a workflow command has to have, and its Done-when.
 .agents/adr/             Why this repo is built the way it is. Read before re-opening one.
@@ -36,6 +52,7 @@ templates/               Everything copied into the generated app.
 ├── .claude/commands/    19 workflow commands (mirrored to .cursor/commands/)
 ├── .cursor/rules/       Cursor pointer to the same index
 ├── .llm/                Task template, doc index
+├── bin/rocket-sheep-update  Three-way merges a newer template into an app
 └── app/ bin/ config/ …  Application code the template installs
 
 docs/                    Product documentation for buyers. Not shipped.
@@ -43,12 +60,13 @@ README.md                Sales page. Not shipped.
 ```
 
 **The distinction that matters:** anything under `templates/` is shipped and is read
-by an agent in someone else's app. Anything at the root except `template.rb` is for
-humans evaluating or buying this.
+by an agent in someone else's app. At the root, `template.rb`, `adopt.rb` and
+`preamble.rb` are the generator; everything else there is for humans evaluating or
+buying this.
 
 ## How `template.rb` works
 
-Two helpers wrap Thor, defined at the top:
+Two helpers wrap Thor, defined in `preamble.rb`:
 
 ```ruby
 copy_template_file "docs/sop/beads-setup.md"   # verbatim copy
@@ -56,6 +74,14 @@ template_file "config/database.yml.tt"         # ERB render, strips .tt
 ```
 
 `source_paths` is `[templates/, repo root]`, so paths are relative to `templates/`.
+
+Both entry points pull those in with `instance_eval(File.read(...))`, never
+`require` or `load`: a `def` in an `instance_eval`'d string lands on the
+generator's singleton class, where `source_paths` overrides `Thor::Actions`'. From
+a `require`d file it would land on `Object`, Thor's own method would win, and every
+copy would fail to find its source. `template.rb` evaluates `adopt.rb` the same way
+for its alignment-layer phase — Thor's `apply` would resolve the path through
+`find_in_source_paths` and look for `adopt.rb` inside `templates/`.
 
 Phases run in order and are labelled with `say`. Rules that are easy to get wrong:
 
@@ -69,8 +95,11 @@ Phases run in order and are labelled with `say`. Rules that are easy to get wron
   environment injection is one block for exactly this reason; the comment above it
   explains the failure.
 - **Directory globs are mapped to relative paths before copying** — see
-  `RULE_FILES` and `WORKFLOW_COMMANDS`. Passing absolute paths to
+  `RULE_FILES` and `WORKFLOW_COMMANDS` in `adopt.rb`. Passing absolute paths to
   `copy_template_file` writes them to absolute destinations.
+- **The alignment layer is copied by `adopt.rb`, not here.** Phase 12 evaluates it.
+  A file copied anywhere else is a file adoption never installs and no update can
+  ever reach, because `bin/rocket-sheep-update` reads `adopt.rb` as its manifest.
 
 ## Testing a change
 
@@ -84,8 +113,30 @@ rails new probe --database=postgresql --template=/path/to/rails-rocket-sheep/tem
 cd probe && bin/test && bin/rubocop && bin/brakeman
 ```
 
-`ruby -c template.rb` catches syntax errors and is worth running on every edit, but
-it proves nothing about generation.
+`ruby -c template.rb adopt.rb preamble.rb` catches syntax errors and is worth
+running on every edit, but it proves nothing about generation.
+
+The other two entry points are verified the same way — by running them. Adoption
+needs an app that did *not* come from this template, which `--minimal` gives you
+cheaply:
+
+```bash
+cd $(mktemp -d)
+rails new plain --minimal --skip-git && cd plain && bundle install
+git init . && git add -A && git commit -m init
+bin/rails app:template LOCATION=/path/to/rails-rocket-sheep/adopt.rb
+git status                     # only the alignment layer, never Gemfile/app/config
+```
+
+and the update path needs two template commits and an app stamped at the first:
+
+```bash
+cd plain && git add -A && git commit -m adopt
+ROCKET_SHEEP_TEMPLATE=/path/to/a/checkout bin/rocket-sheep-update --from SHA --ref SHA
+```
+
+Run adoption twice: the second run must report every file identical and must not
+append to `.gitignore` again.
 
 The docs *are* checked, by `bin/lint-docs`:
 
@@ -101,8 +152,11 @@ three `INDEX.md` tables with a matching token count, the read-cost figures in
 every command carries a parseable `description` (and an `argument-hint` wherever
 it reads `$ARGUMENTS`), every command opens with an H1 and carries the long-form
 frame once it passes 60 lines, every backticked `/name` a command mentions is a
-real command, every doc under `templates/` is one `template.rb` actually copies, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
-quoted in prose anywhere in the repo is the real one. Run it after touching
+real command, every doc under `templates/` is one `template.rb` or `adopt.rb`
+actually copies, every command appears in `AGENTS.md` and `WORKFLOW.md`, the origin
+stamp `CLAUDE.md.tt` writes still matches the regex `bin/rocket-sheep-update` reads
+it back with, and every count quoted in prose anywhere in the repo is the real
+one. Run it after touching
 `templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
 count. A line that legitimately names a different count, or a path the command
 creates at runtime, carries a `lint-docs:ignore` marker.
@@ -143,10 +197,14 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   ([0001](.agents/adr/0001-plain-markdown-commands-not-skills.md)), the Cursor
   mirror ([0002](.agents/adr/0002-mirror-commands-to-cursor-at-generation.md)),
   why generation has no test suite while the docs have a linter
-  ([0003](.agents/adr/0003-no-test-suite-for-generation.md)), and why a generated
+  ([0003](.agents/adr/0003-no-test-suite-for-generation.md)), why a generated
   app records its origin without tracking it
-  ([0004](.agents/adr/0004-generated-apps-record-their-origin.md)). Reversing one is
-  fine; reversing one without knowing what it bought is not.
+  ([0004](.agents/adr/0004-generated-apps-record-their-origin.md)), why an update is
+  a three-way merge the owner asks for rather than a channel
+  ([0005](.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)), and
+  why adoption installs the alignment layer and nothing else
+  ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)).
+  Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
   commands — because it has to work in Claude Code, Cursor, Codex, and a human
@@ -156,7 +214,13 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   [ADR 0001](.agents/adr/0001-plain-markdown-commands-not-skills.md).
 - **The 19 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
-  one copy — there is only one source.
+  one copy — there is only one source. `bin/rocket-sheep-update` merges both
+  destinations for the same reason.
+- **`adopt.rb` is the manifest of the alignment layer, used three ways.** It
+  installs the layer during generation, installs it into an app that already
+  exists, and tells `bin/rocket-sheep-update` which files an update may merge.
+  Adding a copy there is what makes a file adoptable and updatable; there is no
+  second list to keep in step.
 - **Commands follow [docs/writing-commands.md](docs/writing-commands.md).** The
   frame (`# Title`, job line, `## Instructions` with `### Step N`, `## Reference`),
   the frontmatter, the conventions, and a Done-when checklist split into what
@@ -184,6 +248,9 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   cost is not worth paying, what to do instead, and what would change our mind. If
   a request sounds like billing, tenancy, an admin panel, API scaffolding, or a
   fourth tracker tier, read the ruling before designing anything.
+- `templates/docs/sop/update-from-the-template.md` — the shipped procedure for
+  taking template changes into an app that already exists. It is the buyer-facing
+  half of ADR 0005; keep the two in step.
 - `docs/comparison.md` — the buyer-facing version of the same list: what the
   template does not have, stated so nobody buys the wrong thing.
 - `templates/WORKFLOW.md` — the lifecycle the generated app follows, including the

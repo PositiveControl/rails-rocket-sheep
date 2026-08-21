@@ -177,6 +177,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 | [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, for when you edit or add one |
+| [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the workflow into an app that isn't one |
 | [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
@@ -218,7 +219,7 @@ Honest scope, so nobody buys the wrong thing:
 
 - **Not a SaaS starter kit.** No billing, no subscriptions, no teams, no admin panel. If you want Stripe and multi-tenancy pre-built, Jumpstart Pro is the better purchase. Rocket Sheep is a *foundation*, not an application.
 - **Not a component library.** ViewComponent is set up and four utility components ship (alert, flash, error summary, empty state). Buttons, tables, navs, and everything else are yours to write.
-- **Not a framework.** Everything it adds is a plain Rails file you own and can delete. There is no gem to depend on, no upgrade treadmill, and nothing that breaks when Rails 8.1 ships.
+- **Not a framework.** Everything it adds is a plain Rails file you own and can delete. There is no gem to depend on, no upgrade treadmill, and nothing that breaks when Rails 8.1 ships. When the template's conventions improve, `bin/rocket-sheep-update` three-way merges the changes into your copies on demand — your edits win, overlaps become conflict markers you resolve. Pull, never push.
 
 ---
 

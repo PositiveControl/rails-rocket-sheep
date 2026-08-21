@@ -45,7 +45,7 @@ Jumpstart Pro is a **SaaS starter kit**. Rocket Sheep is an **application founda
 
 **Rocket Sheep is the better buy if** you're not building a subscription SaaS — an internal tool, a client project, a content site, an API — and want a clean foundation without carrying billing and multi-tenancy code you'll never use. And if you're working with AI coding agents, where the conventions layer is the whole point.
 
-**The honest trade:** Jumpstart Pro gives you vastly more code. That's an advantage when you need the code and a liability when you don't. Its upgrade path (merging from a git remote) means ongoing merge work. Rocket Sheep is applied once and then it's just your app — there's nothing to upgrade, because there's nothing left that isn't yours.
+**The honest trade:** Jumpstart Pro gives you vastly more code. That's an advantage when you need the code and a liability when you don't. Its upgrade path (merging from a git remote) means ongoing merge work on the whole app. Rocket Sheep is applied once and then it's just your app — nothing is left that isn't yours. Template fixes are still available when you want them: `bin/rocket-sheep-update` three-way merges the alignment layer only, on demand, and never the application code. Merge work when you ask for it, none when you don't.
 
 ---
 
