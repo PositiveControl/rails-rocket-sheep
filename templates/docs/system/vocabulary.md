@@ -58,13 +58,21 @@ mid-implementation is a signal to stop, split, and land the current slice.
 ## The documents
 
 **Doc canon**
-The five directories under `docs/` whose names are load-bearing, because commands
-read and write these exact paths: `rules/` (conventions), `plans/` (design docs),
-`system/` (how things work now), `sop/` (procedures), `qa/` (manual test guides).
-Inventing a sixth breaks the commands that route by these names.
+The four directories the workflow commands write into, whose names are load-bearing
+because the commands route by these exact paths: `plans/` (design docs), `system/`
+(how things work now), `sop/` (procedures), `qa/` (manual test guides).
+`bin/hooks/session_end` scans exactly these four for unfinished placeholders.
+Inventing a fifth breaks the commands that route by name.
+*Avoid*: counting `docs/rules/` as part of the canon. It sits alongside, is
+hand-maintained rather than command-written, and is called the **rule corpus**.
+
+**Rule corpus**
+`docs/rules/`: every convention, one per file, plus `INDEX.md` which routes to
+them by path, by symptom, or by id. Hand-maintained, unlike the doc canon, and the
+single source for anything a rule already says.
 
 **Rule**
-One convention, one file in `docs/rules/`, with `applies_to` globs and `triggers`
+One convention, one file in the rule corpus, with `applies_to` globs and `triggers`
 keywords in frontmatter so the index can route to it. A rule says *what to do*.
 *Avoid*: "the conventions doc" (there is no single one), "the style guide".
 

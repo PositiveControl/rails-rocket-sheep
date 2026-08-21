@@ -89,9 +89,10 @@ readable and the constants live in one place.
   `docs/rules/`. It links the rule (`docs/rules/testing.md`) and moves on. Two
   copies of a convention drift, and the copy inside a command is the one nobody
   re-reads.
-- **Only the doc canon.** Commands read and write `docs/rules/`, `docs/plans/`,
-  `docs/system/`, `docs/sop/`, `docs/qa/`, and `.llm/`. Do not invent a
-  directory; the names are load-bearing because other commands read them.
+- **Only the doc canon, plus the rule corpus.** Commands write into the canon
+  (`docs/plans/`, `docs/system/`, `docs/sop/`, `docs/qa/`) and `.llm/`, and they
+  *read* `docs/rules/`, which is hand-maintained. Do not invent a directory; the
+  names are load-bearing because other commands route by them.
 - **Every path resolves.** A path that names a real shipped file must be correct
   to the character. A path the command *creates* carries a placeholder
   (`<id>`, `YYYY-MM-DD`) or, if it is a literal, a `<!-- lint-docs:ignore -->`

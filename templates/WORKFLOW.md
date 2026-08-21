@@ -316,7 +316,8 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 
 ## Documentation rules
 
-- Doc canon: `docs/rules` (one convention per file + `INDEX.md`), `docs/plans` (design docs), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
+- Rule corpus, read not written: `docs/rules` (one convention per file + `INDEX.md`)
+- Doc canon, what the commands write: `docs/plans` (design docs), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
 - `.llm/README.md` indexes **committed docs only**; `.llm/tasks/` and `.llm/threads/` are local scratch (gitignored)
 - Doc updates happen at defined points only: `/feature_plan` creates placeholders, `/pr_submit` completes-or-deletes them (+ index dupe/dead-link check), `/update_docs` for deep passes
 - Never merge a PR leaving a Draft placeholder behind

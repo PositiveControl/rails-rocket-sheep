@@ -125,15 +125,35 @@ docs/                        # Names are load-bearing
 ├── plans/                   # Feature design docs
 ├── system/
 │   ├── architecture.md      # ADRs — record decisions here
-│   └── models.md            # Model documentation
+│   ├── models.md            # Model documentation
+│   └── vocabulary.md        # What each workflow term means here
 ├── sop/                     # Procedures / how-tos
 └── qa/                      # Manual test guides
 
 .kamal/secrets               # Gitignored
-CLAUDE.md                    # Conventions your AI agent reads
+CLAUDE.md                    # Conventions your AI agent reads (stamped with the template commit)
+WORKFLOW.md                  # The command lifecycle, gates, and who invokes what
 ```
 
 `app/lib` is added to the autoload paths by the template, so registries are available without requires.
+
+---
+
+## The one command to run first
+
+The generated app ships 19 workflow commands in `.claude/commands/`, mirrored to
+`.cursor/commands/`. You do not need to learn them on day one. Two get you moving:
+
+```
+/workflow_setup    # once, ever: tracker tier, repo, board, naming, CI check names
+/pick              # every session after that: shows ready work and routes it
+```
+
+`/workflow_setup` fills in the repo-specific placeholders the other commands read,
+so run it before anything else touches an issue. `/pick` is the entry door: it
+surfaces prioritized ready work and sends each item to the right next command.
+`WORKFLOW.md` in the generated app has the full lifecycle, the four gates, and the
+table saying which commands are yours to type and which an agent may reach for.
 
 ---
 
