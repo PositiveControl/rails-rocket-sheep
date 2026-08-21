@@ -24,6 +24,7 @@ rails new myapp --database=postgresql --template=/path/to/rails-rocket-sheep/tem
 template.rb              The generator. Phased, top to bottom, with `say` banners.
 bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
 docs/writing-commands.md The shape a workflow command has to have, and its Done-when.
+.agents/adr/             Why this repo is built the way it is. Read before re-opening one.
 templates/               Everything copied into the generated app.
 ├── CLAUDE.md.tt         The generated app's conventions file (ERB)
 ├── AGENTS.md            Tool-neutral pointer to it
@@ -72,7 +73,9 @@ Phases run in order and are labelled with `say`. Rules that are easy to get wron
 
 ## Testing a change
 
-There is no automated suite for *generation*. Verification is generating an app:
+There is no automated suite for *generation*, by decision
+([ADR 0003](.agents/adr/0003-no-test-suite-for-generation.md)). Verification is
+generating an app:
 
 ```bash
 cd $(mktemp -d)
@@ -117,11 +120,26 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   (`id`, `applies_to`, `triggers`, `see_also`, `tokens`). The `id` must match the
   filename. Add rows to all three tables in `INDEX.md` — route by path, route by
   symptom, full list.
-- **Rules say what to do. ADRs say why it was chosen.** `templates/docs/system/architecture.md`
-  holds the decisions and their accepted costs. Don't merge the two.
-- **Everything is plain markdown.** No harness-specific loading anywhere in
-  `templates/` — the routing has to work in Claude Code, Cursor, Codex, and a
-  human with `grep`. A feature only one tool supports doesn't go in.
+- **Rules say what to do. ADRs say why it was chosen.** There are two ADR homes,
+  because there are two products: decisions about a *generated app* go in
+  `templates/docs/system/architecture.md` and ship, and decisions about *this
+  generator* go in [.agents/adr/](.agents/adr/) and do not. Don't merge either
+  pair.
+- **A decision with an accepted cost is an ADR, not a comment.** Before arguing
+  with how this repo is built, read `.agents/adr/`: plain-markdown commands rather
+  than skills and the routing-versus-enforcement line
+  ([0001](.agents/adr/0001-plain-markdown-commands-not-skills.md)), the Cursor
+  mirror ([0002](.agents/adr/0002-mirror-commands-to-cursor-at-generation.md)), and
+  why generation has no test suite while the docs have a linter
+  ([0003](.agents/adr/0003-no-test-suite-for-generation.md)). Reversing one is
+  fine; reversing one without knowing what it bought is not.
+- **Routing is plain markdown; enforcement need not be.** No harness-specific
+  loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
+  commands — because it has to work in Claude Code, Cursor, Codex, and a human
+  with `grep`. The *enforcement* layer may be tool-specific, since it degrades to
+  nothing: the hooks and `.claude/settings.json` are Claude Code only, and an
+  agent elsewhere still reads the same rule. See
+  [ADR 0001](.agents/adr/0001-plain-markdown-commands-not-skills.md).
 - **The 19 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
   one copy — there is only one source.
@@ -141,6 +159,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
 
 ## Where things are decided
 
+- `.agents/adr/` — why this repo is built the way it is, and what each choice cost.
 - `docs/inventory.md` — what's shipped, what's missing, verification debt, and the
   ordered list of what to do next. Read it before proposing work.
 - `docs/comparison.md` — deliberate scope exclusions (billing, teams, admin, API).
