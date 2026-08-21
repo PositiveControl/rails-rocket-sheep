@@ -56,7 +56,7 @@ flowchart TB
 
 | Item | Status | Notes |
 |---|---|---|
-| `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs |
+| `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
 | Pattern reference docs | ✅ | `docs/rules/` — 38 single-rule files + `INDEX.md` routing by path, symptom, or id. Backend, views, and tests |
 | Workflow commands | ✅ | 19 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |

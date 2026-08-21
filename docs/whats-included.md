@@ -108,6 +108,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `docs/rules/` (26 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
 | `docs/system/models.md` | Model documentation stub |
 | `docs/system/vocabulary.md` | What each workflow and doc term means, and the near-synonyms to avoid |
+| `CLAUDE.md` (first lines) | The template commit and date this app was generated from |
 | `docs/sop/add-seo-to-a-page.md` | Adding SEO to a new page |
 | `docs/sop/find-slow-tests.md` | Reading the Slowpoke report and fixing what it flags |
 | `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |

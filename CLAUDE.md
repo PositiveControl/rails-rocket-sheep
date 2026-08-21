@@ -141,9 +141,11 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   with how this repo is built, read `.agents/adr/`: plain-markdown commands rather
   than skills and the routing-versus-enforcement line
   ([0001](.agents/adr/0001-plain-markdown-commands-not-skills.md)), the Cursor
-  mirror ([0002](.agents/adr/0002-mirror-commands-to-cursor-at-generation.md)), and
+  mirror ([0002](.agents/adr/0002-mirror-commands-to-cursor-at-generation.md)),
   why generation has no test suite while the docs have a linter
-  ([0003](.agents/adr/0003-no-test-suite-for-generation.md)). Reversing one is
+  ([0003](.agents/adr/0003-no-test-suite-for-generation.md)), and why a generated
+  app records its origin without tracking it
+  ([0004](.agents/adr/0004-generated-apps-record-their-origin.md)). Reversing one is
   fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
@@ -166,6 +168,10 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   in a picker while deciding whether to run the command, so it states the job in
   one line under 80 characters — no trigger phrasing ("use when…"), which belongs
   to things a model invokes rather than a person.
+- **A claim about the product is checked before it is written.** `docs/faq.md`
+  said the template was versioned when it had no tags and no version constant. A
+  buyer-facing promise is as capable of drifting as a rule is, and nothing checks
+  prose about the outside world, so read the tree before writing the sentence.
 - **Product docs at the root describe the template; they do not restate its rules.**
   `README.md` and `docs/` link into `templates/docs/rules/` rather than copying it.
 

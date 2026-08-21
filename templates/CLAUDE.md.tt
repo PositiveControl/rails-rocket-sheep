@@ -2,6 +2,13 @@
 
 Rails 8 application built with the Solid Stack architecture.
 
+Generated from [Rails Rocket Sheep](https://github.com/PositiveControl/rails-rocket-sheep)
+at commit `<%= TEMPLATE_SHA %>` on <%= TEMPLATE_GENERATED_ON %>. Everything below,
+including `docs/rules/` and `.claude/commands/`, is a snapshot from that commit and
+is now this app's own code. Nothing tracks the template, so when a convention here
+disagrees with a newer version of it, this app's copy is what governs this app.
+Quote that commit when comparing.
+
 ## Quick Start
 
 ```bash
