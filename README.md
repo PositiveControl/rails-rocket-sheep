@@ -10,6 +10,8 @@ rails new myapp \
   --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
 ```
 
+Swap in `--database=mysql` (or `trilogy`, `mariadb-mysql`, `mariadb-trilogy`) and everything follows it. SQLite is refused.
+
 Roughly three minutes later you have a running, deployable, linted, tested Rails 8 app with authentication, background jobs, SEO, and a Kamal deploy config — plus the conventions doc that keeps an agent from inventing its own.
 
 ---
@@ -23,7 +25,7 @@ You end up as a full-time code reviewer for an codebase with no opinions.
 Rocket Sheep front-loads the opinions:
 
 - **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `ApplicationForm` for multi-model forms, `ApplicationComponent` for UI units, `Data`-based registries for fixed variant sets, PaperTrail for audit trails, Discard for the tables that genuinely need soft deletes. The agent extends existing patterns instead of inventing new ones.
-- **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, UUIDs everywhere — with worked examples of both the right and wrong version.
+- **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, the primary-key convention your database gets — with worked examples of both the right and wrong version.
 - **Anti-patterns are named explicitly.** `CLAUDE.md` and the `docs/rules/` files name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
 - **The pattern budget is fixed.** Six sanctioned directories under `app/`: `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh requires an ADR. Sprawl is the failure mode of a pattern catalogue, so the catalogue names its own limit.
 - **Docs have a home.** `docs/system/architecture.md` for ADRs, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
@@ -44,7 +46,7 @@ Devise, pre-configured for Turbo (`navigational_formats` set correctly — the f
 
 ### Data patterns
 
-- **UUID primary keys** on every table, wired through the generators so `rails g model` does the right thing automatically
+- **Your choice of database.** `--database=postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` — `config/database.yml`, the Kamal accessory, and the Dockerfile all follow it. Primary keys follow too: UUIDs on PostgreSQL (wired through the generators, so `rails g model` does the right thing automatically), Rails' default bigint on MySQL, which has no native uuid type
 - **Discard** available for soft deletes, opt-in per table — `destroy` is the default, and PaperTrail can reify a destroyed record
 - **PaperTrail** with `--with-changes` for a full audit trail
 - **Pagy** for pagination, wired into `ApplicationController` so `pagy(scope)` works out of the box
@@ -141,7 +143,7 @@ Not a checkbox — an actual working setup:
 
 ### Deployment
 
-Kamal 2 with a PostgreSQL accessory, a tuned multi-stage `Dockerfile`, a `docker-entrypoint` that runs migrations, and a `.kamal/secrets` scaffold. `kamal setup && kamal deploy` from a clean server.
+Kamal 2 with a database accessory matching your choice, a tuned multi-stage `Dockerfile`, a `docker-entrypoint` that runs migrations, and a `.kamal/secrets` scaffold. `kamal setup && kamal deploy` from a clean server.
 
 ### Testing guardrails
 
@@ -193,7 +195,7 @@ Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs
 
 - Ruby 3.3+ (Pagy 43 sets the floor; developed and tested on 4.0)
 - Rails 8.0+
-- PostgreSQL 13+ (uses built-in `gen_random_uuid()`, no pgcrypto extension needed)
+- PostgreSQL 13+ (uses built-in `gen_random_uuid()`, no pgcrypto extension needed), **or** MySQL 8+ / MariaDB 10.5+
 - Node.js — only if you swap Tailwind for a bundler-based frontend
 
 ---

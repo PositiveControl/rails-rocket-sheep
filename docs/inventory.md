@@ -81,7 +81,7 @@ flowchart TB
 | Form objects | ✅ | `ApplicationForm` — `ActiveModel`, `save`/`save!`, `promote_errors` |
 | UI components | ✅ | ViewComponent + `ApplicationComponent`, four components with tests |
 | Registry pattern | ✅ | `Data`-based, no base class — `PlanRegistry` is the canonical file |
-| UUID primary keys | ✅ | Wired through generators |
+| UUID primary keys | ⚠️ | PostgreSQL only, wired through the generators. MySQL apps get Rails' default bigint — MySQL has no native uuid type, and the rule file carries both halves |
 | Soft deletes | ✅ | Discard installed, opt-in per table; `destroy` is the default |
 | Audit trail | ✅ | PaperTrail `--with-changes` |
 | Pagination | ✅ | Pagy, `Pagy::Method` included in `ApplicationController` |
@@ -103,6 +103,7 @@ flowchart TB
 
 | Item | Status | Notes |
 |---|---|---|
+| Database choice | ✅ | `--database=` is read, not re-asked: `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, `mariadb-trilogy`. `database.yml`, the Kamal accessory, the Dockerfile, and the primary-key convention all follow it; SQLite aborts before a file is written ([ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md)) |
 | Solid Stack | ✅ | Queue, Cache, Cable — separate databases, all environments |
 | Kamal 2 | ✅ | Postgres accessory bound to localhost, entrypoint migrates |
 | CI | ✅ | Rails 8 default: `scan_ruby`, `scan_js`, `lint`, `test` |
@@ -193,6 +194,10 @@ Individual `bd` commands were verified against a live DB. The *composition* was 
 
 GitHub validates issue-form schema server-side only. A malformed form silently falls back to a blank issue rather than erroring, so local YAML validation doesn't prove it works.
 
+**V5. Run a MySQL app's suite against a live server.** *(~30m, needs MySQL 8)*
+
+Generation was verified for all five accepted `--database=` values, plus the SQLite abort, by reading the rendered `database.yml`, `application.rb`, `deploy.yml`, `.kamal/secrets`, `Dockerfile`, and `CLAUDE.md` in each. What has not been run is `bin/test` against a live MySQL server, so everything nobody rendered is unproven there: Solid Queue, Cache and Cable creating their tables on MySQL, Devise's unique email index, PaperTrail's `object_changes` column type, and the fixture generator override. PostgreSQL carries the same debt historically, but it has field use and MySQL has none.
+
 **V4. Run the update path across a real gap, not a synthetic one.** *(~30m, needs an app generated a while ago)*
 
 `bin/rocket-sheep-update` was verified against a two-commit range built for the purpose, and adoption against a `rails new --minimal` app: merge, conflict, add, upstream delete, rename, and the ERB hand-merge report all behave. What has not been exercised is the case it exists for — an app generated months ago, with real local edits, across a range containing rule renames and a command rewrite. Expect the failure mode to be conflict *volume*, not correctness, and if it clusters in one file that file is badly factored.
@@ -236,6 +241,8 @@ Not gaps to fill — things to be honest about.
 
 **Template generation is version-coupled.** The template patches specific Rails files by matching their content. Rails 8.1 or 9 could break generation. Already-generated apps are unaffected, but the product needs re-verification against each Rails release, and that's ongoing maintenance nobody is scheduled to do.
 
+**Two databases means one convention has two halves.** `docs/rules/database-conventions.md` and `safe-migrations.md` now route off the Tech Stack line in `CLAUDE.md` rather than stating one rule. An agent that reads the wrong half writes a foreign key that will not match — loudly, at migration time, which is the mitigation. The alternative was making those files ERB, which would have cost them their three-way update path. Stated in [ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md).
+
 **An adopting app carries rules for patterns it doesn't have.** Adoption installs the rule corpus and none of the application code, so `ApplicationService`, `ApplicationForm`, the registries, Slim and ViewComponent are documented in an app that may use none of them. The instruction is to rewrite or delete per rule on the first pass, and the closing output says so — but nothing checks that anyone did, and a rule pointing at a class that does not exist is a rule an agent will believe. This is the accepted cost in [ADR 0006](../.agents/adr/0006-adoption-installs-the-alignment-layer-only.md), and the most likely source of a bad first impression for an adopting buyer.
 
 **Conventions drift under pressure.** An agent deep in a long debugging session violates `CLAUDE.md` occasionally. This reduces divergence; it doesn't eliminate it. Gap 2 is the only real answer.
@@ -246,7 +253,7 @@ Not gaps to fill — things to be honest about.
 
 ```mermaid
 flowchart LR
-  DONE["✅ shipped<br/>guardrails · parity · tiers · templates"] --> V["V1–V4 verification debt<br/>~2.5h · before buyers"]
+  DONE["✅ shipped<br/>guardrails · parity · tiers · templates"] --> V["V1–V5 verification debt<br/>~3h · before buyers"]
   V --> BIZ["business gate<br/>license · demo · listing"]
   BIZ --> T4["4 · 6 · 8 · 9<br/>feature gaps"]
   T4 --> M["10 · maintenance<br/>per Rails release"]
@@ -254,6 +261,6 @@ flowchart LR
 
 Every gap from the original ranking is closed. What's left splits three ways:
 
-1. **Verification debt (V1–V4, ~2.5h)** — the `github-projects` regression risk is the single highest-priority item here. It was the only path before tiering refactored it. V4 waits on an app old enough to be worth updating.
+1. **Verification debt (V1–V5, ~3h)** — the `github-projects` regression risk is the single highest-priority item here. It was the only path before tiering refactored it. V4 waits on an app old enough to be worth updating.
 2. **Business gate** — nothing engineering-side blocks selling; the LICENSE placeholders, deployed demo, and storefront do. Those live in `../../monetization-assessment.md`, outside this repo.
 3. **Feature gaps (4, 6, 8, 9)** — worth doing, but they can wait for buyer feedback, which is the point at which guessing stops and evidence starts.

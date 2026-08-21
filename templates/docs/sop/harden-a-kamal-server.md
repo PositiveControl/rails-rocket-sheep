@@ -25,7 +25,11 @@ systemctl enable --now fail2ban
 
 Keep an existing SSH session open when restarting sshd.
 
-### 3. Lock down PostgreSQL
+### 3. Lock down the database
+
+**The port depends on your database: 5432 on PostgreSQL, 3306 on MySQL and
+MariaDB.** The examples below use 5432 — `config/deploy.yml` in this app already
+has the right one, so read it there and substitute throughout this section.
 
 Ensure `deploy.yml` binds to localhost:
 
@@ -35,7 +39,8 @@ accessories:
     port: "127.0.0.1:5432:5432"
 ```
 
-If the accessory was already deployed with `5432:5432`, reboot it:
+If the accessory was already deployed with the port unbound (`5432:5432`),
+reboot it:
 
 ```bash
 kamal accessory reboot db
@@ -116,7 +121,7 @@ iptables -I DOCKER-USER -s 172.18.0.0/16 -j ACCEPT
 # Drop external traffic only (eth0) — don't block Docker-to-Docker or outbound
 # Without -i eth0, this breaks Docker buildx, image pulls, etc.
 iptables -A DOCKER-USER -i eth0 -p tcp -m multiport --dports 80,443 -j DROP
-iptables -A DOCKER-USER -i eth0 -p tcp --dport 5432 -j DROP
+iptables -A DOCKER-USER -i eth0 -p tcp --dport 5432 -j DROP   # 3306 on MySQL/MariaDB
 
 # Persist across reboots
 apt-get install -y iptables-persistent

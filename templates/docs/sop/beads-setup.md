@@ -14,7 +14,7 @@ Two binaries and one background process:
 | `dolt sql-server` | A running server — **beads cannot operate without it** |
 
 This is the real cost of this tier, and it's why the template does not install
-beads for you: a generated app otherwise needs only PostgreSQL. Choose this tier
+beads for you: a generated app otherwise needs only its own database. Choose this tier
 because you want blocker-aware "what's ready", not by default.
 
 ## Install

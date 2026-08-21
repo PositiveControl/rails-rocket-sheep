@@ -6,12 +6,12 @@ Kamal 2 from a fresh VPS to a running app. The template writes the config; this 
 
 ## What the template sets up
 
-- `config/deploy.yml` — Kamal 2 with a PostgreSQL accessory
+- `config/deploy.yml` — Kamal 2 with a database accessory matching the `--database=` you generated with (`postgres:16`, `mysql:8.4`, or `mariadb:11`)
 - `Dockerfile` — multi-stage production build
 - `bin/docker-entrypoint` — runs `db:prepare` before the server starts
 - `.kamal/secrets` — secret scaffold, gitignored
 
-The four Solid Stack databases (primary, queue, cable, cache) all live in the same PostgreSQL instance by default, separated by database name. That's the right call until one of them becomes a bottleneck — see [Extracting the database](#extracting-the-database) below.
+The four Solid Stack databases (primary, queue, cable, cache) all live in the same server instance by default, separated by database name. That's the right call until one of them becomes a bottleneck — see [Extracting the database](#extracting-the-database) below.
 
 ---
 
@@ -77,7 +77,7 @@ CACHE_DATABASE_URL=$CACHE_DATABASE_URL
 
 Values come from your shell environment. Use direnv, 1Password's CLI, or plain exports — Kamal reads whatever the shell provides.
 
-The four `*_DATABASE_URL` variables can all point at the same PostgreSQL host with different database names. `config/database.yml` falls back to `DATABASE_URL` for any that are unset.
+The four `*_DATABASE_URL` variables can all point at the same database host with different database names. `config/database.yml` falls back to `DATABASE_URL` for any that are unset.
 
 ### 3. Non-obvious placeholders
 
@@ -96,7 +96,7 @@ kamal setup     # first time: installs Docker, starts accessories, deploys
 kamal deploy    # every time after
 ```
 
-`kamal setup` takes several minutes. It installs Docker, pulls and starts the PostgreSQL accessory, builds and pushes your image, then boots the app.
+`kamal setup` takes several minutes. It installs Docker, pulls and starts the database accessory, builds and pushes your image, then boots the app.
 
 ### Useful commands
 
@@ -105,7 +105,7 @@ kamal app logs -f            # tail logs
 kamal app exec --interactive "bin/rails console"
 kamal app exec "bin/rails db:migrate"
 kamal rollback               # previous version
-kamal accessory logs db -f   # PostgreSQL logs
+kamal accessory logs db -f   # database logs
 kamal proxy logs -f          # kamal-proxy / TLS issues
 ```
 
@@ -138,16 +138,16 @@ For a low-traffic app you can instead run Solid Queue inside Puma by setting `SO
 
 Two things worth doing on day one:
 
-1. **Backups.** The PostgreSQL accessory writes to a Docker volume. Nothing backs it up. Set up `pg_dump` to object storage on a cron, and *test a restore* — an untested backup isn't a backup.
+1. **Backups.** The database accessory writes to a Docker volume. Nothing backs it up. Set up `pg_dump` (or `mysqldump --single-transaction`) to object storage on a cron, and *test a restore* — an untested backup isn't a backup.
 2. **Uptime monitoring.** An external check against `/up`. Any free tier is fine. Without it you find out about downtime from users.
 
 ---
 
 ## Extracting the database
 
-Running PostgreSQL on the same box as the app is correct for a small app and wrong for a growing one — a deploy that exhausts memory takes the database with it.
+Running the database on the same box as the app is correct for a small app and wrong for a growing one — a deploy that exhausts memory takes the database with it.
 
-The generated `docs/sop/extract-database-and-storage.md` covers moving PostgreSQL to a managed provider or a separate VPS, and moving Active Storage off local disk. The short version: change the `*_DATABASE_URL` secrets, remove the accessory from `deploy.yml`, and redeploy. Because everything routes through those environment variables, nothing in the application code changes.
+The generated `docs/sop/extract-database-and-storage.md` covers moving the database to a managed provider or a separate VPS, and moving Active Storage off local disk. It is written for PostgreSQL with a substitution table for MySQL. The short version: change the `*_DATABASE_URL` secrets, remove the accessory from `deploy.yml`, and redeploy. Because everything routes through those environment variables, nothing in the application code changes.
 
 ---
 
@@ -155,7 +155,7 @@ The generated `docs/sop/extract-database-and-storage.md` covers moving PostgreSQ
 
 **TLS certificate won't issue.** DNS isn't resolving to the server yet, or ports 80/443 are blocked. Let's Encrypt needs port 80 reachable for the challenge. Check with `kamal proxy logs`.
 
-**`db:prepare` fails on first deploy.** The PostgreSQL accessory isn't up yet, or `POSTGRES_PASSWORD` doesn't match what the accessory was created with. Passwords are baked in at accessory creation — changing the secret later requires recreating the accessory.
+**`db:prepare` fails on first deploy.** The database accessory isn't up yet, or the password secret (`POSTGRES_PASSWORD`, or `MYSQL_PASSWORD` / `MYSQL_ROOT_PASSWORD`) doesn't match what the accessory was created with. Passwords are baked in at accessory creation — changing the secret later requires recreating the accessory.
 
 **Assets missing after deploy.** The Dockerfile precompiles during build, which requires `RAILS_MASTER_KEY` at build time. Confirm it's exported in your shell.
 

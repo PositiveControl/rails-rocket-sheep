@@ -75,7 +75,7 @@ Editing a file that matches → read these rules.
 | Background work, retries, `perform_later` | [jobs](jobs.md) |
 | `Rails.cache`, fragment caching, staleness | [caching](caching.md) |
 | A migration against a table with real rows | [safe-migrations](safe-migrations.md) |
-| UUIDs, foreign keys, indexes | [database-conventions](database-conventions.md) |
+| Primary keys, foreign keys, indexes | [database-conventions](database-conventions.md) |
 | A new model, process, or dependency that dev data should mirror | [seeds](seeds.md) |
 | `db:seed` duplicating rows or failing on a rerun | [seeds](seeds.md) |
 | Money, enums/state machines, a fat model | [optional-patterns](optional-patterns.md) |
@@ -122,8 +122,8 @@ Editing a file that matches → read these rules.
 | [audit-trail](audit-trail.md) | 220 | PaperTrail, scoped with `only:` |
 | [jobs](jobs.md) | 380 | Thin wrapper, IDs not records, idempotent, after commit |
 | [caching](caching.md) | 340 | Solid Cache, russian-doll, always key by user |
-| [safe-migrations](safe-migrations.md) | 220 | Concurrent indexes, two-deploy column removal |
-| [database-conventions](database-conventions.md) | 150 | UUIDs, foreign keys, composite indexes |
+| [safe-migrations](safe-migrations.md) | 330 | Concurrent indexes, two-deploy column removal |
+| [database-conventions](database-conventions.md) | 330 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
 | [seeds](seeds.md) | 210 | Idempotent seeds, kept in step with models and processes |
 | [optional-patterns](optional-patterns.md) | 420 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 140 | Two acceptable uses, and why |
@@ -144,7 +144,7 @@ Editing a file that matches → read these rules.
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~12,560 tokens across 38 rules. Typical read: this index (~1,900)
+**Total corpus:** ~12,850 tokens across 38 rules. Typical read: this index (~1,900)
 plus one or two rules (140–660). Reading the whole corpus is a bug, not thoroughness.
 
 These are the only read-cost figures in the repo. Other files point here rather

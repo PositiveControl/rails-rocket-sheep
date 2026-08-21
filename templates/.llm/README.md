@@ -49,7 +49,7 @@ Procedures somebody will need to repeat.
 <!-- sop:start -->
 - [Add SEO to a page](../docs/sop/add-seo-to-a-page.md) — meta tags, canonical URLs, JSON-LD, sitemap entry
 - [Harden a Kamal server](../docs/sop/harden-a-kamal-server.md) — firewall, SSH, unattended upgrades after `kamal setup`
-- [Extract database and storage](../docs/sop/extract-database-and-storage.md) — move PostgreSQL and Active Storage off the app server
+- [Extract database and storage](../docs/sop/extract-database-and-storage.md) — move the database and Active Storage off the app server
 - [Set up the beads tracker tier](../docs/sop/beads-setup.md) — only if `/workflow_setup` chose tier `beads`
 - [Find slow tests](../docs/sop/find-slow-tests.md) — read the Slowpoke report and act on it
 - [Update from the template](../docs/sop/update-from-the-template.md) — three-way merge the alignment layer against a newer template

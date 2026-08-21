@@ -83,17 +83,30 @@ builder:
   # Uncomment to use remote builder (recommended for Apple Silicon Macs):
   # remote: ssh://root@YOUR_SERVER_IP
 
-# PostgreSQL database accessory
+# <%= DB_LABEL %> database accessory. The port binds to 127.0.0.1 on purpose:
+# see docs/sop/harden-a-kamal-server.md.
 accessories:
   db:
-    image: postgres:16
+    image: <%= DB_ACCESSORY_IMAGE %>
     host: YOUR_SERVER_IP
-    port: "127.0.0.1:5432:5432"
+    port: "127.0.0.1:<%= DB_PORT %>:<%= DB_PORT %>"
     env:
       clear:
+<% if POSTGRESQL -%>
         POSTGRES_USER: <%= app_name %>
         POSTGRES_DB: <%= app_name %>_production
       secret:
         - POSTGRES_PASSWORD
     directories:
       - data:/var/lib/postgresql/data
+<% else -%>
+        MYSQL_USER: <%= app_name %>
+        MYSQL_DATABASE: <%= app_name %>_production
+      secret:
+        # MYSQL_ROOT_PASSWORD is not optional — the official image refuses to
+        # initialise without it (or one of the ALLOW_EMPTY/RANDOM opt-outs).
+        - MYSQL_PASSWORD
+        - MYSQL_ROOT_PASSWORD
+    directories:
+      - data:/var/lib/mysql
+<% end -%>
