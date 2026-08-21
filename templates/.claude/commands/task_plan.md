@@ -30,7 +30,7 @@ Be thorough — understanding current code is critical for a good plan. Use a de
 
 ### Step 4: Create the task file
 
-Create `.llm/tasks/<issue_number>_<snake_case_slug>.md` from `.llm/tasks/task_template.llm.md`:
+Create `.llm/tasks/<issue_number>_<snake_case_slug>.md` from `.llm/tasks/task_template.md`:
 
 - **Goal**: from issue body
 - **Background/Context**: synthesized from issue, comments, design doc, exploration
@@ -95,7 +95,7 @@ Plan approved and branch ready. Run: /implement <ISSUE_NUMBER>
 
 ## Reference
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
-- Task template: .llm/tasks/task_template.llm.md
+- Task template: .llm/tasks/task_template.md
 - Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number, or `bd-<hash>` under tier `beads`
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}
 - Tracker tier: `{{TRACKER}}`

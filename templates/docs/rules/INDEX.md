@@ -143,8 +143,11 @@ Editing a file that matches → read these rules.
 | [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~13,600 tokens across 38 rules. Typical read: this index (~1,700)
-plus one or two rules (~150–560). Reading the whole corpus is a bug, not thoroughness.
+**Total corpus:** ~12,900 tokens across 38 rules. Typical read: this index (~1,900)
+plus one or two rules (140–660). Reading the whole corpus is a bug, not thoroughness.
+
+These are the only read-cost figures in the repo. Other files point here rather
+than restating them, because a second copy goes stale the next time a rule lands.
 
 ---
 

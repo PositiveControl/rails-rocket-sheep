@@ -34,8 +34,8 @@ Start at [`docs/rules/INDEX.md`](docs/rules/INDEX.md). It routes three ways:
 2. **By symptom** — `grep -l "<keyword>" docs/rules/*.md`, or the trigger table
 3. **By rule id** — the file is always `docs/rules/<id>.md`
 
-The index costs ~1,300 tokens; a rule costs 150–500. Reading the whole directory
-is a mistake, not diligence.
+The index carries the read cost of every rule, so budget from it rather than
+guessing. Reading the whole directory is a mistake, not diligence.
 
 ## Non-negotiables
 
