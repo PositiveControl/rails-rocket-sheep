@@ -320,29 +320,24 @@ chmod "bin/docker-entrypoint", 0755
 copy_template_file "bin/test"
 chmod "bin/test", 0755
 
-# Kamal secrets directory
+# Kamal secrets. The filename `templates/kamal-secrets.tt` is load-bearing and
+# must not be renamed: Rails' own generator re-renders it after bundling.
+# `Rails::Generators::AppBase#run_kamal` runs `bundle exec kamal init` and then
+#
+#   template "kamal-secrets.tt", ".kamal/secrets", force: true
+#
+# which resolves through `find_in_source_paths` — and `source_paths` is ours, so
+# railties' copy is unreachable and only a file of that name in `templates/`
+# satisfies it. Without one, every generation that bundles dies there, and
+# everything after it (Tailwind, the Solid configs, the devise initializer,
+# `bin/jobs`, `Procfile.dev`) never runs. `--skip-bundle` hides it, because
+# `run_kamal` returns early when there is no bundle.
+#
+# So this is written once, here, and railties' re-render is a no-op on it. The
+# MySQL branch emits both passwords: the official image refuses to initialise
+# without a root password, and the app connects as MYSQL_USER.
 empty_directory ".kamal"
-db_password_secrets =
-  if POSTGRESQL
-    "POSTGRES_PASSWORD=$POSTGRES_PASSWORD"
-  else
-    # Both, because the official MySQL image refuses to initialise without a
-    # root password and the app connects as MYSQL_USER.
-    "MYSQL_PASSWORD=$MYSQL_PASSWORD\nMYSQL_ROOT_PASSWORD=$MYSQL_ROOT_PASSWORD"
-  end
-
-create_file ".kamal/secrets", <<~SECRETS
-  # Kamal deployment secrets
-  # Load from environment or use direnv/dotenv
-
-  KAMAL_REGISTRY_PASSWORD=$KAMAL_REGISTRY_PASSWORD
-  RAILS_MASTER_KEY=$(cat config/master.key 2>/dev/null || echo "")
-  #{db_password_secrets}
-  DATABASE_URL=$DATABASE_URL
-  QUEUE_DATABASE_URL=$QUEUE_DATABASE_URL
-  CABLE_DATABASE_URL=$CABLE_DATABASE_URL
-  CACHE_DATABASE_URL=$CACHE_DATABASE_URL
-SECRETS
+template_file "kamal-secrets.tt", ".kamal/secrets"
 
 # =============================================================================
 # Phase 7: Service Objects & Patterns

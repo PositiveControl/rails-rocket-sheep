@@ -276,6 +276,20 @@ else
   end
 end
 
+# --- 11. The filename railties re-renders after bundling ---------------------
+# Rails' own generator runs `template "kamal-secrets.tt", ".kamal/secrets"` after
+# bundling (Rails::Generators::AppBase#run_kamal), resolved through our
+# source_paths. A rename or a delete makes every bundling generation die there,
+# and `--skip-bundle` never reaches the call, so the probe most people run stays
+# green. Cheap to assert, expensive to discover.
+RAILTIES_RENDERED = ["kamal-secrets.tt"].freeze
+RAILTIES_RENDERED.each do |name|
+  next if File.exist?(File.join(TEMPLATES, name))
+
+  findings << "templates/#{name} is missing, and Rails' own generator renders it " \
+              "after bundling — generation would die at the kamal step"
+end
+
 # --- Report ------------------------------------------------------------------
 if findings.empty?
   puts "lint-docs: clean (#{rule_paths.size} rules, #{command_paths.size} commands)"
