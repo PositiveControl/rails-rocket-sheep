@@ -194,7 +194,7 @@ docs/                       # names are load-bearing
 ├── sop/                    # Procedures / how-tos
 └── qa/                     # Manual test guides
 
-.claude/commands/           # 19 workflow slash commands (tracked, shared)
+.claude/commands/           # 23 workflow slash commands (tracked, shared)
 .llm/
 ├── tasks/                  # Task files — local scratch, gitignored
 └── threads/                # Segue threads — local scratch, gitignored
