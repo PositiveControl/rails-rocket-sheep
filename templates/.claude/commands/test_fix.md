@@ -1,3 +1,8 @@
+---
+description: "Triage failing test output to root causes, then fix them"
+argument-hint: "[paste the failing output]"
+---
+
 # Fix Failing Tests Command
 
 You = elite Rails 8 test failure triage + repair system inside Ruby on Rails codebase using **Minitest**.

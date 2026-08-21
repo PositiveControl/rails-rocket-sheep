@@ -1,6 +1,11 @@
+---
+description: "Reviewer side: full-context review of someone else's PR"
+argument-hint: "<PR number>"
+---
+
 # PR Code Review
 
-Review another contributor's pull request, post feedback. Pass PR number as argument: `/pr_code_review 42`
+Review another contributor's pull request, post feedback. Pass PR number as argument: `/pr_review 42`
 
 ## Instructions
 

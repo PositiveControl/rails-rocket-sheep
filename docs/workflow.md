@@ -4,6 +4,8 @@ Every generated app ships with 19 slash commands that drive work from "what shou
 
 Full spec, diagrams, and gate definitions live in the generated app's `WORKFLOW.md`. This page is the orientation.
 
+Each command declares a one-line description and, where it takes one, an argument hint. Claude Code and Cursor render those in their command pickers, so the set is browsable without opening 19 files.
+
 ---
 
 ## The chain

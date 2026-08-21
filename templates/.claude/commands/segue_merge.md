@@ -1,6 +1,6 @@
 ---
-description: Merge a closed segue's findings back into this workstream
-argument-hint: [thread file path, optional]
+description: "Merge a closed segue's findings back into this workstream"
+argument-hint: "[thread file path, optional]"
 ---
 
 # Segue merge

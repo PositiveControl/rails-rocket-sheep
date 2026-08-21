@@ -1,3 +1,8 @@
+---
+description: "Review a branch against this stack's Rails 8 conventions"
+argument-hint: '[extra focus, e.g. "auth paths only"]'
+---
+
 # Rails Code Review
 
 Thorough code review of a Rails 8 branch against `main`.

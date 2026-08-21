@@ -1,6 +1,6 @@
 ---
-description: Pause the workstream and open an isolated discussion thread
-argument-hint: <topic or question to discuss>
+description: "Pause the workstream and open an isolated discussion thread"
+argument-hint: "<topic or question to discuss>"
 ---
 
 # Segue

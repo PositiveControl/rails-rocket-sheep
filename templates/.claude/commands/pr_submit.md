@@ -1,3 +1,8 @@
+---
+description: "Push for review: suite, docs, PR, then comments until green"
+argument-hint: "[issue number, defaults to the branch]"
+---
+
 # PR Submit
 
 Push current branch for review. Iterate until pipeline green + all review comments addressed. Pass issue number as argument: `/pr_submit 1613`

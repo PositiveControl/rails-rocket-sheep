@@ -93,8 +93,10 @@ complete frontmatter with `id` matching its filename, every rule has a row in al
 three `INDEX.md` tables with a matching token count, the read-cost figures in
 `INDEX.md` match the corpus, every `{{TOKEN}}` a command uses is one
 `/workflow_setup` fills, every path a command names resolves under `templates/`,
-every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count quoted in
-prose anywhere in the repo is the real one. Run it after touching
+every command carries a parseable `description` (and an `argument-hint` wherever
+it reads `$ARGUMENTS`), every backticked `/name` a command mentions is a real
+command, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
+quoted in prose anywhere in the repo is the real one. Run it after touching
 `templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
 count. A line that legitimately names a different count, or a path the command
 creates at runtime, carries a `lint-docs:ignore` marker.
@@ -121,6 +123,12 @@ creates at runtime, carries a `lint-docs:ignore` marker.
 - **The 19 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
   one copy — there is only one source.
+- **Every command declares a `description`, and an `argument-hint` if it takes an
+  argument.** Quote both values: a description containing a colon parses as a map,
+  and a hint in brackets parses as a list. The description is what a human reads
+  in a picker while deciding whether to run the command, so it states the job in
+  one line under 80 characters — no trigger phrasing ("use when…"), which belongs
+  to things a model invokes rather than a person.
 - **Product docs at the root describe the template; they do not restate its rules.**
   `README.md` and `docs/` link into `templates/docs/rules/` rather than copying it.
 

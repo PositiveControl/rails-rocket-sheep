@@ -1,3 +1,8 @@
+---
+description: "Execute an approved task plan; resumable and idempotent"
+argument-hint: "[issue number, defaults to the branch]"
+---
+
 # Implement
 
 Execute an approved task plan. Idempotent — first run after `/task_plan` approval and tenth resume after a lost session are the same command. Pass the issue number, or omit to infer from the current branch: `/implement 1613` or `/implement`.

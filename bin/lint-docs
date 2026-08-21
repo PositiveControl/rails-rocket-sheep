@@ -27,6 +27,7 @@ INDEX_PATH = File.join(RULES_DIR, "INDEX.md")
 IGNORE = "lint-docs:ignore"
 REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also tokens].freeze
 WORDS_PER_TOKEN = 0.75 # rough, so index self-cost is checked as a band not a value
+MAX_DESCRIPTION = 80 # a picker line, not a paragraph
 
 findings = []
 def rel(path) = path.sub("#{ROOT}/", "")
@@ -151,7 +152,56 @@ command_paths.each do |path|
   findings << "templates/WORKFLOW.md: 'Command inventory' has no entry for /#{name}" unless workflow_md.include?(name)
 end
 
-# --- 7. Counts quoted in prose ----------------------------------------------
+# --- 7. Command frontmatter -------------------------------------------------
+# A command's `description` is what a picker shows a human deciding whether to
+# run it, so it is the routing surface, not decoration. `argument-hint` is
+# required wherever the body reads $ARGUMENTS. Values are quoted because a
+# description with a colon, or a hint in brackets, otherwise parses as a map or
+# a list rather than a string.
+command_names = command_paths.map { |p| File.basename(p, ".md") }
+command_paths.each do |path|
+  name = File.basename(path, ".md")
+  body = File.read(path)
+  raw = body[/\A---\n(.*?)\n---\n/m, 1]
+
+  if raw.nil?
+    findings << "#{rel(path)}: no frontmatter, so no description for a picker to show"
+  else
+    fm = begin
+      YAML.safe_load(raw) || {}
+    rescue Psych::SyntaxError => e
+      findings << "#{rel(path)}: unparseable frontmatter (#{e.message})"
+      {}
+    end
+
+    fm.each do |key, value|
+      next if value.is_a?(String)
+
+      findings << "#{rel(path)}: #{key} parses as #{value.class}, not a string (quote the value)"
+    end
+
+    description = fm["description"].to_s
+    findings << "#{rel(path)}: frontmatter has no description" if description.empty?
+    findings << "#{rel(path)}: description is #{description.length} chars, keep it under #{MAX_DESCRIPTION}" if description.length > MAX_DESCRIPTION
+    if description.match?(/\Ause when|\Athis (command|skill)|\Ainvoke/i)
+      findings << "#{rel(path)}: description opens with trigger phrasing; a human reads it in a picker, so state the job"
+    end
+    if body.include?("$ARGUMENTS") && fm["argument-hint"].to_s.empty?
+      findings << "#{rel(path)}: reads $ARGUMENTS but declares no argument-hint"
+    end
+  end
+
+  # A command that documents itself under a name nobody can type is a router
+  # that lies about its own address. Only backticked names are checked: a bare
+  # slash is usually a URL path or /dev/null.
+  body.scan(/`\/([a-z][a-z0-9_]*)[^`]*`/).flatten.uniq.each do |mentioned|
+    next if command_names.include?(mentioned)
+
+    findings << "#{rel(path)}: mentions `/#{mentioned}`, which is not a command"
+  end
+end
+
+# --- 8. Counts quoted in prose ----------------------------------------------
 # Every doc that names a count, anywhere in the repo, against the real one.
 COUNT_PATTERNS = [
   [/(\d+)\s+single-rule/, :rules],

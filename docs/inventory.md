@@ -68,7 +68,7 @@ flowchart TB
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
-| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, router completeness, every count quoted in prose. Not shipped into generated apps yet |
+| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose. Not shipped into generated apps yet |
 | MCP config | ❌ | No `.mcp.json` |
 
 ### Application

@@ -1,3 +1,8 @@
+---
+description: "Deep doc pass: docs back in step with the system, index honest"
+argument-hint: "[directory to scope the pass]"
+---
+
 # Update Docs
 
 Deep documentation pass: bring `docs/` in step with how the system now works, and leave `.llm/README.md` an honest index of it. Pass a directory to scope the pass, or omit for everything: `/update_docs docs/system` or `/update_docs`.

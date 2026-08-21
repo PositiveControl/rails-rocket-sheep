@@ -1,3 +1,7 @@
+---
+description: "One-time wizard: tracker tier, repo, board, naming, CI checks"
+---
+
 # Workflow Setup (wizard)
 
 One-time interactive setup for the agent workflow. Resolves the tracker tier, collects this repo's parameters, fills the remaining `{{TOKEN}}`s across `.claude/commands/` and `.cursor/commands/`, and verifies repo automation. Run once from the repo root.

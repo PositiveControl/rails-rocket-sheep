@@ -28,6 +28,10 @@ These are markdown instruction files, not executables. Tools with a slash-comman
 concept (Claude Code, Cursor) surface them as `/name`. **If yours doesn't, read
 and follow the file directly** — e.g. "follow `.claude/commands/pr_submit.md`".
 
+Each one opens with frontmatter carrying a one-line `description`, and an
+`argument-hint` if it takes an argument. That is enough to choose a command
+without opening it, whether a picker renders it for you or you `head` the file.
+
 The chain is self-navigating: each command ends by naming the next.
 
 ```

@@ -1,6 +1,6 @@
 ---
-description: Pick up an open segue thread in this fresh session
-argument-hint: [thread file path, optional]
+description: "Pick up an open segue thread in this fresh session"
+argument-hint: "[thread file path, optional]"
 ---
 
 # Segue resume
