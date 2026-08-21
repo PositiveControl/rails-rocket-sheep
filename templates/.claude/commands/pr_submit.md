@@ -16,6 +16,7 @@ Verify branch ready to push:
 1. Run `git status` for uncommitted changes. Unstaged changes → ask user what to do.
 2. Run `git log origin/main..HEAD --oneline` to confirm commits exist to push.
 3. Confirm branch name follows convention `{{BRANCH_PREFIX}}/<issue>/<slug>` (e.g., `{{BRANCH_PREFIX}}/1613/fix-address-delete`). Mismatch → note, don't block.
+4. Rebase or merge left conflicts in the tree → `/resolve_conflicts` first. Never push a half-resolved rebase.
 
 ### Step 2: Run local checks (pre-push)
 

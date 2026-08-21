@@ -16,7 +16,7 @@ Every command ends by naming the next one — the workflow self-navigates. `/pic
 
 ## 1. Lifecycle master map
 
-The filled node at top is the entry: every session starts at `/pick`. `/feature_plan` feeds new sub-issues back to it. `/segue` is the escape valve off planning and implementation — an isolated discussion thread whose findings merge back without polluting the workstream.
+The filled node at top is the entry: every session starts at `/pick`. `/feature_plan` feeds new sub-issues back to it. `/segue` is the escape valve off planning and implementation — an isolated discussion thread whose findings merge back without polluting the workstream. `/grill` and `/diagnose` are the other two off-chain valves: one sharpens a design before a gate, the other hunts a bug behind a loop that goes red.
 
 ```mermaid
 flowchart TB
@@ -53,6 +53,8 @@ flowchart TB
   end
   SG1["/segue thread (planning valve)"]
   SG2["/segue thread (implementation valve)"]
+  GR["/grill — sharpen the design before the gate"]
+  DG["/diagnose — loop-first bug hunt"]
 
   G2 --> IM
   MG --> AUTO
@@ -60,6 +62,9 @@ flowchart TB
   TP -. blocked on a decision .-> SG1 -. findings merge .-> TP
   IM -. rabbit hole .-> SG2 -. findings merge .-> IM
   IM -. "scope escape: forecast &gt;600 lines" .-> FP
+  FP -. "assumption unsettled" .-> GR -. "decisions settled" .-> FP
+  TP -. "assumption unsettled" .-> GR
+  IM -. "bug with no failing test" .-> DG -. "cause found" .-> IM
 
   style E fill:#0F7480,stroke:#0F7480
   style PK fill:#0F7480,stroke:#0B3A40,color:#FFFFFF
@@ -77,6 +82,8 @@ flowchart TB
   style RV fill:#E3F0F1,stroke:#0F7480,color:#0B3A40
   style SG1 fill:#FDFDFB,stroke:#5F6E7C,stroke-dasharray:4 3,color:#3D4954
   style SG2 fill:#FDFDFB,stroke:#5F6E7C,stroke-dasharray:4 3,color:#3D4954
+  style GR fill:#FDFDFB,stroke:#5F6E7C,stroke-dasharray:4 3,color:#3D4954
+  style DG fill:#FDFDFB,stroke:#5F6E7C,stroke-dasharray:4 3,color:#3D4954
   style R1 fill:none,stroke:none
   style R2 fill:none,stroke:none
   style R3 fill:none,stroke:none
@@ -260,6 +267,10 @@ exists to create.
 | `/update_docs` | You | Rewrites and deletes across the doc tree; scope is a judgment call |
 | `/workflow_setup` | You | Interactive, once, and writes the config every other command reads |
 | `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge`, `/segue_kill` | You | The point is that *you* decided to stop the workstream |
+| `/grill` | Either | Asks questions and writes nothing. An agent may open one when a decision is missing; the decisions stay yours, and so does the gate the grilling feeds |
+| `/research` | Either | Reads primary sources and writes one doc locally. Nothing is posted, and nothing is committed until you commit it |
+| `/diagnose` | Either | Builds a loop, probes locally, fixes what the loop proves. Same bounded shape as `/test_fix` |
+| `/resolve_conflicts` | Either | The merge is already stopped on your machine; resolving and committing is local. Pushing the result is yours |
 | `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
 | `/test_fix` | Either | The suite is already red; triage and a local fix are bounded work |
 | `/rails_code_review` | Either | Reads the branch and reports. It posts nothing |
@@ -308,6 +319,10 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 | `/pr_review` | Core | Reviewer side: full-context diff review |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
+| `/grill` | Optional | Interview a design in rounds; empty frontier before a gate, not a substitute for it |
+| `/research` | Optional | Primary sources → one cited write-up in the doc canon |
+| `/diagnose` | Optional | Hard bug or slow path: tight loop first, then repro, ranked theories, fix, cleanup |
+| `/resolve_conflicts` | Optional | Finish a conflicted merge or rebase; regenerate what must not be hand-merged |
 | `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge` | Optional | Isolated discussion thread; findings-only merge-back |
 | `/segue_kill` | Optional | Abandon a dead-end segue: record why it died, skip the merge |
 | `/rails_code_review` | Optional | Rails-specific review of a branch against this stack's conventions |

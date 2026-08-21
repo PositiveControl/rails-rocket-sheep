@@ -116,7 +116,7 @@ Fix each code failure by category:
 
 **`db_drifts` common patterns:**
 - After rebase: schema.rb may contain tables/columns from conflict resolution that don't have corresponding migrations on the branch. Regenerate from migrations.
-- Missing migration: a migration file may have been lost during rebase. Check `git log --diff-filter=D -- db/migrate/` for deleted migrations.
+- Missing migration: a migration file may have been lost during rebase. Check `git log --diff-filter=D -- db/migrate/` for deleted migrations. A rebase still stopped on conflicts is `/resolve_conflicts`, which regenerates the files that must not be hand-merged.
 - Version mismatch: schema version header doesn't match the latest migration timestamp. Regenerate.
 
 ### Step 5: Commit and push fixes

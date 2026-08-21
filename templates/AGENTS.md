@@ -35,10 +35,11 @@ without opening it, whether a picker renders it for you or you `head` the file.
 The chain is self-navigating: each command ends by naming the next. That naming is
 an instruction to the human, not automation — no command invokes another.
 
-Most are for a person to run. `/run_lint`, `/test_fix`, `/rails_code_review`, and
-`/pr_fix_ci` read and edit locally, so an agent may follow one when the situation
-calls for it; anything that posts, pushes, moves a board, or stands at a gate is
-the human's to invoke. `WORKFLOW.md` carries the table under "Who invokes what".
+Most are for a person to run. `/run_lint`, `/test_fix`, `/diagnose`,
+`/resolve_conflicts`, `/research`, `/rails_code_review`, and `/pr_fix_ci` read and
+edit locally, so an agent may follow one when the situation calls for it; anything
+that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
+`WORKFLOW.md` carries the table under "Who invokes what".
 
 ```
 /pick (entry) → /feature_plan → /task_plan → /implement → /pr_submit → human merge
@@ -47,6 +48,8 @@ the human's to invoke. `WORKFLOW.md` carries the table under "Who invokes what".
 | Command | Job |
 |---|---|
 | `pick` | Entry door. Surfaces ready work and routes it by shape and state |
+| `grill` | Interview a design in rounds until nothing is silently assumed |
+| `research` | Answer a question from primary sources, write it into the doc canon |
 | `feature_plan` | Explore → design doc → sized sub-issues + doc placeholders |
 | `task_plan` | Design doc → task file + implementation plan → branch |
 | `implement` | Idempotent resume: load task file, execute, commit per logical unit |
@@ -59,6 +62,8 @@ the human's to invoke. `WORKFLOW.md` carries the table under "Who invokes what".
 | `pr_comment_resolver` | Work through review comments |
 | `pr_fix_ci` | Diagnose and fix a failing CI run |
 | `test_fix` | Fix failing tests |
+| `diagnose` | Hard bug or slow path: build a loop that goes red, then fix what it proves |
+| `resolve_conflicts` | Finish a conflicted merge or rebase, and prove the tree green |
 | `run_lint` | Lint and auto-fix |
 | `workflow_setup` | One-time wizard: repo, board, naming, CI checks |
 

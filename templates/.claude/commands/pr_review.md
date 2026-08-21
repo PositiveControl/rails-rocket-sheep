@@ -107,11 +107,41 @@ Before reviewing, check for relevant docs that establish conventions:
    ```
 3. Read any relevant `.llm/` documentation for the area being changed
 
-### Step 7: Analyze and categorize findings
+### Step 7: Check the change against what the issue asked
+
+Standards are one axis; the other is whether this is the change that was
+requested. A PR can follow every convention in `docs/rules/` and still not do the
+job, and that finding never comes out of reading the diff alone.
+
+1. Find the originating issue — `Closes #n` in the PR body, the `<issue>` segment
+   of the branch name, or the `{{PR_TITLE_PREFIX}} | <issue> | …` title. None of
+   the three present → that is itself a finding: nothing ties this work to a
+   request.
+2. Read its acceptance criteria, and the design doc in `docs/plans/` if it links
+   one.
+3. Walk the criteria one at a time. Per bullet: met, partially met, or not met,
+   each with the file and line that meets it. A bullet you cannot point at is not
+   met.
+4. Then the other direction: work in the diff that no criterion asked for. Small
+   and adjacent is fine — say so and move on. A second feature riding along is a
+   **suggestion to split**, and past the 600-added-line guidance in `WORKFLOW.md`
+   it is blocking.
+5. A design doc whose rejected alternatives are being re-litigated in this diff is
+   a blocking finding. The decision was made; reopening it belongs in a comment
+   thread, not in code.
+
+Under tier `{{TRACKER}}` = `beads`, the issue is a bead: read it with
+`bd show <id> --json` instead of `gh issue view`.
+
+An unmet criterion is blocking when the PR claims to close the issue, and a
+suggestion when the PR body already says which slice it covers.
+
+### Step 8: Analyze and categorize findings
 
 Review the code using the criteria from the language-specific review doc (Step 5). If no specific doc applies, use these general criteria. **Cross-reference with existing feedback from Step 4** — do not duplicate points already raised by other reviewers.
 
 **Blocking (request changes):**
+- Acceptance criteria the PR claims to close and does not meet (Step 7)
 - Bugs or logic errors
 - Security vulnerabilities (injection, XSS, mass assignment, etc.)
 - Data integrity issues (missing validations, unsafe migrations, race conditions)
@@ -134,7 +164,7 @@ Review the code using the criteria from the language-specific review doc (Step 5
 **Positive feedback:**
 - Call out well-designed code, clever solutions, or good test coverage — reviews should not be exclusively negative
 
-### Step 8: Present review to user before posting
+### Step 9: Present review to user before posting
 
 Before posting anything to GitHub, present the full review to the user in this format:
 
@@ -146,6 +176,9 @@ Before posting anything to GitHub, present the full review to the user in this f
 
 ### Existing feedback summary
 <Brief summary of what other reviewers have already flagged. Note any unresolved concerns.>
+
+### Against the issue
+<Per acceptance criterion: met / partial / not met, with file:line. Then anything in the diff nobody asked for.>
 
 ### Blocking issues
 - [ ] <file:line> — <description>
@@ -169,7 +202,7 @@ Ask the user:
 3. Whether to add or remove any comments
 4. What review action to take: APPROVE, REQUEST_CHANGES, or COMMENT
 
-### Step 9: Post the review to GitHub
+### Step 10: Post the review to GitHub
 
 Once the user confirms, submit the review using the GitHub API.
 
@@ -215,7 +248,7 @@ gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews -X POST \
 EOF
 ```
 
-### Step 10: Report result
+### Step 11: Report result
 
 After posting, display:
 

@@ -120,7 +120,7 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 
 | File | Purpose |
 |---|---|
-| `.claude/commands/*.md` | 19 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| `.claude/commands/*.md` | 23 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
 | `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
 | `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
 | `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |

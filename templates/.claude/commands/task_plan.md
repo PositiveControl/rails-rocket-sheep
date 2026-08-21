@@ -31,7 +31,7 @@ Issue has a parent (or links a design doc)? Read the matching `docs/plans/*-desi
 4. Find existing tests for the affected area
 5. Check for an existing `.llm/tasks/` file for this issue number (exists → consider `/implement $ARGUMENTS` instead)
 
-Be thorough — understanding current code is critical for a good plan. Use a dedicated search pass (a subagent, if your tool has them) or plain glob/grep/read. Blocked on a decision the issue doesn't answer? Suggest `/segue <question>`.
+Be thorough — understanding current code is critical for a good plan. Use a dedicated search pass (a subagent, if your tool has them) or plain glob/grep/read. Blocked on a decision the issue doesn't answer? Suggest `/grill "<the decision>"` for something this session can settle with the user, or `/segue <question>` for something needing its own session.
 
 ### Step 4: Create the task file
 
@@ -55,7 +55,7 @@ Conventions live in `CLAUDE.md` — the task file references it, never copies ru
 6. **Risks/Questions**: anything needing clarification
 7. **Flagged decisions**: architecture choices or new patterns (ALWAYS need user approval)
 
-**Wait for approval** — approve, adjust, or answer questions before proceeding.
+**Wait for approval** — approve, adjust, or answer questions before proceeding. More than a couple of flagged decisions, or risks nobody can price → `/grill "<the issue title>"` and come back to this gate.
 
 ### Step 6: Set up for implementation
 

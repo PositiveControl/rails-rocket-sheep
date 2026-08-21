@@ -176,7 +176,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 | [Getting Started](docs/getting-started.md) | Prerequisites, first run, what to do in the first ten minutes |
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
-| [The Agent Workflow](docs/workflow.md) | The 19 slash commands, the four gates, sizing rules, setup |
+| [The Agent Workflow](docs/workflow.md) | The 23 slash commands, the four gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
 | [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, for when you edit or add one |
 | [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the workflow into an app that isn't one |

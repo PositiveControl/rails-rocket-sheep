@@ -222,7 +222,7 @@ end
 COUNT_PATTERNS = [
   [/(\d+)\s+single-rule/, :rules],
   [/(\d+)\s+rules\b/, :rules],
-  [/(\d+)\s+(?:workflow |slash )?commands?\b/, :commands]
+  [/(\d+)\s+(?:workflow )?(?:slash )?commands?\b/, :commands]
 ].freeze
 
 actual = { rules: rule_paths.size, commands: command_paths.size }

@@ -12,6 +12,9 @@ command runs `bin/test` first: `/test_fix`.
 Repetitive failures are the normal case, not noise. Fourteen failures are usually
 one bug.
 
+Nothing is failing yet, or the complaint is "slow" rather than "wrong"? That is
+`/diagnose`, which builds the loop this command assumes you already have.
+
 ## Instructions
 
 ### Step 1: Get the failure set
