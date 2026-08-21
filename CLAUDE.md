@@ -25,6 +25,7 @@ template.rb              The generator. Phased, top to bottom, with `say` banner
 bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
 docs/writing-commands.md The shape a workflow command has to have, and its Done-when.
 .agents/adr/             Why this repo is built the way it is. Read before re-opening one.
+.agents/out-of-scope/    Requests already declined, with the reasoning. Check before building one.
 templates/               Everything copied into the generated app.
 ├── CLAUDE.md.tt         The generated app's conventions file (ERB)
 ├── AGENTS.md            Tool-neutral pointer to it
@@ -125,6 +126,11 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   `templates/docs/system/architecture.md` and ship, and decisions about *this
   generator* go in [.agents/adr/](.agents/adr/) and do not. Don't merge either
   pair.
+- **A declined request gets a file, not a conversation.** A no with its reasoning
+  attached is reversible on the reasoning; a no in a thread gets re-argued from
+  scratch every few months. New ruling → a file in
+  [.agents/out-of-scope/](.agents/out-of-scope/README.md), with the ruling, the
+  cost, the alternative, and what would change our mind.
 - **A decision with an accepted cost is an ADR, not a comment.** Before arguing
   with how this repo is built, read `.agents/adr/`: plain-markdown commands rather
   than skills and the routing-versus-enforcement line
@@ -162,7 +168,11 @@ creates at runtime, carries a `lint-docs:ignore` marker.
 - `.agents/adr/` — why this repo is built the way it is, and what each choice cost.
 - `docs/inventory.md` — what's shipped, what's missing, verification debt, and the
   ordered list of what to do next. Read it before proposing work.
-- `docs/comparison.md` — deliberate scope exclusions (billing, teams, admin, API).
-  If a request sounds like one of those, check here first.
+- `.agents/out-of-scope/` — requests already declined, one file each, with why the
+  cost is not worth paying, what to do instead, and what would change our mind. If
+  a request sounds like billing, tenancy, an admin panel, API scaffolding, or a
+  fourth tracker tier, read the ruling before designing anything.
+- `docs/comparison.md` — the buyer-facing version of the same list: what the
+  template does not have, stated so nobody buys the wrong thing.
 - `templates/WORKFLOW.md` — the lifecycle the generated app follows, including the
   tracker tiering (`github-projects` / `beads` / `labels`).
