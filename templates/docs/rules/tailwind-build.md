@@ -4,7 +4,7 @@ title: Only literal class names survive the Tailwind build
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/components/**/*.rb", "app/javascript/**/*.js", "app/helpers/**/*.rb"]
 triggers: ["class missing", "style not applied", "purged", "dynamic class", "text-#{", "interpolated class", "tailwind not working", "class string in JS"]
 see_also: ["slim-gotchas", "registries"]
-tokens: 200
+tokens: 330
 ---
 
 # Only literal class names survive the build

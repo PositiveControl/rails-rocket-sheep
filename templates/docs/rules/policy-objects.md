@@ -4,7 +4,7 @@ title: Policy objects — record-level authorization
 applies_to: ["app/policies/**/*.rb", "app/controllers/**/*.rb", "app/views/**/*.slim", "test/policies/**/*.rb"]
 triggers: ["authorization", "policy", "can this user", "Petergate", "access", "forbidden!", "permission check", "admin?", "owner?"]
 see_also: ["exception-boundary", "controllers"]
-tokens: 400
+tokens: 510
 ---
 
 # Policy objects

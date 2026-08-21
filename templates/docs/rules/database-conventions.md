@@ -4,7 +4,7 @@ title: Database conventions — primary keys, foreign keys, indexes
 applies_to: ["db/migrate/**/*.rb", "db/schema.rb", "app/models/**/*.rb"]
 triggers: ["UUID", "bigint", "primary key", "gen_random_uuid", "foreign key", "add_foreign_key", "index", "composite index", "t.uuid", "t.references", "parent_id"]
 see_also: ["safe-migrations", "n-plus-one"]
-tokens: 330
+tokens: 550
 ---
 
 # Database conventions

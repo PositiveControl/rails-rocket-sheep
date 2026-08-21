@@ -1,0 +1,53 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Keeps the `tokens:` figure in each docs/rules/*.md frontmatter honest.
+#
+#   bin/doc-tokens            rewrite every stale figure
+#   bin/doc-tokens --check    report drift and exit 1 (for CI or a doc pass)
+#   bin/doc-tokens <dir>      point at a rules directory other than docs/rules
+#
+# The figure is what an agent budgets from before reading a rule, so a stale one
+# is worse than none: it under-reports, the agent reads more than it planned, and
+# the routing budget in docs/rules/INDEX.md stops meaning anything. Every rewrite
+# of a rule body should be followed by a run of this.
+#
+# Estimate is chars/3.8, which tracks a BPE tokenizer closely enough for budgeting
+# English markdown with fenced code. It is deliberately not exact — it is a budget,
+# not a bill — but it is consistent, which is what makes the numbers comparable.
+
+CHARS_PER_TOKEN = 3.8
+
+check = ARGV.include?("--check")
+RULES = File.expand_path(ARGV.find { |a| !a.start_with?("--") } || "../docs/rules", __dir__)
+stale = []
+
+Dir.glob("#{RULES}/*.md").sort.each do |path|
+  name = File.basename(path)
+  next unless name == name.downcase # INDEX.md / SYMPTOMS.md carry no frontmatter figure
+
+  # Rewriting the figure changes the file length, so settle to a fixed point.
+  5.times do
+    body = File.read(path)
+    declared = body[/^tokens: (\d+)$/, 1]
+    break unless declared
+
+    want = ((body.length / CHARS_PER_TOKEN) / 10).round * 10
+    break if declared.to_i == want
+
+    if check
+      stale << format("  %-28s declared %5d  actual %5d", name, declared.to_i, want)
+      break
+    end
+
+    File.write(path, body.sub(/^tokens: \d+$/, "tokens: #{want}"))
+  end
+end
+
+if stale.any?
+  warn "Stale `tokens:` figures in docs/rules — run bin/doc-tokens to fix:"
+  warn stale.join("\n")
+  exit 1
+end
+
+puts check ? "docs/rules token figures are current" : "docs/rules token figures rewritten"

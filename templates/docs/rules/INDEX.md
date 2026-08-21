@@ -105,50 +105,52 @@ Editing a file that matches → read these rules.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [controllers](controllers.md) | 420 | Seven actions, new verb = new resource, thin actions |
-| [turbo-status](turbo-status.md) | 340 | 422 on validation failure, the frozen-form bug |
-| [pagination](pagination.md) | 260 | Pagy, every index paginates |
-| [rate-limiting](rate-limiting.md) | 260 | Rails 8 `rate_limit`, what to apply it to |
-| [exception-boundary](exception-boundary.md) | 330 | `rescue_from` once, scoped lookups |
-| [service-objects](service-objects.md) | 480 | `ApplicationService`, Result, transactions |
-| [form-objects](form-objects.md) | 470 | `ApplicationForm`, never nested attributes |
-| [query-objects](query-objects.md) | 380 | Joins ≥2 models, always return a relation |
-| [policy-objects](policy-objects.md) | 400 | Record-level auth vs Petergate roles |
-| [registries](registries.md) | 520 | `Data` objects, `fetch`, capabilities not identities |
-| [scopes](scopes.md) | 160 | Scopes, never class methods |
-| [callbacks](callbacks.md) | 300 | Same record only, `after_commit` for jobs |
-| [n-plus-one](n-plus-one.md) | 320 | `includes`, `counter_cache`, aggregate in SQL |
-| [deletes](deletes.md) | 380 | `destroy` by default, Discard opt-in, the `.kept` tax |
-| [audit-trail](audit-trail.md) | 220 | PaperTrail, scoped with `only:` |
-| [jobs](jobs.md) | 380 | Thin wrapper, IDs not records, idempotent, after commit |
-| [caching](caching.md) | 340 | Solid Cache, russian-doll, always key by user |
-| [safe-migrations](safe-migrations.md) | 330 | Concurrent indexes, two-deploy column removal |
-| [database-conventions](database-conventions.md) | 330 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
-| [seeds](seeds.md) | 210 | Idempotent seeds, kept in step with models and processes |
-| [optional-patterns](optional-patterns.md) | 420 | Value objects, status columns, concerns |
-| [current-attributes](current-attributes.md) | 140 | Two acceptable uses, and why |
-| [pattern-budget](pattern-budget.md) | 480 | Six directories, DRY triggers, ADR for a seventh |
-| [rejected-patterns](rejected-patterns.md) | 280 | Repository, CQRS, hexagonal, interactors, DI, decorators |
-| [write-path](write-path.md) | 220 | Layer order end to end |
-| [slim-gotchas](slim-gotchas.md) | 420 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
-| [tailwind-build](tailwind-build.md) | 200 | Interpolated classes are purged; no class strings in JS |
-| [view-code-placement](view-code-placement.md) | 300 | Component vs partial vs helper vs inline |
-| [components](components.md) | 560 | ViewComponent shape, slots, variants, tests |
-| [partials](partials.md) | 340 | Strict locals, no instance variables, collections |
-| [turbo-frames](turbo-frames.md) | 240 | Stable ids, matching responses, lazy, morphing |
-| [turbo-streams](turbo-streams.md) | 400 | Controller streams; model broadcasts are the footgun |
-| [stimulus](stimulus.md) | 420 | Targets/values/classes, idempotent `connect()` |
-| [tailwind](tailwind.md) | 300 | Semantic colors, dark mode, breakpoints |
-| [forms-ui](forms-ui.md) | 260 | `form_with`, error summary, field errors |
-| [empty-states](empty-states.md) | 180 | The state everyone forgets |
-| [accessibility](accessibility.md) | 200 | Semantic HTML, contrast, keyboard, focus |
-| [testing](testing.md) | 660 | Minitest + fixtures, which layer tests what, VCR |
+| [controllers](controllers.md) | 630 | Seven actions, new verb = new resource, thin actions |
+| [turbo-status](turbo-status.md) | 430 | 422 on validation failure, the frozen-form bug |
+| [pagination](pagination.md) | 350 | Pagy, every index paginates |
+| [rate-limiting](rate-limiting.md) | 320 | Rails 8 `rate_limit`, what to apply it to |
+| [exception-boundary](exception-boundary.md) | 400 | `rescue_from` once, scoped lookups |
+| [service-objects](service-objects.md) | 610 | `ApplicationService`, Result, transactions |
+| [form-objects](form-objects.md) | 680 | `ApplicationForm`, never nested attributes |
+| [query-objects](query-objects.md) | 440 | Joins ≥2 models, always return a relation |
+| [policy-objects](policy-objects.md) | 510 | Record-level auth vs Petergate roles |
+| [registries](registries.md) | 770 | `Data` objects, `fetch`, capabilities not identities |
+| [scopes](scopes.md) | 210 | Scopes, never class methods |
+| [callbacks](callbacks.md) | 360 | Same record only, `after_commit` for jobs |
+| [n-plus-one](n-plus-one.md) | 350 | `includes`, `counter_cache`, aggregate in SQL |
+| [deletes](deletes.md) | 490 | `destroy` by default, Discard opt-in, the `.kept` tax |
+| [audit-trail](audit-trail.md) | 290 | PaperTrail, scoped with `only:` |
+| [jobs](jobs.md) | 510 | Thin wrapper, IDs not records, idempotent, after commit |
+| [caching](caching.md) | 470 | Solid Cache, russian-doll, always key by user |
+| [safe-migrations](safe-migrations.md) | 370 | Concurrent indexes, two-deploy column removal |
+| [database-conventions](database-conventions.md) | 550 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
+| [seeds](seeds.md) | 400 | Idempotent seeds, kept in step with models and processes |
+| [optional-patterns](optional-patterns.md) | 630 | Value objects, status columns, concerns |
+| [current-attributes](current-attributes.md) | 230 | Two acceptable uses, and why |
+| [pattern-budget](pattern-budget.md) | 680 | Six directories, DRY triggers, ADR for a seventh |
+| [rejected-patterns](rejected-patterns.md) | 460 | Repository, CQRS, hexagonal, interactors, DI, decorators |
+| [write-path](write-path.md) | 310 | Layer order end to end |
+| [slim-gotchas](slim-gotchas.md) | 620 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
+| [tailwind-build](tailwind-build.md) | 330 | Interpolated classes are purged; no class strings in JS |
+| [view-code-placement](view-code-placement.md) | 430 | Component vs partial vs helper vs inline |
+| [components](components.md) | 1110 | ViewComponent shape, slots, variants, tests |
+| [partials](partials.md) | 450 | Strict locals, no instance variables, collections |
+| [turbo-frames](turbo-frames.md) | 380 | Stable ids, matching responses, lazy, morphing |
+| [turbo-streams](turbo-streams.md) | 560 | Controller streams; model broadcasts are the footgun |
+| [stimulus](stimulus.md) | 610 | Targets/values/classes, idempotent `connect()` |
+| [tailwind](tailwind.md) | 470 | Semantic colors, dark mode, breakpoints |
+| [forms-ui](forms-ui.md) | 360 | `form_with`, error summary, field errors |
+| [empty-states](empty-states.md) | 250 | The state everyone forgets |
+| [accessibility](accessibility.md) | 290 | Semantic HTML, contrast, keyboard, focus |
+| [testing](testing.md) | 1010 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~12,850 tokens across 38 rules. Typical read: this index (~1,900)
-plus one or two rules (140–660). Reading the whole corpus is a bug, not thoroughness.
+**Total corpus:** ~18,320 tokens across 38 rules. Typical read: this index (~3000)
+plus one or two rules (210–1110). Reading the whole corpus is a bug, not thoroughness.
 
-These are the only read-cost figures in the repo. Other files point here rather
-than restating them, because a second copy goes stale the next time a rule lands.
+These figures are generated from the files by `bin/doc-tokens`, not typed by hand —
+a hand-typed one is stale the next time a rule is edited, and a budget nobody can
+trust is worse than no budget. Run `bin/doc-tokens` after editing a rule, or
+`bin/doc-tokens --check` to fail a doc pass that forgot.
 
 ---
 

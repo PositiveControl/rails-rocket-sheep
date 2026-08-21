@@ -4,7 +4,7 @@ title: Jobs are thin wrappers over services, idempotent, ID-only
 applies_to: ["app/jobs/**/*.rb", "config/queue.yml", "test/jobs/**/*.rb"]
 triggers: ["job", "ApplicationJob", "perform_later", "Solid Queue", "retry", "DeserializationError", "GlobalID", "queue_as", "background work", "idempotent"]
 see_also: ["service-objects", "callbacks"]
-tokens: 380
+tokens: 510
 ---
 
 # Jobs

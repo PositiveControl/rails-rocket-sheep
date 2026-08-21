@@ -4,7 +4,7 @@ title: Rate-limit what strangers can reach
 applies_to: ["app/controllers/**/*.rb"]
 triggers: ["rate_limit", "rate limiting", "throttle", "too many requests", "sign in", "password reset", "signup", "brute force", "contact form", "webhook"]
 see_also: ["controllers", "caching"]
-tokens: 260
+tokens: 330
 ---
 
 # Rate-limit what strangers can reach

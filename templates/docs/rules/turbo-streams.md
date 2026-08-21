@@ -4,7 +4,7 @@ title: Turbo streams from the controller; model broadcasts are the footgun
 applies_to: ["app/controllers/**/*.rb", "app/views/**/*.turbo_stream.slim", "app/models/**/*.rb"]
 triggers: ["turbo_stream", "broadcasts_to", "broadcast", "turbo stream append", "live update", "respond_to format.turbo_stream", "after_commit broadcast", "real time"]
 see_also: ["turbo-frames", "turbo-status", "callbacks", "jobs"]
-tokens: 400
+tokens: 560
 ---
 
 # Turbo streams

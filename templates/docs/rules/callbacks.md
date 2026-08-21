@@ -4,7 +4,7 @@ title: Callbacks touch only their own record
 applies_to: ["app/models/**/*.rb"]
 triggers: ["callback", "after_create", "after_save", "after_commit", "before_save", "before_validation", "why did this row change", "side effect", "enqueue from model"]
 see_also: ["service-objects", "jobs"]
-tokens: 300
+tokens: 360
 ---
 
 # Callbacks: same record only

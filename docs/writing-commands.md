@@ -155,3 +155,18 @@ Checked by reading, because no script can:
 - Branches are tables or lists, not paragraphs.
 - The command names what runs next, without implying it invokes it.
 - `## Reference` holds the constants, and nothing the steps needed inline.
+
+## If you edit a rule, not a command
+
+The routing budget in `docs/rules/INDEX.md` only works while each rule's `tokens:`
+figure tracks its file. Editing a rule body invalidates that number, and an agent
+budgeting from a stale one under-reads — silently, since nothing checks it at read
+time.
+
+```bash
+bin/doc-tokens            # rewrite every stale figure
+bin/doc-tokens --check    # report drift, exit 1
+```
+
+Run it in the same commit as the rule edit. `--check` belongs in whatever pass
+guards docs, so the number is never something a reviewer has to notice.
