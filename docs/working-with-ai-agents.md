@@ -38,7 +38,7 @@ That last rule matters more than it looks. Without it agents accumulate near-dup
 - Seven actions per controller — a new verb is a new resource
 - Validation failures render `status: :unprocessable_content`
 - Scopes, not class methods, for queries
-- UUIDs for primary keys; `t.uuid :parent_id` for foreign keys
+- Primary keys per database: UUIDs and `t.uuid :parent_id` on PostgreSQL, bigint and `t.references` on MySQL
 - `destroy` by default; Discard only where a table earns soft deletes
 - PaperTrail for audit trails
 - Registries (`Data` objects, `fetch` lookup) for fixed variant sets

@@ -10,10 +10,13 @@ From nothing to a running app in about three minutes, plus what to do in the ten
 |---|---|---|
 | Ruby | 3.2+ | Developed and tested on 3.4.7 |
 | Rails | 8.0+ | `gem install rails` |
-| PostgreSQL | 13+ | Must be running before you generate. Uses built-in `gen_random_uuid()`. |
+| PostgreSQL | 13+ | If you choose it. Must be running before you generate; uses built-in `gen_random_uuid()`. |
+| MySQL or MariaDB | MySQL 8+ / MariaDB 10.5+ | The alternative. Must be running before you generate. |
 | Git | any | The template commits for you at the end |
 
-Check that Postgres is actually up before you start — the template runs `db:create` and `db:migrate` at the end, and a dead server means a half-generated app:
+Pick one with `--database=`: `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy`. SQLite is refused. The only convention that changes is primary keys — UUIDs on PostgreSQL, bigint on MySQL ([ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md)).
+
+Check the server is actually up before you start — the template runs `db:create` and `db:migrate` at the end, and a dead server means a half-generated app:
 
 ```bash
 pg_isready
@@ -56,7 +59,7 @@ rails g devise User
 rails db:migrate
 ```
 
-The generated migration uses a UUID primary key automatically, because the template configured the generators to.
+On PostgreSQL the generated migration uses a UUID primary key automatically, because the template configured the generators to. On MySQL it uses Rails' default bigint.
 
 ### 2. Start the server
 
@@ -106,7 +109,7 @@ See [Deployment](deployment.md) for the full Kamal walkthrough.
 ```
 app/
 ├── lib/                     # Registries and config modules (autoloaded)
-├── models/                  # ActiveRecord models — UUID PKs by default
+├── models/                  # ActiveRecord models — UUID PKs on PostgreSQL, bigint on MySQL
 ├── services/                # Service objects, inherit ApplicationService
 ├── forms/                   # Form objects, inherit ApplicationForm
 ├── components/              # ViewComponents, inherit ApplicationComponent
@@ -139,7 +142,7 @@ CLAUDE.md                    # Conventions your AI agent reads
 
 ## Common first problems
 
-**`PG::ConnectionBad` during generation.** Postgres wasn't running. Start it, delete the half-generated directory, and run the generator again.
+**`PG::ConnectionBad` or `Mysql2::Error` during generation.** The database server wasn't running. Start it, delete the half-generated directory, and run the generator again.
 
 **Devise routes missing from the home page.** You haven't run `rails g devise User` yet. The home view calls `user_signed_in?`, which needs the Devise model to exist.
 

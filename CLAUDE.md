@@ -16,7 +16,13 @@ a Rails 8 app; that app is the product.
 
 ```bash
 rails new myapp --database=postgresql --template=/path/to/rails-rocket-sheep/template.rb
+rails new myapp --database=mysql      --template=/path/to/rails-rocket-sheep/template.rb
 ```
+
+`--database=` is read, not re-asked. PostgreSQL, MySQL, MariaDB, mysql2 and
+trilogy are supported; anything else raises before a file is written. Only
+primary keys actually diverge — see
+[ADR 0007](.agents/adr/0007-database-family-is-chosen-at-generation.md).
 
 There are two other ways in, and both go through the same file list. An app that
 already exists adopts the alignment layer on its own:
@@ -100,6 +106,11 @@ Phases run in order and are labelled with `say`. Rules that are easy to get wron
 - **The alignment layer is copied by `adopt.rb`, not here.** Phase 12 evaluates it.
   A file copied anywhere else is a file adoption never installs and no update can
   ever reach, because `bin/rocket-sheep-update` reads `adopt.rb` as its manifest.
+- **Branch on `POSTGRESQL` / `DB_FAMILY`, never on the adapter string.** `mysql2`
+  and `trilogy` differ in the driver and in nothing a convention cares about, and
+  MariaDB is MySQL for every purpose here except the label. `DB_ADAPTER`,
+  `DB_LABEL`, `DB_PRIMARY_KEY`, `DB_ACCESSORY_IMAGE`, and `DB_PORT` are resolved
+  once at the top and are available inside every `.tt`.
 
 ## Testing a change
 
@@ -111,6 +122,17 @@ generating an app:
 cd $(mktemp -d)
 rails new probe --database=postgresql --template=/path/to/rails-rocket-sheep/template.rb
 cd probe && bin/test && bin/rubocop && bin/brakeman
+```
+
+Anything touching a `.tt`, the Kamal accessory, the Dockerfile, or a primary key
+has to be generated **both** ways, because half the branches are otherwise never
+executed. `--skip-bundle` is enough to exercise every phase without a database
+server, and `--database=sqlite3` must abort before writing a file:
+
+```bash
+for db in postgresql mysql trilogy mariadb-mysql sqlite3; do
+  rails new probe-$db --database=$db --skip-bundle --template=/path/to/template.rb
+done
 ```
 
 `ruby -c template.rb adopt.rb preamble.rb` catches syntax errors and is worth
@@ -203,7 +225,10 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   a three-way merge the owner asks for rather than a channel
   ([0005](.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)), and
   why adoption installs the alignment layer and nothing else
-  ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)).
+  ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)), and
+  why the database family is read from `rails new` while only primary keys
+  diverge
+  ([0007](.agents/adr/0007-database-family-is-chosen-at-generation.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the

@@ -24,7 +24,7 @@ Honest positioning against the alternatives. Some of these are better purchases 
 
 ## vs plain `rails new`
 
-**What you actually save.** Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster. That's real, and it's why this template is thin rather than enormous. What's left is the assembly: multi-database configuration for the Solid stack, UUID generators wired up, Devise configured for Turbo, Kamal with a working Postgres accessory and an entrypoint that migrates, a Dockerfile that builds, SEO that's actually tested, and the conventions file.
+**What you actually save.** Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster. That's real, and it's why this template is thin rather than enormous. What's left is the assembly: multi-database configuration for the Solid stack against whichever database you chose, primary-key generators wired up to match it, Devise configured for Turbo, Kamal with a working database accessory and an entrypoint that migrates, a Dockerfile that builds, SEO that's actually tested, and the conventions file.
 
 Call it a day or two of setup, plus the specific knowledge of which defaults bite. A few examples that are not obvious until they cost you an afternoon:
 

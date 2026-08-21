@@ -8,18 +8,14 @@ fi
 
 # If running the rails server then create or migrate existing database
 if [ "${@: -2:1}" == "./bin/rails" ] && [ "${@: -1:1}" == "server" ]; then
-  # For PostgreSQL, we need special handling for multi-database setup
-  if [ -n "$DATABASE_URL" ] && [[ "$DATABASE_URL" == postgres* ]]; then
-    echo "PostgreSQL detected, setting up database..."
+  # The Solid Stack runs queue, cache, and cable in their own databases, which
+  # db:prepare does not know how to bring up. This is about the multi-database
+  # layout, not about any one adapter: it is the same on PostgreSQL and MySQL.
+  if [ -n "$DATABASE_URL" ]; then
+    echo "Setting up databases..."
 
     # Create database if it doesn't exist
     ./bin/rails db:create 2>/dev/null || true
-
-    # Enable PostgreSQL extensions
-    ./bin/rails runner "
-      ActiveRecord::Base.connection.execute('CREATE EXTENSION IF NOT EXISTS pgcrypto')
-      puts 'PostgreSQL pgcrypto extension enabled'
-    "
 
     # Run migrations for primary database
     ./bin/rails db:migrate

@@ -37,6 +37,46 @@ if ADOPT_STANDALONE
   TEMPLATE_ROOT = __dir__
   instance_eval(File.read(File.join(TEMPLATE_ROOT, "preamble.rb")), "preamble.rb")
 
+  # The shipped CLAUDE.md and models.md name this app's database and primary key
+  # type. Generation gets those from `rails new --database=`; adoption has to
+  # read them off the app, because the app already made both choices and this
+  # file is not entitled to either. Both are facts on disk:
+  #
+  #   adapter      the first `adapter:` in config/database.yml
+  #   primary key  whether db/schema.rb has ever written `id: :uuid`
+  #
+  # Unrecognised or missing is not an error. Adoption does not care what the
+  # database is; only the prose does, and "your database" is honest.
+  adapter = begin
+    yml = File.join(destination_root, "config/database.yml")
+    File.exist?(yml) ? File.read(yml)[/^\s*adapter:\s*(\S+)/, 1] : nil
+  rescue StandardError
+    nil
+  end
+
+  DB_ADAPTER = adapter || "unknown"
+  POSTGRESQL = adapter == "postgresql"
+  DB_FAMILY =
+    case adapter
+    when "postgresql" then :postgresql
+    when "mysql2", "trilogy" then :mysql
+    else :other # SQLite, or something this template has never seen
+    end
+  DB_LABEL = {
+    "postgresql" => "PostgreSQL",
+    "mysql2" => "MySQL",
+    "trilogy" => "MySQL",
+    "sqlite3" => "SQLite"
+  }.fetch(adapter, "your database")
+
+  schema = File.join(destination_root, "db/schema.rb")
+  DB_PRIMARY_KEY =
+    if File.exist?(schema) && File.read(schema).include?("id: :uuid")
+      "uuid"
+    else
+      "bigint"
+    end
+
   say "Adopting the Rails Rocket Sheep alignment layer (commit #{TEMPLATE_SHA})...", :green
   say ""
   say "Nothing outside the alignment layer is touched: no Gemfile, no app/, no", :yellow
@@ -218,6 +258,11 @@ if ADOPT_STANDALONE
   say "     Slim, ViewComponent). Adopt each pattern when you next need it, or"
   say "     delete the rule — a rule pointing at a class you do not have is"
   say "     worse than no rule."
+  say ""
+  say "     Check the Tech Stack line in CLAUDE.md first: the database and"
+  say "     primary key type were read off config/database.yml and db/schema.rb,"
+  say "     and docs/rules/database-conventions.md has a half for each. Fix the"
+  say "     line if it guessed wrong."
   say ""
   say "  5. Later, pull template fixes in three-way:"
   say "     bin/rocket-sheep-update --check"

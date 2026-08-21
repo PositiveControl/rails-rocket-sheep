@@ -3,8 +3,13 @@
 class ApplicationRecord < ActiveRecord::Base
   primary_abstract_class
 
+<% if POSTGRESQL -%>
   # Use created_at for implicit ordering since UUIDs have no natural order
   self.implicit_order_column = :created_at
+<% else -%>
+  # Primary keys are bigint here, which orders naturally, so no
+  # implicit_order_column is needed. See docs/rules/database-conventions.md.
+<% end -%>
 
   # Include Discard::Model in models that need soft deletes:
   #

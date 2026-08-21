@@ -29,11 +29,20 @@ The primary user model, managed by Devise.
 
 When adding a new model:
 
-1. **Generate with UUID:**
+1. **Generate:**
    ```bash
    rails g model Thing name:string user:references
    ```
-   UUIDs are configured automatically.
+<% if DB_PRIMARY_KEY == "uuid" -%>
+   Primary keys are UUIDs: `config.generators` sets `primary_key_type: :uuid`,
+   so `user:references` produces a `uuid` column. Declare foreign keys as
+   `t.uuid :parent_id` with an explicit `add_foreign_key`.
+<% else -%>
+   Primary keys are Rails' default bigint on <%= DB_LABEL %>, so
+   `user:references` produces a `bigint` column and `t.references :parent,
+   foreign_key: true` is the right form.
+<% end -%>
+   Either way: [database-conventions](../rules/database-conventions.md).
 
 2. **Add soft deletes only if the table earns them** — restoration is a user-facing
    feature, an audit obligation requires the row, or foreign keys must stay valid.

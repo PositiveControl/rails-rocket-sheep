@@ -1,8 +1,16 @@
 # Plan: Extract Database and File Storage to External Services
 
+> **Written for PostgreSQL.** On MySQL or MariaDB the shape is identical —
+> provision, dump, restore, repoint `DATABASE_URL`, drop the accessory — but the
+> tools, the port, and the URL scheme differ. The substitutions are in
+> [MySQL and MariaDB equivalents](#mysql-and-mariadb-equivalents) at the end;
+> everything else on this page applies unchanged. Which database this app runs is
+> on the Tech Stack line of `CLAUDE.md`.
+
 ## Goal
 
-Make the app server stateless by moving PostgreSQL and file storage to external services. This enables horizontal scaling, zero-downtime server replacement, and simpler disaster recovery.
+Make the app server stateless by moving the database and file storage to external
+services. This enables horizontal scaling, zero-downtime server replacement, and simpler disaster recovery.
 
 ## Current State
 
@@ -254,6 +262,28 @@ Once verified, switch to `cloudflare` only and remove the volume.
 | Database migration | 2-3 hours | ~5 min (DNS/connection switch) |
 | File storage migration | 2-3 hours | Zero (Mirror service bridges the gap) |
 | Verification & cleanup | 1 hour | Zero |
+
+## MySQL and MariaDB equivalents
+
+Substitute these; the phases, the firewall changes, and the storage half are the
+same.
+
+| PostgreSQL | MySQL / MariaDB |
+|---|---|
+| `pg_dump -Fc -h HOST -U USER DB > db.dump` | `mysqldump --single-transaction --routines --triggers -h HOST -u USER -p DB > db.sql` |
+| `pg_restore -h HOST -U USER -d DB --no-owner --no-privileges db.dump` | `mysql -h HOST -u USER -p DB < db.sql` |
+| `postgres://user:pass@host:5432/db?sslmode=require` | `mysql2://user:pass@host:3306/db?ssl_mode=required` — or `trilogy://` if this app uses the trilogy adapter |
+| port `5432` in every firewall rule | port `3306` |
+| `postgresql-client` in the Dockerfile | `default-mysql-client` (already there) |
+| Neon, Supabase | PlanetScale, Aiven, DigitalOcean Managed MySQL, Hetzner managed |
+
+Two differences worth planning for rather than discovering:
+
+- **`--single-transaction` only gives you a consistent dump on InnoDB.** Any
+  MyISAM table needs a read lock or a maintenance window.
+- **Managed MySQL providers vary on whether they allow four databases per
+  instance.** The Solid Stack wants `primary`, `queue`, `cable`, and `cache`;
+  check the plan's database limit before committing to a provider.
 
 ## Applies To
 
