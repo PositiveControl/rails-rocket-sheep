@@ -8,7 +8,7 @@ in what order to build it. Written to be argued with, not as marketing.
 
 The premise: an agent will eventually miss a rule or skip a workflow step. The
 alignment layer today ([`CLAUDE.md`](../templates/CLAUDE.md.tt) +
-[37 rules](../templates/docs/rules/INDEX.md) + [`WORKFLOW.md`](../templates/WORKFLOW.md))
+[38 rules](../templates/docs/rules/INDEX.md) + [`WORKFLOW.md`](../templates/WORKFLOW.md))
 tells an agent what to do; with three narrow exceptions, nothing *checks* that it
 did. This doc scopes the checking layer.
 
@@ -26,7 +26,7 @@ rule corpus, and all but one are Claude-Code-specific.
 | [`.claude/settings.json`](../templates/.claude/settings.json) deny list | tool call | force-push, `reset --hard`, `clean -fd`, reading secrets | ❌ Claude Code only |
 | Rails 8 default `ci.yml` + branch protection | push / PR | `scan_ruby`, `scan_js`, `lint` (RuboCop), `test` | ✅ any agent |
 
-Net: of **37 rules and 4 workflow gates (G1–G4)**, exactly **three rules** have a
+Net: of **38 rules and 4 workflow gates (G1–G4)**, exactly **three rules** have a
 deterministic backstop — the two RuboCop-and-Slim checks in `post_edit` and the
 Draft-placeholder check in `session_end`. Everything else is prose. The
 [inventory](inventory.md) states the problem plainly: *"the alignment layer was
