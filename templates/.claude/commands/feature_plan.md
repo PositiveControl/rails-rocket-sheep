@@ -26,7 +26,7 @@ Otherwise treat `$ARGUMENTS` as the problem statement.
 2. Identify the models, controllers, services, and flows the feature touches
 3. Note existing patterns to reuse and constraints (schema, jobs, permissions)
 
-Shape-level understanding, not line-level planning — that happens per-issue in `/task_plan`. Blocked on a genuine design question? Suggest `/segue <question>`.
+Shape-level understanding, not line-level planning — that happens per-issue in `/task_plan`. Blocked on a genuine design question? Suggest `/segue <question>`. External fact missing (how a gem behaves, what an API returns)? Suggest `/research <question>`.
 
 ### Step 3: Write the design doc
 
@@ -43,6 +43,8 @@ Create `docs/plans/YYYY-MM-DD-<slug>-design.md` with sections:
 ### Step 4: GATE — design approval
 
 Present a short summary: problem, approach, slice list with size estimates, open questions. **Wait for explicit approval.** The design doc is a proposal; issues are commitment. Iterate until approved.
+
+Open questions the user cannot answer off the top of their head, or an approach resting on assumptions nobody has tested → suggest `/grill "<the feature>"` before asking for approval again. Arriving at the gate with an empty frontier is the point; the approval is still theirs.
 
 ### Step 5: Create issues
 

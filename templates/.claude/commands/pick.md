@@ -112,6 +112,7 @@ Fetch full details of the selection (`gh issue view <n>`), then route by shape +
 | Todo — sized leaf issue with acceptance criteria | `/task_plan <n>` |
 | In Progress — task file exists in `.llm/tasks/` | `/implement <n>` |
 | In Progress — no task file | `/task_plan <n>` (plan was never made or is lost) |
+| Todo — sized, but the approach rests on a decision nobody has made | `/grill <title>` first, then `/task_plan <n>` |
 | Blocked | Show the blocker (dependency, question, PR); no route until cleared |
 | Up for Review | Show PR status; suggest `/pr_fix_ci` or `/pr_comment_resolver` if red/commented |
 

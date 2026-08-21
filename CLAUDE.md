@@ -49,7 +49,7 @@ templates/               Everything copied into the generated app.
 ├── docs/rules/          38 single-rule convention files + INDEX.md
 ├── docs/system/         ADRs, models reference
 ├── docs/sop/            Procedures
-├── .claude/commands/    19 workflow commands (mirrored to .cursor/commands/)
+├── .claude/commands/    23 workflow commands (mirrored to .cursor/commands/)
 ├── .cursor/rules/       Cursor pointer to the same index
 ├── .llm/                Task template, doc index
 ├── bin/rocket-sheep-update  Three-way merges a newer template into an app
@@ -212,7 +212,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   nothing: the hooks and `.claude/settings.json` are Claude Code only, and an
   agent elsewhere still reads the same rule. See
   [ADR 0001](.agents/adr/0001-plain-markdown-commands-not-skills.md).
-- **The 19 workflow commands are mirrored** from `.claude/commands/` to
+- **The 23 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
   one copy — there is only one source. `bin/rocket-sheep-update` merges both
   destinations for the same reason.

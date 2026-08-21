@@ -3,7 +3,7 @@
 ## Context
 
 The generated app's alignment layer has two halves. **Routing** is how an agent
-finds what applies: `CLAUDE.md`, `AGENTS.md`, `docs/rules/INDEX.md`, the 19
+finds what applies: `CLAUDE.md`, `AGENTS.md`, `docs/rules/INDEX.md`, the 23
 commands. **Enforcement** is what happens when it ignores them: the hooks, the
 permissions file, CI.
 

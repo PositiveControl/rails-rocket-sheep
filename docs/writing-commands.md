@@ -1,6 +1,6 @@
 # Writing a workflow command
 
-The 19 files in `templates/.claude/commands/` are the product's moving parts. Each
+The 23 files in `templates/.claude/commands/` are the product's moving parts. Each
 one is read by an agent working in somebody else's repository, with no author
 present to clarify it. This page is the shape they share, and the bar a new one
 clears before it ships.
@@ -110,6 +110,22 @@ readable and the constants live in one place.
   which in the row, with the reason.
 - **Plain markdown only.** No harness-specific loading, no feature only one tool
   supports. The routing has to work in Claude Code, Cursor, Codex, and a `grep`.
+- **Ask a whole round, not a question at a time.** A command that interviews the
+  user (`/grill`, `/workflow_setup`, any gate with open questions) asks every
+  question whose prerequisites are already settled in one numbered round, each
+  with a recommended answer, then waits. A question whose answer depends on
+  another question still open belongs to the next round. Drip-feeding questions
+  turns one approval into six round trips.
+- **Reference artifacts, never restate them.** A command that writes a document
+  (a task file, a design doc, a handoff brief, a thread file) points at the spec,
+  issue, ADR, commit, or diff by path or URL. A restated artifact is a second copy
+  that starts drifting the moment it is written, and the reader cannot tell which
+  one is current.
+- **An external fact carries the source that owns it.** Where a command
+  establishes how a gem, an API, or a Rails version behaves, it cites the primary
+  source (the documentation for the pinned version, the gem's own code in the
+  bundle, the spec) rather than a summary of one. `/research` exists for exactly
+  this and is what a command should point at.
 - **Keep the tracker tiers straight.** A command that touches the tracker follows
   only the branch matching the literal `{{TRACKER}}` value, and says so where the
   behaviour splits.

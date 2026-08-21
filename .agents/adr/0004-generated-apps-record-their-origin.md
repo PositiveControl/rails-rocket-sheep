@@ -3,7 +3,7 @@
 ## Context
 
 `rails new --template` runs once. What it leaves behind runs for years: 38 rules
-routed on every edit, 19 commands, four gates, two hooks. The installer is a
+routed on every edit, 23 commands, four gates, two hooks. The installer is a
 moment; the alignment layer is the product.
 
 That asymmetry has a consequence nobody had written down. When a rule in a

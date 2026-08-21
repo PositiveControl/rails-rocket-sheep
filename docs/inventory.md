@@ -13,7 +13,7 @@ flowchart TB
   subgraph AGENT ["Agent alignment layer"]
     CM["CLAUDE.md<br/>conventions + anti-patterns"]
     WF["WORKFLOW.md<br/>lifecycle spec"]
-    CMD[".claude/commands/<br/>19 slash commands"]
+    CMD[".claude/commands/<br/>23 slash commands"]
     IDX[".llm/README.md<br/>doc index"]
     TSK[".llm/tasks/<br/>resumable task files"]
   end
@@ -58,7 +58,7 @@ flowchart TB
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
 | Pattern reference docs | ✅ | `docs/rules/` — 38 single-rule files + `INDEX.md` routing by path, symptom, or id. Backend, views, and tests |
-| Workflow commands | ✅ | 19 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
+| Workflow commands | ✅ | 23 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
@@ -201,6 +201,14 @@ GitHub validates issue-form schema server-side only. A malformed form silently f
 
 **4. A `code-reviewer` subagent — ~2h.** `/rails_code_review` exists as a command, so the content is written. Packaging it as a `.claude/agents/` definition lets it run in its own context window rather than consuming the main one, and lets it be invoked automatically.
 
+**12. An inbound triage command — ~4h, and only with buyer evidence.** `/pick`
+surfaces prioritized ready work and assumes the board is already groomed. Nothing
+grooms it: a new bug report, an external PR, or an issue with no acceptance
+criteria sits there until a human categorises it by hand. The obstacle is not the
+procedure but the vocabulary — triage states have to map onto all three tracker
+tiers, and `/workflow_setup` owns that mapping. Wait until a buyer says their
+board is the bottleneck.
+
 **6. Job worker in `deploy.yml` — ~30m.** Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative but ships neither. A commented-out `job:` role turns a documentation step into an uncomment.
 
 **8. `docs/qa/` and `docs/plans/` examples — ~30m.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
@@ -230,9 +238,9 @@ Last verified 2026-08-06 against **Ruby 4.0.6 / Rails 8.1.3.1**: all anchors sti
 
 Not gaps to fill — things to be honest about.
 
-**Jira and Linear buyers still aren't served.** The three tiers cover GitHub Projects, GitHub Issues via beads, and no tracker at all — but a shop whose issues live in Jira gets the ten tracker-independent commands and nothing else. That was a deliberate call (the thread ID doesn't survive the move; see [workflow](workflow.md)), but the sales page must say so rather than letting buyers discover it.
+**Jira and Linear buyers still aren't served.** The three tiers cover GitHub Projects, GitHub Issues via beads, and no tracker at all — but a shop whose issues live in Jira gets the fourteen tracker-independent commands and nothing else. That was a deliberate call (the thread ID doesn't survive the move; see [workflow](workflow.md)), but the sales page must say so rather than letting buyers discover it.
 
-**19 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 19 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
+**23 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 23 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
 
 **Template generation is version-coupled.** The template patches specific Rails files by matching their content. Rails 8.1 or 9 could break generation. Already-generated apps are unaffected, but the product needs re-verification against each Rails release, and that's ongoing maintenance nobody is scheduled to do.
 
@@ -248,7 +256,7 @@ Not gaps to fill — things to be honest about.
 flowchart LR
   DONE["✅ shipped<br/>guardrails · parity · tiers · templates"] --> V["V1–V4 verification debt<br/>~2.5h · before buyers"]
   V --> BIZ["business gate<br/>license · demo · listing"]
-  BIZ --> T4["4 · 6 · 8 · 9<br/>feature gaps"]
+  BIZ --> T4["4 · 6 · 8 · 9 · 12<br/>feature gaps"]
   T4 --> M["10 · maintenance<br/>per Rails release"]
 ```
 
@@ -256,4 +264,4 @@ Every gap from the original ranking is closed. What's left splits three ways:
 
 1. **Verification debt (V1–V4, ~2.5h)** — the `github-projects` regression risk is the single highest-priority item here. It was the only path before tiering refactored it. V4 waits on an app old enough to be worth updating.
 2. **Business gate** — nothing engineering-side blocks selling; the LICENSE placeholders, deployed demo, and storefront do. Those live in `../../monetization-assessment.md`, outside this repo.
-3. **Feature gaps (4, 6, 8, 9)** — worth doing, but they can wait for buyer feedback, which is the point at which guessing stops and evidence starts.
+3. **Feature gaps (4, 6, 8, 9, 12)** — worth doing, but they can wait for buyer feedback, which is the point at which guessing stops and evidence starts.
