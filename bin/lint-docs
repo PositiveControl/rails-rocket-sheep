@@ -241,8 +241,10 @@ end
 
 # --- 9. Everything under templates/ actually ships --------------------------
 # A file added to templates/ that no `copy_template_file` names, and no glob
-# covers, is a file that silently never reaches a generated app.
-generator = File.read(File.join(ROOT, "template.rb"))
+# covers, is a file that silently never reaches a generated app. Both entry
+# points count: template.rb generates, adopt.rb installs the alignment layer
+# into an app that already exists, and template.rb evaluates adopt.rb.
+generator = ["template.rb", "adopt.rb"].map { |f| File.read(File.join(ROOT, f)) }.join("\n")
 literal_copies = generator.scan(/(?:copy_template_file|template_file)\s+"([^"]+)"/).flatten
 glob_dirs = generator.scan(%r{Dir\.glob\(File\.join\(TEMPLATE_ROOT,\s*"templates/([^"*]+)/\*}).flatten
 
@@ -254,6 +256,24 @@ Dir.glob(File.join(TEMPLATES, "**/*.{md,tt,mdc,json}"), File::FNM_DOTMATCH).sort
   next if glob_dirs.any? { |dir| File.dirname(ref) == dir.chomp("/") }
 
   findings << "template.rb never copies #{ref}, so it does not ship"
+end
+
+# --- 10. The stamp the updater reads is the stamp the template writes -------
+# bin/rocket-sheep-update finds the commit to merge from by matching a regex
+# against the generated CLAUDE.md. Rewording that line silently costs every
+# future app its upgrade path, and nothing else would notice.
+updater_path = File.join(TEMPLATES, "bin/rocket-sheep-update")
+stamp_source = File.read(updater_path)[%r{^STAMP = (?:%r)?/(.+)/$}, 1]
+if stamp_source.nil?
+  findings << "templates/bin/rocket-sheep-update: no STAMP regex found, so the stamp contract is unchecked"
+else
+  stamped = File.read(File.join(TEMPLATES, "CLAUDE.md.tt"))
+                .gsub("<%= TEMPLATE_SHA %>", "abc1234")
+                .gsub("<%= TEMPLATE_GENERATED_ON %>", "2026-01-01")
+  unless stamped.match?(Regexp.new(stamp_source))
+    findings << "templates/CLAUDE.md.tt: the origin stamp no longer matches STAMP in " \
+                "bin/rocket-sheep-update, so an update would have no commit to merge from"
+  end
 end
 
 # --- Report ------------------------------------------------------------------

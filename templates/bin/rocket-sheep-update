@@ -1,0 +1,280 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# bin/rocket-sheep-update — reconcile this app's alignment layer with a newer
+# Rails Rocket Sheep.
+#
+# This app is a copy of the template, not a dependency. The first lines of
+# CLAUDE.md name the commit it came from. This script diffs the template's
+# alignment layer between that commit and a newer one, and merges the changes
+# into your files three-way, so your own edits survive. Where both sides changed
+# the same lines you get conflict markers, exactly as a git merge would leave
+# them — that is the manual work, and it is the only manual work.
+#
+#   bin/rocket-sheep-update --check       report what changed, write nothing
+#   bin/rocket-sheep-update               merge it in, then bump the stamp
+#   bin/rocket-sheep-update --ref v2.0    a tag, branch, or SHA to move to
+#   bin/rocket-sheep-update --from abc123 override the stamp in CLAUDE.md
+#   bin/rocket-sheep-update --force       allow a dirty working tree
+#
+# Nothing outside the alignment layer is touched: no Gemfile, no app/, no
+# config/, no db/. The set of files is whatever the template's own adopt.rb
+# installs, read out of the checkout, so it stays right as the template grows
+# rather than going stale in a list here.
+#
+# Environment:
+#   ROCKET_SHEEP_TEMPLATE  use an existing checkout instead of cloning
+#   ROCKET_SHEEP_REPO      clone URL (default: the upstream GitHub repo)
+
+require "fileutils"
+require "optparse"
+require "tmpdir"
+
+APP = Dir.pwd
+CACHE = File.join(APP, "tmp", "rocket-sheep-template")
+CLAUDE_MD = File.join(APP, "CLAUDE.md")
+DEFAULT_REPO = "https://github.com/PositiveControl/rails-rocket-sheep.git"
+STAMP = /at commit `([0-9a-f]+|unknown)` on (\d{4}-\d{2}-\d{2})/
+
+options = { check: false, ref: "main", from: nil, force: false }
+OptionParser.new do |o|
+  o.banner = "Usage: bin/rocket-sheep-update [options]"
+  o.on("--check", "Report what would change, write nothing") { options[:check] = true }
+  o.on("--ref REF", "Template ref to move to (default main)") { |v| options[:ref] = v }
+  o.on("--from SHA", "Template commit this app is at, if CLAUDE.md has no stamp") { |v| options[:from] = v }
+  o.on("--force", "Run with uncommitted changes in the working tree") { options[:force] = true }
+  o.on("-h", "--help") { puts o; exit 0 }
+end.parse!(ARGV)
+
+def die(message)
+  warn "rocket-sheep-update: #{message}"
+  exit 1
+end
+
+def capture(*args)
+  out = IO.popen(args, err: File::NULL, &:read)
+  [out, $?.exitstatus]
+end
+
+die "run this from the application root" unless File.exist?(File.join(APP, "config", "application.rb"))
+
+# A three-way merge writes into the working tree. Reviewing the result means
+# reading `git diff`, which is only readable if the tree was clean to begin with.
+unless options[:check] || options[:force]
+  dirty, = capture("git", "-C", APP, "status", "--porcelain")
+  die "working tree is dirty — commit or stash first, or pass --force" unless dirty.strip.empty?
+end
+
+# --- Where this app came from -------------------------------------------------
+
+from = options[:from]
+if from.nil?
+  stamp = File.exist?(CLAUDE_MD) ? File.read(CLAUDE_MD)[STAMP, 1] : nil
+  from = stamp unless stamp == "unknown"
+end
+die "no template commit found in CLAUDE.md — pass --from SHA" if from.nil? || from.empty?
+
+# --- The template checkout ---------------------------------------------------
+# Full history, not a shallow clone: the commit this app was generated from can
+# be arbitrarily far back.
+
+root = ENV["ROCKET_SHEEP_TEMPLATE"]
+if root
+  die "ROCKET_SHEEP_TEMPLATE=#{root} is not a git checkout" unless File.directory?(File.join(root, ".git"))
+else
+  repo = ENV.fetch("ROCKET_SHEEP_REPO", DEFAULT_REPO)
+  root = CACHE
+  if File.directory?(File.join(root, ".git"))
+    system("git", "-C", root, "fetch", "--quiet", "--tags", "origin") || die("could not fetch #{repo}")
+  else
+    FileUtils.mkdir_p(File.dirname(root))
+    system("git", "clone", "--quiet", repo, root) || die("could not clone #{repo}")
+  end
+end
+
+def rev(root, ref)
+  %W[#{ref} origin/#{ref}].each do |candidate|
+    out, status = capture("git", "-C", root, "rev-parse", "--verify", "--quiet", "#{candidate}^{commit}")
+    return out.strip if status.zero? && !out.strip.empty?
+  end
+  nil
+end
+
+from_sha = rev(root, from) || die("#{from} is not a commit in the template — is the checkout up to date?")
+to_sha = rev(root, options[:ref]) || die("#{options[:ref]} is not a commit in the template")
+
+if from_sha == to_sha
+  puts "Already at #{options[:ref]} (#{from_sha[0, 7]}). Nothing to reconcile."
+  exit 0
+end
+
+def blob(root, sha, path)
+  out, status = capture("git", "-C", root, "show", "#{sha}:#{path}")
+  status.zero? ? out : nil
+end
+
+# --- What counts as the alignment layer --------------------------------------
+# adopt.rb is the manifest: every file it copies is a file an update may merge,
+# and nothing else is. Read from the target ref, so paths added upstream are in
+# scope on the first run that sees them.
+
+adopt = blob(root, to_sha, "adopt.rb") ||
+        die("#{options[:ref]} has no adopt.rb — that ref predates the update path; " \
+            "pass --ref main or diff by hand")
+literals = adopt.scan(/(?:copy_template_file|template_file)\s+"([^"]+)"/).flatten
+glob_dirs = adopt.scan(%r{Dir\.glob\(File\.join\(TEMPLATE_ROOT,\s*"templates/([^"*]+)/\*}).flatten
+
+in_layer = lambda do |path| # path is relative to templates/
+  literals.include?(path) || glob_dirs.any? { |dir| File.dirname(path) == dir.chomp("/") }
+end
+
+# --- What changed ------------------------------------------------------------
+
+raw, status = capture("git", "-C", root, "diff", "--name-status", "-M",
+                      "#{from_sha}..#{to_sha}", "--", "templates/")
+die "could not diff #{from_sha[0, 7]}..#{to_sha[0, 7]}" unless status.zero?
+
+changes = [] # [state, templates-relative path, previous path or nil]
+raw.each_line do |line|
+  code, a, b = line.strip.split("\t")
+  next if code.nil?
+
+  case code[0]
+  when "A" then changes << [:added, a, nil]
+  when "M" then changes << [:modified, a, nil]
+  when "D" then changes << [:deleted, a, nil]
+  when "R" then changes << [:added, b, a] << [:deleted, a, nil]
+  end
+end
+
+# Destinations: templates/X installs to X, and a command under .claude/ is
+# mirrored to .cursor/ at install time — merge both copies, or the mirror rots.
+destinations = lambda do |path|
+  dest = path.sub(%r{\Atemplates/}, "")
+  mirror = dest.sub(%r{\A\.claude/}, ".cursor/")
+  [dest, (mirror if mirror != dest && File.exist?(File.join(APP, mirror)))].compact
+end
+
+merged = []
+added = []
+conflicted = []
+by_hand = []
+removed_upstream = []
+absent = []
+
+changes.each do |state, path, previous|
+  rel = path.sub(%r{\Atemplates/}, "")
+  next unless in_layer.call(rel)
+
+  # An ERB template renders at install time, so its upstream diff is not a diff
+  # of the file this app has. Naming it is the whole contribution here.
+  if rel.end_with?(".tt")
+    by_hand << [rel, rel.sub(/\.tt\z/, "")] if state != :deleted
+    next
+  end
+
+  if state == :deleted
+    # Only worth naming if this app still has it; otherwise the upstream
+    # deletion is already true here.
+    destinations.call(path).each do |dest|
+      removed_upstream << dest if File.exist?(File.join(APP, dest))
+    end
+    next
+  end
+
+  destinations.call(path).each do |dest|
+    target = File.join(APP, dest)
+    theirs = blob(root, to_sha, path)
+    next if theirs.nil?
+
+    base = previous ? blob(root, from_sha, previous) : blob(root, from_sha, path)
+
+    if !File.exist?(target)
+      # New upstream, or a file this app never had. Either way there is nothing
+      # to merge against, so it is an add.
+      unless options[:check]
+        FileUtils.mkdir_p(File.dirname(target))
+        File.write(target, theirs)
+        File.chmod(0o755, target) if dest.start_with?("bin/")
+      end
+      added << dest
+      next
+    end
+
+    if base.nil?
+      absent << dest # added upstream and already present here: nothing safe to do
+      next
+    end
+
+    Dir.mktmpdir do |dir|
+      base_path = File.join(dir, "base")
+      theirs_path = File.join(dir, "theirs")
+      ours_path = File.join(dir, "ours")
+      File.write(base_path, base)
+      File.write(theirs_path, theirs)
+      File.write(ours_path, File.read(target))
+
+      result, code = capture("git", "merge-file", "-p",
+                             "-L", "#{dest} (yours)",
+                             "-L", "template #{from_sha[0, 7]}",
+                             "-L", "template #{to_sha[0, 7]}",
+                             ours_path, base_path, theirs_path)
+      if code == 255
+        by_hand << [rel, dest]
+        next
+      end
+
+      File.write(target, result) unless options[:check]
+      code.zero? ? merged << dest : conflicted << dest
+    end
+  end
+end
+
+# --- Report ------------------------------------------------------------------
+
+def section(title, entries)
+  return if entries.empty?
+
+  puts "#{title} (#{entries.size})"
+  entries.sort.each { |e| puts "  #{e}" }
+  puts
+end
+
+puts
+puts "Alignment layer: #{from_sha[0, 7]} → #{to_sha[0, 7]}#{' (--check, nothing written)' if options[:check]}"
+puts
+
+section("Merged cleanly", merged)
+section("Merged with conflicts — resolve the markers", conflicted)
+section("Added", added)
+section("Hand-merge: rendered at install time, so no diff applies", by_hand.map { |rel, dest| "#{dest}  (template #{rel})" })
+section("Removed upstream — delete only if you agree", removed_upstream)
+section("Added upstream but already present here — diff by hand", absent)
+
+pending = merged.size + conflicted.size + added.size + by_hand.size
+
+if pending.zero?
+  puts "Nothing in the alignment layer changed between those commits."
+  exit 0
+end
+
+if options[:check]
+  puts "Run without --check to merge. #{pending} file#{'s' unless pending == 1} would change."
+  exit 1
+end
+
+# The stamp is what the next run reads. Bump it only after the writes landed.
+if File.exist?(CLAUDE_MD) && File.read(CLAUDE_MD).match?(STAMP)
+  body = File.read(CLAUDE_MD)
+  File.write(CLAUDE_MD, body.sub(STAMP, "at commit `#{to_sha[0, 7]}` on #{Time.now.strftime('%Y-%m-%d')}"))
+  puts "Stamped CLAUDE.md at #{to_sha[0, 7]}."
+else
+  puts "CLAUDE.md has no stamp to bump — record #{to_sha[0, 7]} yourself, or the next run has no starting point."
+end
+
+unless conflicted.empty?
+  puts
+  puts "#{conflicted.size} file#{'s' unless conflicted.size == 1} left conflict markers. Resolve them, then review the whole change with `git diff`."
+end
+
+exit(conflicted.empty? ? 0 : 1)

@@ -156,3 +156,4 @@ CLAUDE.md                    # Conventions your AI agent reads
 - [What's Included](whats-included.md) — every gem and file, and why it's there
 - `docs/rules/INDEX.md` in your new app — service objects, form objects, registries, components, and the rest, one rule per file
 - [Working With AI Agents](working-with-ai-agents.md) — the part that makes this template different
+- [Staying Current](staying-current.md) — taking template fixes later, and adopting the workflow into an app that wasn't generated from it

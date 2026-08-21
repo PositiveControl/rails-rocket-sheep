@@ -48,3 +48,8 @@ Tags exist, or a `bin/rocket-sheep-diff` becomes worth writing: given the stamp,
 could show what changed in `docs/rules/` and `.claude/commands/` since generation
 and let the owner take what they want. That is the upgrade path this decision
 leaves open, and it needs the stamp to exist first.
+
+**Revisited.** That tool is `bin/rocket-sheep-update`, and the merge it needed
+turned out to be `git merge-file` rather than anything hand-written — see
+[ADR 0005](0005-updates-are-a-three-way-merge-from-the-stamp.md). The stamp is
+unchanged and is now what the update reads.
