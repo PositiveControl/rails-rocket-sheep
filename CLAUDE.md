@@ -22,6 +22,7 @@ rails new myapp --database=postgresql --template=/path/to/rails-rocket-sheep/tem
 
 ```
 template.rb              The generator. Phased, top to bottom, with `say` banners.
+bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
 templates/               Everything copied into the generated app.
 ├── CLAUDE.md.tt         The generated app's conventions file (ERB)
 ├── AGENTS.md            Tool-neutral pointer to it
@@ -70,7 +71,7 @@ Phases run in order and are labelled with `say`. Rules that are easy to get wron
 
 ## Testing a change
 
-There is no automated suite. Verification is generating an app:
+There is no automated suite for *generation*. Verification is generating an app:
 
 ```bash
 cd $(mktemp -d)
@@ -81,12 +82,33 @@ cd probe && bin/test && bin/rubocop && bin/brakeman
 `ruby -c template.rb` catches syntax errors and is worth running on every edit, but
 it proves nothing about generation.
 
+The docs *are* checked, by `bin/lint-docs`:
+
+```bash
+bin/lint-docs            # exits 0 clean, 1 with a list of findings
+```
+
+It asserts what an agent in a generated app is asked to trust: every rule has
+complete frontmatter with `id` matching its filename, every rule has a row in all
+three `INDEX.md` tables with a matching token count, the read-cost figures in
+`INDEX.md` match the corpus, every `{{TOKEN}}` a command uses is one
+`/workflow_setup` fills, every path a command names resolves under `templates/`,
+every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count quoted in
+prose anywhere in the repo is the real one. Run it after touching
+`templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
+count. A line that legitimately names a different count, or a path the command
+creates at runtime, carries a `lint-docs:ignore` marker.
+
 ## Conventions for editing this repo
 
 - **One fact, one file.** The whole doc architecture is built on it. Before adding
   a rule or a paragraph, `grep` for the fact — if it exists, link to it instead.
   Duplicated conventions drift, and drift is the failure mode this product exists
   to prevent.
+- **A fact about the tree gets checked, not asserted.** Counts, index rows, token
+  budgets, and paths are all things `bin/lint-docs` can verify, so prose that
+  states one has to pass it. Run it before you commit a doc change; a doc that
+  disagrees with the tree is worse than no doc, because the agent cannot tell.
 - **Rules go in `templates/docs/rules/`, one per file**, with complete frontmatter
   (`id`, `applies_to`, `triggers`, `see_also`, `tokens`). The `id` must match the
   filename. Add rows to all three tables in `INDEX.md` — route by path, route by

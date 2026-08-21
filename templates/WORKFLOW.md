@@ -257,6 +257,7 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/segue`, `/segue_resume`, `/segue_close`, `/segue_merge` | Optional | Isolated discussion thread; findings-only merge-back |
 | `/segue_kill` | Optional | Abandon a dead-end segue: record why it died, skip the merge |
+| `/rails_code_review` | Optional | Rails-specific review of a branch against this stack's conventions |
 | `/pr_comment_resolver`, `/pr_fix_ci`, `/test_fix`, `/run_lint` | Optional | Utilities called by core commands |
 | `/workflow_setup` | Setup | One-time wizard: parameters, conventions, token fill, automation checks |
 

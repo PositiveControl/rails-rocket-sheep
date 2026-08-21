@@ -119,7 +119,7 @@ diff -r .claude/commands .cursor/commands    # mirrors must stay identical
 
 Must return nothing. Leftovers → fill them.
 
-Write the record to `.claude/workflow.config.md` — a table of every token and its value, plus the date. Re-running this wizard reads that file as the starting defaults.
+Write the record to `.claude/workflow.config.md` — a table of every token and its value, plus the date. Re-running this wizard reads that file as the starting defaults. <!-- lint-docs:ignore -->
 
 `bin/pr-stack` has no tokens (it reads repo and default branch from `gh`) and the template already set its executable bit. Confirm with `bin/pr-stack --check`.
 

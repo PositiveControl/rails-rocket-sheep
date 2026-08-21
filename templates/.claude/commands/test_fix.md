@@ -79,10 +79,10 @@ Each group gets:
 Create or update reusable log file for test failure triage.
 
 Use this path unless repo has better established place:
-- `tmp/test_failure_log.md`
+- `tmp/test_failure_log.md` (scratch, gitignored) <!-- lint-docs:ignore -->
 
-If more durable project artifact makes sense, also create:
-- `docs/testing/test_failure_log_template.md`
+Worth keeping past the fix? Promote the *procedure* to `docs/sop/`, which the doc
+canon owns. Don't invent a directory for it.
 
 Log structure:
 

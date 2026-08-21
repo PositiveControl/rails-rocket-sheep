@@ -61,13 +61,14 @@ flowchart TB
 | Workflow commands | ✅ | 19 commands, `/pick` → merge |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them) |
-| Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped |
+| Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
 | Task template | ✅ | Resumable task file format |
 | `/workflow_setup` wizard | ✅ | Stack + CI tokens pre-filled; asks only repo/board/naming |
 | Project `.claude/settings.json` | ✅ | Allowlist + deny rules; credentials blocked from context |
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
+| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, router completeness, every count quoted in prose. Not shipped into generated apps yet |
 | MCP config | ❌ | No `.mcp.json` |
 
 ### Application
@@ -197,6 +198,13 @@ GitHub validates issue-form schema server-side only. A malformed form silently f
 **6. Job worker in `deploy.yml` — ~30m.** Solid Queue needs a worker. [Deployment](deployment.md) explains the `job:` role and the `SOLID_QUEUE_IN_PUMA` alternative but ships neither. A commented-out `job:` role turns a documentation step into an uncomment.
 
 **8. `docs/qa/` and `docs/plans/` examples — ~30m.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
+
+**9. Ship `bin/lint-docs` into generated apps — ~1h.** The generator now checks its
+own docs against its own tree. A generated app carries the same corpus, the same
+commands, and the same index, so it inherits the same drift risk with none of the
+checking. The obstacle is scope, not difficulty: the checks that read
+`templates/` need a path shim, and the count checks need to run against the app's
+own docs. It would also give `/update_docs` something deterministic to end with.
 
 **9. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
 
