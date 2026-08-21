@@ -3,192 +3,97 @@ description: "Guided manual QA pass over a PR, ending in a structured report"
 argument-hint: "<PR number>"
 ---
 
-Act as senior QA engineer, senior Ruby on Rails dev, product analyst, PR reviewer.
+# PR QA
 
-Job: guide full manual QA pass on pull request, start to finish.
+Guide a manual QA pass over a pull request from start to finish, then write the
+report into `docs/qa/`. This covers what automated tests do not: the clicking. The
+suite and the lint run belong to `/pr_submit`. Pass the PR number: `/pr_qa 1760`.
 
-## Primary Goal
+## Instructions
 
-Guide PR testing — structured, practical.
+### Step 1: Fetch the PR
 
-Must:
+```bash
+gh pr view $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json number,title,body,author,headRefName,baseRefName,additions,deletions,changedFiles,files
+gh pr diff $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}}
+```
 
-1. Analyze PR
-2. Read + interpret PR description
-3. Understand what dev says changed
-4. Inspect code changes — find what actually changed
-5. Infer intended behavior
-6. Determine manual test approach for feature/fix
-7. Create step-by-step QA workflow
-8. Ask for test results as I go, or accept notes
-9. At end, generate clear QA report:
-   - what tested
-   - what passed
-   - what failed
-   - risks / concerns
-   - missing coverage
-   - recommended follow-ups
+Read the linked issue too if the body references one. Screenshots, videos, and
+"known limitations" in the description all shape what is worth testing.
 
-## What I Need From You
+### Step 2: Separate what the author claims from what changed
 
-Not code summary. Help me actually QA manually in app.
+List the author's claims, the acceptance criteria, and any stated limitation.
+Then read the diff and classify every change:
 
-Per meaningful change, determine:
+| Class | Why it matters for QA |
+|---|---|
+| UI only | Visual and responsive checks, no data setup |
+| Business logic | Needs specific records to exercise each branch |
+| Database | Migration order, backfills, existing rows |
+| Authorization | Needs more than one role to test |
+| Background job | Needs the worker running; check the async path, not just the enqueue |
+| External integration | Needs a sandbox account or a recorded cassette |
+| Bug fix | Reproduce the original bug first, then confirm the fix |
+| Refactor | Regression risk with no new behaviour to test |
+| Test or internal only | Usually nothing to click |
 
-- affected app area
-- page or flow to visit
-- direct route/path if known
-- full URL if determinable
-- user role needed
-- specific account, dataset, record, or setup state needed?
-- exact actions
-- expected outcome
-- edge cases
-- regressions to check
+Where the description and the diff disagree, say so before planning anything. A
+mismatch is the highest-value finding in this whole pass.
 
-## Your Workflow
+### Step 3: Derive the scenarios
 
-Follow exact workflow:
+Per behaviour change, name the happy path, the edge cases, the failure cases, the
+role and permission cases, the regressions worth re-checking, and any scenario
+that depends on data state (empty, one record, many, soft-deleted).
 
-### 1. Understand the PR
-- Read PR title
-- Read PR description carefully
-- Extract all dev claims
-- Identify acceptance criteria, implementation notes, warnings, known limitations
-- Identify screenshots, videos, linked issues if available
+Do not stop at the first obvious case. The point of a manual pass is the cases a
+fixture would not have.
 
-### 2. Inspect the Actual Code Changes
-- Review changed files carefully
-- Group changes by feature area / behavior change
-- Classify each change:
-  - UI-only
-  - business logic
-  - database-related
-  - authorization / permissions
-  - background job / async
-  - external API / integration
-  - bug fix
-  - refactor with possible behavior impact
-  - test-only or internal-only
-- Call out PR description vs code mismatches
+### Step 4: Build the plan
 
-### 3. Infer Manual Test Scenarios
-Per behavior change, define:
-- happy path
-- important edge cases
-- failure cases
-- permission/role cases
-- regression checks
-- data-state-dependent scenarios
+One block per test area, each with:
 
-### 4. Build a Manual QA Plan
-Clean, actionable manual test plan. Sections:
+- **What changed** and why it needs a human
+- **Where to test**: page, Rails path, direct URL, controller action if useful
+- **Who to be**: the role, and whether more than one role needs testing
+- **Setup**: records, seeds, feature flags, associations, a running worker, a
+  device or viewport
+- **Steps**: numbered, concrete, no vague wording
+- **Expected result** after each meaningful action
+- **Extra checks**: edge cases, validation errors, authorization, responsive
 
-#### Test Area
-- short feature/behavior name
+Unknown route? Infer it from the controllers, views, and routes rather than
+guessing, and say what the inference rests on. Unknown role? Infer it from the
+policies and the conditionals in the views.
 
-#### Why It Changed
-- what changed in PR
+### Step 5: Run the pass with the tester
 
-#### Where To Test
-- page name
-- Rails path/route if known
-- direct URL if known
-- controller/action if useful
+Work one area at a time. As results come back, track each case as pass, fail,
+partial, or blocked, ask the targeted follow-up when an answer is ambiguous, and
+help separate a real bug from expected behaviour from an unclear requirement.
 
-#### User / Role Needed
-- admin / employee / manager / customer / guest / etc.
-- note if multiple roles need testing
+### Step 6: Write the report
 
-#### Setup / Preconditions
-- records needed
-- feature flags
-- seeded data
-- linked objects / associations
-- browser/device needs
-- background jobs or services that must run
+Write it to `docs/qa/<pr-number>-<slug>.md`, which is the directory the doc canon
+gives this command, and add a line for it in `.llm/README.md` between the `qa`
+markers. Sections:
 
-#### Test Steps
-- numbered
-- concrete, easy to follow
-- no vague wording
+- Summary of the PR and what was in scope
+- Cases executed, with pass, fail, partial, blocked
+- Failures, each with steps to reproduce
+- Blocked or unverifiable, and what was missing
+- Risks, suspected regressions, and gaps in coverage
+- Recommended follow-ups
+- Final status: pass, pass with concerns, needs fixes, or blocked
 
-#### Expected Result
-- exact expected behavior after each major action
+Then report the same summary in the session, and name what runs next:
+`/pr_comment_resolver` if the review left comments, `/pr_submit` if fixes landed.
 
-#### Extra Checks
-- edge cases
-- regression checks
-- validation errors
-- authorization checks
-- mobile/responsive if relevant
-
-### 5. Guide Me Interactively
-After plan built, help execute.
-
-As results + notes come in:
-- track each test case
-- mark pass / fail / partial / blocked
-- ask targeted follow-ups when needed
-- help distinguish bug vs expected behavior vs unclear requirement
-- keep running QA log
-
-### 6. Final QA Report
-At end, polished QA report. Sections:
-
-- PR Summary
-- Scope Tested
-- Test Cases Executed
-- Passed
-- Failed
-- Blocked / Could Not Verify
-- Notes From Tester
-- Risks / Concerns
-- Suspected Regressions
-- Gaps In Testing
-- Recommended Follow-Up
-- Final QA Status:
-  - Pass
-  - Pass with concerns
-  - Needs fixes
-  - Blocked
-
-## Important Rules
-
-- Practical, not theoretical.
-- Don't only explain code. Convert code changes to real manual test actions.
-- Routes/pages not obvious? Infer from Rails conventions, controllers, views, components, links, specs.
-- Exact URL unknown? Give most likely path + why.
-- Role not explicit? Infer most likely from policies, controllers, conditionals, UI placement.
-- Setup required? Say exactly what to create or find.
-- Flag missing PR description details, unclear requirements, risky areas.
-- Highlight anything hard to verify manually.
-- PR lacks context? Say what's missing — still build best possible QA plan from code.
-- Opinionated, thorough.
-- Don't stop at first obvious test case.
-- Think like QA engineer hunting real bugs before merge.
-
-## Output Format
-
-Start with sections:
-
-1. **PR Intent Summary**
-2. **What Actually Changed**
-3. **Potential Risk Areas**
-4. **Manual QA Plan**
-5. **Questions / Unknowns That Could Affect Testing**
-
-Plan ready → switch to interactive QA assistant mode. Test one area at a time.
-
-## Context
-
-Assume Ruby on Rails app unless code says otherwise.
-Use Rails conventions, authorization patterns, UI flow clues, file structure to infer where to test.
-
-I provide:
-- PR
-- PR description
-- changed files / diff
-- later, testing notes
-
-You convert that into effective manual QA workflow + final QA report.
+## Reference
+- Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
+- QA guides live in `docs/qa/`, indexed in `.llm/README.md` between the `qa` markers
+- Testing conventions, and which layer covers what: `docs/rules/testing.md`
+- A flow worth testing twice is a flow worth a system test; say so in the report
+- Roles and record-level rules: `docs/rules/policy-objects.md`
+- `gh` commands fail → suggest `gh auth status`

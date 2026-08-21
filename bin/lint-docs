@@ -28,6 +28,7 @@ IGNORE = "lint-docs:ignore"
 REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also tokens].freeze
 WORDS_PER_TOKEN = 0.75 # rough, so index self-cost is checked as a band not a value
 MAX_DESCRIPTION = 80 # a picker line, not a paragraph
+LONG_FORM_LINES = 60 # over this, a command carries the Instructions/Reference frame
 
 findings = []
 def rel(path) = path.sub("#{ROOT}/", "")
@@ -188,6 +189,19 @@ command_paths.each do |path|
     end
     if body.include?("$ARGUMENTS") && fm["argument-hint"].to_s.empty?
       findings << "#{rel(path)}: reads $ARGUMENTS but declares no argument-hint"
+    end
+  end
+
+  # Shape, per docs/writing-commands.md: an H1, and for anything long-form the
+  # `## Instructions` / `## Reference` frame. Short-form commands (the segue set,
+  # run_lint) carry the job in a numbered list and are exempt.
+  after_frontmatter = raw.nil? ? body : body.sub(/\A---\n.*?\n---\n/m, "")
+  first_heading = after_frontmatter.lines.map(&:strip).find { |l| l.start_with?("#") }
+  findings << "#{rel(path)}: does not open with an H1 title" unless first_heading&.start_with?("# ")
+
+  if body.lines.size > LONG_FORM_LINES
+    %w[Instructions Reference].each do |section|
+      findings << "#{rel(path)}: #{body.lines.size} lines, so it needs a `## #{section}` section" unless body.include?("\n## #{section}")
     end
   end
 

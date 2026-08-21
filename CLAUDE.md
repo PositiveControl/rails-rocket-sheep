@@ -23,6 +23,7 @@ rails new myapp --database=postgresql --template=/path/to/rails-rocket-sheep/tem
 ```
 template.rb              The generator. Phased, top to bottom, with `say` banners.
 bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
+docs/writing-commands.md The shape a workflow command has to have, and its Done-when.
 templates/               Everything copied into the generated app.
 ├── CLAUDE.md.tt         The generated app's conventions file (ERB)
 ├── AGENTS.md            Tool-neutral pointer to it
@@ -94,8 +95,9 @@ three `INDEX.md` tables with a matching token count, the read-cost figures in
 `INDEX.md` match the corpus, every `{{TOKEN}}` a command uses is one
 `/workflow_setup` fills, every path a command names resolves under `templates/`,
 every command carries a parseable `description` (and an `argument-hint` wherever
-it reads `$ARGUMENTS`), every backticked `/name` a command mentions is a real
-command, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
+it reads `$ARGUMENTS`), every command opens with an H1 and carries the long-form
+frame once it passes 60 lines, every backticked `/name` a command mentions is a
+real command, every command appears in `AGENTS.md` and `WORKFLOW.md`, and every count
 quoted in prose anywhere in the repo is the real one. Run it after touching
 `templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
 count. A line that legitimately names a different count, or a path the command
@@ -123,6 +125,11 @@ creates at runtime, carries a `lint-docs:ignore` marker.
 - **The 19 workflow commands are mirrored** from `.claude/commands/` to
   `.cursor/commands/` at generation time, from the same source files. Never edit
   one copy — there is only one source.
+- **Commands follow [docs/writing-commands.md](docs/writing-commands.md).** The
+  frame (`# Title`, job line, `## Instructions` with `### Step N`, `## Reference`),
+  the frontmatter, the conventions, and a Done-when checklist split into what
+  `bin/lint-docs` checks and what only reading can. A short single-action command
+  keeps the job in a numbered list instead; the spec says which is which.
 - **Every command declares a `description`, and an `argument-hint` if it takes an
   argument.** Quote both values: a description containing a colon parses as a map,
   and a hint in brackets parses as a list. The description is what a human reads

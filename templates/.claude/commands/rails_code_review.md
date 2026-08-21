@@ -5,11 +5,13 @@ argument-hint: '[extra focus, e.g. "auth paths only"]'
 
 # Rails Code Review
 
-Thorough code review of a Rails 8 branch against `main`.
+Review the current branch against `main`, judged against this stack's Rails 8
+conventions. Reviewing somebody else's PR by number is `/pr_review`; this reads the
+branch you are on. Pass an optional focus: `/rails_code_review "auth paths only"`.
 
-## Setup
+## Instructions
 
-First, gather context:
+### Step 1: Gather context
 
 ```bash
 git fetch origin main
@@ -22,11 +24,9 @@ Diff alone not enough for context → read changed files in full. Also check rel
 
 *Note: diff huge → prioritize `app/models/`, `app/controllers/`, `app/services/`, `db/migrate/` over UI tweaks or locale files.*
 
-$ARGUMENTS
+`$ARGUMENTS` given → treat it as the focus for this review, and say at the end what you did not look at.
 
----
-
-## Review Standards
+### Step 2: Route to the rules that apply
 
 This app's conventions are one rule per file in `docs/rules/`, routed by `docs/rules/INDEX.md`; `CLAUDE.md` carries the non-negotiables. This command reviews *against* those conventions; it does not restate them. Route to the rules that match the changed files rather than reading the whole directory.
 
@@ -46,11 +46,17 @@ Stack:
 
 Code style: double quotes, 2-space indent, trailing newline, empty line between methods and after guard clauses.
 
+### Step 3: Work the checklist
+
+Every section of **Review checklist** below, in order. Nothing relevant in a section → skip it.
+
+### Step 4: Write the review
+
+In the shape given by **Output format** below. Then name what runs next: `/pr_submit` once the findings are addressed, or `/test_fix` if the suite is red.
+
 ---
 
-## Review Checklist
-
-Work each section. Nothing relevant → skip the section.
+## Review checklist
 
 ### 1. Correctness & Business Logic
 
@@ -142,7 +148,7 @@ What that rule can't tell you, and you have to judge from the change itself:
 
 ---
 
-## Output Format
+## Output format
 
 ### Summary
 2–4 sentences: what changed, why, overall quality.
@@ -162,3 +168,10 @@ What's done well — specific, not generic.
 ---
 
 Direct and specific. Reference file paths and line numbers. Show corrected snippets for non-obvious fixes. Nothing for a section → omit it. Signal over volume: a focused review with 5 real issues beats 20 nitpicks.
+
+## Reference
+- Base for the diff: `origin/main`
+- Conventions, routed by path or symptom: `docs/rules/INDEX.md`
+- A seventh directory under `app/` needs an ADR: `docs/system/architecture.md`
+- Reviewing someone else's PR by number instead: `/pr_review`
+- Missing tests are a finding at the same severity as the code they would cover
