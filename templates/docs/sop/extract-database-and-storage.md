@@ -15,7 +15,7 @@ services. This enables horizontal scaling, zero-downtime server replacement, and
 ## Current State
 
 - **PostgreSQL:** Runs as a Kamal accessory (Docker container) on the same server as the app
-- **File storage:** Active Storage with `:local` disk service, mounted via Docker volume (`dailydrop_storage:/rails/storage`)
+- **File storage:** Active Storage with `:local` disk service, mounted via Docker volume (`myapp_storage:/rails/storage`)
 - **Firewall:** DOCKER-USER iptables rules block external access to ports 80, 443, 5432 (scoped to `-i eth0`)
 
 ## Target State
@@ -40,7 +40,7 @@ services. This enables horizontal scaling, zero-downtime server replacement, and
 - S3-compatible API (drop-in for Active Storage)
 - Zero egress fees (critical for serving user uploads)
 - Already using Cloudflare for CDN — natural pairing
-- Custom domain support via Cloudflare (e.g., `media.dailydrop.fm`)
+- Custom domain support via Cloudflare (e.g., `media.myapp.com`)
 
 ## Migration Steps
 
@@ -52,13 +52,13 @@ Choose provider and create a PostgreSQL 16 database. Note the connection string.
 
 #### 1.2 Restrict access
 
-On the DB provider side, whitelist only the app server IP (`46.62.155.125`). Enable SSL/TLS for the connection.
+On the DB provider side, whitelist only the app server IP (`203.0.113.10`). Enable SSL/TLS for the connection.
 
 #### 1.3 Migrate data
 
 ```bash
 # Dump from current database
-kamal app exec "pg_dump -Fc -h 172.18.0.4 -U dailydrop dailydrop_production > /tmp/db.dump"
+kamal app exec "pg_dump -Fc -h <db-accessory-ip> -U myapp myapp_production > /tmp/db.dump"
 
 # Copy dump to local machine
 kamal app exec "cat /tmp/db.dump" > db.dump
@@ -87,10 +87,10 @@ env:
 Update `.kamal/secrets`:
 
 ```bash
-DATABASE_URL=postgres://user:password@host:5432/dailydrop_production?sslmode=require
-QUEUE_DATABASE_URL=postgres://user:password@host:5432/dailydrop_queue_production?sslmode=require
-CABLE_DATABASE_URL=postgres://user:password@host:5432/dailydrop_cable_production?sslmode=require
-CACHE_DATABASE_URL=postgres://user:password@host:5432/dailydrop_cache_production?sslmode=require
+DATABASE_URL=postgres://user:password@host:5432/myapp_production?sslmode=require
+QUEUE_DATABASE_URL=postgres://user:password@host:5432/myapp_queue_production?sslmode=require
+CABLE_DATABASE_URL=postgres://user:password@host:5432/myapp_cable_production?sslmode=require
+CACHE_DATABASE_URL=postgres://user:password@host:5432/myapp_cache_production?sslmode=require
 ```
 
 #### 1.5 Update firewall
@@ -129,10 +129,10 @@ kamal accessory remove db
 
 #### 2.1 Set up Cloudflare R2
 
-1. Create an R2 bucket in the Cloudflare dashboard (e.g., `dailydrop-production`)
+1. Create an R2 bucket in the Cloudflare dashboard (e.g., `myapp-production`)
 2. Generate an API token with R2 read/write access
 3. Note the account ID, access key ID, and secret access key
-4. Optionally set up a custom domain: `media.dailydrop.fm`
+4. Optionally set up a custom domain: `media.myapp.com`
 
 #### 2.2 Add the aws-sdk-s3 gem
 
@@ -151,7 +151,7 @@ cloudflare:
   access_key_id: <%= Rails.application.credentials.dig(:cloudflare, :r2_access_key_id) %>
   secret_access_key: <%= Rails.application.credentials.dig(:cloudflare, :r2_secret_access_key) %>
   region: auto
-  bucket: dailydrop-production
+  bucket: myapp-production
   public: true
 ```
 
@@ -191,7 +191,7 @@ end
 ```yaml
 # Remove the storage volume
 # volumes:
-#   - "dailydrop_storage:/rails/storage"
+#   - "myapp_storage:/rails/storage"
 
 env:
   secret:
@@ -221,7 +221,7 @@ docker volume ls  # Should show no app-specific volumes
 kamal app boot
 
 # Health check passes
-curl -I https://dailydrop.fm/up
+curl -I https://myapp.com/up
 ```
 
 ## Rollback Plan
