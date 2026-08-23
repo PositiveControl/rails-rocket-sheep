@@ -292,6 +292,64 @@ RAILTIES_RENDERED.each do |name|
               "after bundling — generation would die at the kamal step"
 end
 
+# --- 12. Real infrastructure in a public repo -------------------------------
+# templates/docs/sop/extract-database-and-storage.md shipped one app's live
+# server IP, production database names and domains for two weeks, because the
+# file was written for that app, sat untracked, and was committed by a fix whose
+# subject was generation defects. Nobody reread 260 lines of prose they were
+# only trying to make generation stop failing on.
+#
+# A bare public IPv4 address is the shape that matters: a documentation address
+# (TEST-NET-1/2/3), a private range, and a CIDR block are all fine — Cloudflare's
+# published ranges are legitimately in the hardening SOP, and they carry a /nn.
+# What no doc here has a reason to name is a single routable host.
+#
+# Same for an ssh or scp target: `root@<placeholder>` teaches the command,
+# `root@<real host>` hands out an address.
+#
+# Mark a line that legitimately names one with `lint-docs:ignore`.
+DOC_HOSTS = %w[myapp.com www.myapp.com media.myapp.com example.com myapp].freeze
+
+def documentation_ip?(address)
+  octets = address.split(".").map(&:to_i)
+  return true if octets.any? { |o| o > 255 }
+
+  case octets
+  in [0, *] | [127, *] | [10, *] | [169, 254, *] | [192, 168, *] then true
+  in [172, second, *] if (16..31).cover?(second) then true
+  in [192, 0, 2, *] | [198, 51, 100, *] | [203, 0, 113, *] then true # RFC 5737
+  in [100, second, *] if (64..127).cover?(second) then true          # RFC 6598 CGNAT
+  in [first, *] if first >= 224 then true                            # multicast, reserved
+  else false
+  end
+end
+
+BARE_IPV4 = /(?<![\w.\/])(\d{1,3}(?:\.\d{1,3}){3})(?![\d.\/])/
+SSH_TARGET = /\b(?:ssh|scp)\b[^\n]*?\b([a-z][\w.-]*)@([\w.-]+\.[a-z]{2,})/i
+# Only a cue *immediately* before the number makes it a version. Matching the
+# whole line would let `ssh root@<ip> to restart postgres` past the check.
+VERSION_CUE = /\b(?:ruby|rails|pagy|node|bun|version|v)\s+\z/i
+
+Dir.glob(File.join(ROOT, "**/*.{md,tt,rb,yml,mdc}")).reject { |p| p.include?("/.git/") }.sort.each do |path|
+  File.readlines(path).each_with_index do |line, i|
+    next if line.include?(IGNORE)
+
+    line.scan(BARE_IPV4).flatten.each do |address|
+      next if documentation_ip?(address)
+      before = line[0, line.index(address)]
+      next if before.match?(VERSION_CUE) # "Rails 8.1.3.1" is a version, not a host
+
+      findings << "#{rel(path)}:#{i + 1}: names the routable address #{address} — " \
+                  "use a documentation address (203.0.113.10) or add #{IGNORE}"
+    end
+
+    match = line.match(SSH_TARGET)
+    next if match.nil? || DOC_HOSTS.include?(match[2])
+
+    findings << "#{rel(path)}:#{i + 1}: ssh/scp target #{match[1]}@#{match[2]} names a real host"
+  end
+end
+
 # --- Report ------------------------------------------------------------------
 if findings.empty?
   puts "lint-docs: clean (#{rule_paths.size} rules, #{command_paths.size} commands)"

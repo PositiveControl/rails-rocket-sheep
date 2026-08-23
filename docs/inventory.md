@@ -70,7 +70,7 @@ flowchart TB
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
 | Template update path | ✅ | `bin/rocket-sheep-update` — three-way merges the alignment layer from the commit stamped in `CLAUDE.md`. Pull-only, `--check` mode, conflicts left as markers, ERB-rendered files reported not guessed ([ADR 0005](../.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)) |
 | Adoption into an existing app | ✅ | `adopt.rb` via `bin/rails app:template`. Alignment layer only — never `Gemfile`, `app/`, `config/`, `db/`. Same file defines the layer for generation and for updates, so there is one list ([ADR 0006](../.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)) |
-| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose. Not shipped into generated apps yet |
+| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose, and no routable IP or real ssh host in any doc. Not shipped into generated apps yet |
 | MCP config | ❌ | No `.mcp.json` |
 
 ### Application

@@ -177,8 +177,10 @@ frame once it passes 60 lines, every backticked `/name` a command mentions is a
 real command, every doc under `templates/` is one `template.rb` or `adopt.rb`
 actually copies, every command appears in `AGENTS.md` and `WORKFLOW.md`, the origin
 stamp `CLAUDE.md.tt` writes still matches the regex `bin/rocket-sheep-update` reads
-it back with, and every count quoted in prose anywhere in the repo is the real
-one. Run it after touching
+it back with, every count quoted in prose anywhere in the repo is the real one,
+and no doc names a routable IP address or a real ssh host — this repo is public,
+and a doc written for one app ships that app's infrastructure to everyone who
+generates from it. Run it after touching
 `templates/docs/rules/`, `templates/.claude/commands/`, or any doc that names a
 count. A line that legitimately names a different count, or a path the command
 creates at runtime, carries a `lint-docs:ignore` marker.
