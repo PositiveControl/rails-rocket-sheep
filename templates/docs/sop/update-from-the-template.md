@@ -77,6 +77,14 @@ stamp is what the *next* update reads, so keep the line.
 Without `ROCKET_SHEEP_TEMPLATE` it keeps a full clone in
 `tmp/rocket-sheep-template/` (gitignored) and fetches into it on later runs.
 
+A ref resolves to `origin/<ref>` when the checkout has one, because `git fetch`
+advances the remote-tracking ref and never the local branch — in the cached clone
+the local `main` is stale by definition after the first update. When a local
+branch of the same name exists and differs, the run says so and uses the remote;
+pass the SHA to `--ref` to mean the local one. A `--ref` that turns out to be an
+ancestor of the stamp warns too: merging toward it rolls the layer backwards and
+offers every change taken since for removal.
+
 ---
 
 ## What it cannot do for you

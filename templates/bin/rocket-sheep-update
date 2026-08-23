@@ -93,11 +93,23 @@ else
 end
 
 def rev(root, ref)
-  %W[#{ref} origin/#{ref}].each do |candidate|
+  remote, local = %W[origin/#{ref} #{ref}].map do |candidate|
     out, status = capture("git", "-C", root, "rev-parse", "--verify", "--quiet", "#{candidate}^{commit}")
-    return out.strip if status.zero? && !out.strip.empty?
+    status.zero? && !out.strip.empty? ? out.strip : nil
   end
-  nil
+
+  # The remote is what "the template" means. A local branch of the same name is a
+  # convenience that goes stale the moment upstream moves, and in the clone this
+  # script manages it is *always* the stale one: `git fetch origin` advances the
+  # remote-tracking ref and never the local branch. Preferring local is how a run
+  # reports "nothing to reconcile" about a template that has moved on — the one
+  # wrong answer this script can give that nobody would think to question.
+  if remote && local && remote != local
+    warn "rocket-sheep-update: local #{ref} (#{local[0, 7]}) is not origin/#{ref} " \
+         "(#{remote[0, 7]}) — using origin/#{ref}. Pass --ref #{local[0, 7]} to mean the local one."
+  end
+
+  remote || local
 end
 
 from_sha = rev(root, from) || die("#{from} is not a commit in the template — is the checkout up to date?")
@@ -106,6 +118,19 @@ to_sha = rev(root, options[:ref]) || die("#{options[:ref]} is not a commit in th
 if from_sha == to_sha
   puts "Already at #{options[:ref]} (#{from_sha[0, 7]}). Nothing to reconcile."
   exit 0
+end
+
+# Merging toward an ancestor of the stamp rolls the layer backwards: every fix
+# taken since comes back as a conflict proposing its own removal. Deliberate
+# rollbacks exist, so this is a warning and not a refusal — but the case that
+# produces it by accident is a stale ref, and reverting a fix you already took is
+# not a diff anyone reads carefully at 5pm.
+_, backwards = capture("git", "-C", root, "merge-base", "--is-ancestor", to_sha, from_sha)
+if backwards.zero?
+  target = options[:ref].start_with?(to_sha[0, 7]) ? to_sha[0, 7] : "#{options[:ref]} (#{to_sha[0, 7]})"
+  warn "rocket-sheep-update: #{target} is an ancestor of the " \
+       "stamp (#{from_sha[0, 7]}) — this rolls the alignment layer BACKWARDS, and every " \
+       "change taken since will be offered for removal. Check the ref before merging."
 end
 
 def blob(root, sha, path)
