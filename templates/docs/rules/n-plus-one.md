@@ -5,7 +5,7 @@ applies_to: ["app/models/**/*.rb", "app/controllers/**/*.rb", "app/views/**/*.sl
 triggers: ["N+1", "n plus one", "Bullet", "includes", "preload", "eager load", "counter_cache", "count", "size", "sort_by", "slow page", "query per row"]
 see_also: ["query-objects", "scopes", "caching"]
 modes: [ web, api ]
-tokens: 360
+tokens: 370
 current_state: matches
 ---
 

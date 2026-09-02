@@ -5,7 +5,7 @@ applies_to: ["config/initializers/cors.rb", "config/routes.rb"]
 triggers: ["CORS", "cross-origin", "preflight", "OPTIONS", "Access-Control-Allow-Origin", "browser blocked", "credentials"]
 see_also: ["api-auth", "client-contract", "rate-limiting"]
 modes: [ api ]
-tokens: 580
+tokens: 590
 current_state: matches
 ---
 
@@ -18,11 +18,12 @@ One initializer, origins from credentials, applied to the API namespace only.
 # config/initializers/cors.rb
 Rails.application.config.middleware.insert_before 0, Rack::Cors do
   allow do
-    origins Rails.application.credentials.dig(:api, :allowed_origins)
+    origins(*Array(Rails.application.credentials.dig(:api, :allowed_origins)))
+
     resource "/api/*",
              headers: :any,
-             methods: [ :get, :post, :patch, :delete, :options ],
-             expose:  %w[Retry-After Deprecation Sunset],
+             methods: %i[get post patch put delete options],
+             expose:  %w[Retry-After Deprecation Sunset Location],
              max_age: 600
   end
 end

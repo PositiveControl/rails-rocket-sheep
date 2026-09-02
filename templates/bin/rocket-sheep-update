@@ -185,6 +185,19 @@ end
 ROUTER_SOURCES = { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }.freeze
 ROUTERS = ROUTER_SOURCES.values.flatten.freeze
 
+# An app can change its mind after generation — add `config.api_only`, or drop it —
+# and nothing about the installed corpus follows. Probe it: a rule that only ships
+# to one mode is present exactly when that mode's corpus was installed.
+MODE_WITNESS = { "web" => "docs/rules/slim-gotchas.md", "api" => "docs/rules/error-envelope.md" }.freeze
+
+installed_mode = MODE_WITNESS.find { |_, witness| File.exist?(File.join(APP, witness)) }&.first
+if installed_mode && installed_mode != APP_MODE
+  warn "This app reads as #{APP_MODE} mode but carries the #{installed_mode} rule corpus."
+  warn "Merging will keep the #{installed_mode} rules. To switch, re-run adoption:"
+  warn "  bin/rails app:template LOCATION=<template>/adopt.rb"
+  warn ""
+end
+
 # Destinations: templates/X installs to X, except a router, which installs under
 # the shared name when it belongs to this app's mode and nowhere at all when it
 # does not. A command under .claude/ is mirrored to .cursor/ at install time —

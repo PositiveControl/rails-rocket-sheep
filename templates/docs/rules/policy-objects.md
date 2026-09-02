@@ -5,7 +5,7 @@ applies_to: ["app/policies/**/*.rb", "app/controllers/**/*.rb", "app/views/**/*.
 triggers: ["authorization", "policy", "can this user", "Petergate", "access", "forbidden!", "permission check", "admin?", "owner?"]
 see_also: ["exception-boundary", "controllers"]
 modes: [ web, api ]
-tokens: 520
+tokens: 750
 current_state: matches
 ---
 
@@ -61,3 +61,22 @@ and it's the one in the view that hides the button but not the route.
 
 **Every policy question gets a test.** They're pure functions of two objects —
 the cheapest tests in the suite and the ones that matter most.
+
+## In API mode
+
+Two layers, and they answer different questions. A Doorkeeper scope answers *may this
+client do this kind of thing* — [api-auth](api-auth.md). A policy answers *may this
+user do this to this record*, and it is unchanged by the mode.
+
+```ruby
+before_action -> { doorkeeper_authorize! :write }          # the client may write
+raise Forbidden unless OrderPolicy.new(current_user, @order).cancel?   # to this order
+```
+
+A token with `write` scope is not permission to write someone else's row. Scope the
+lookup through the association that implies ownership, so an unauthorized id is a
+`404` from `find` rather than a check someone can forget — and a `403` there would
+confirm the id exists.
+
+`Forbidden` is caught by the boundary and rendered as a problem document, not a
+redirect — [exception-boundary](exception-boundary.md).

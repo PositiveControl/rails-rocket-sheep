@@ -15,8 +15,8 @@ current_state: matches
 request tests, and CI fails when the committed copy and a freshly generated one differ.
 
 ```bash
-bin/rails api:contract          # regenerate openapi.yaml from the request tests
-bin/rails api:contract --check  # exit 1 on drift, which is what CI runs
+bin/rails api:contract        # regenerate openapi.yaml from the request tests
+bin/rails api:contract:check  # exit 1 on drift, which is what CI runs
 ```
 
 **An untested endpoint is an undocumented endpoint.** That is the property this choice

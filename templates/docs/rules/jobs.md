@@ -5,7 +5,7 @@ applies_to: ["app/jobs/**/*.rb", "config/queue.yml", "test/jobs/**/*.rb"]
 triggers: ["job", "ApplicationJob", "perform_later", "Solid Queue", "retry", "DeserializationError", "GlobalID", "queue_as", "background work", "idempotent"]
 see_also: ["service-objects", "callbacks"]
 modes: [ web, api ]
-tokens: 510
+tokens: 520
 current_state: matches
 ---
 

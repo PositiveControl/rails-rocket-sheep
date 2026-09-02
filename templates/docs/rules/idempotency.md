@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "app/models/idempotent_request.rb"]
 triggers: ["idempotency", "Idempotency-Key", "double charge", "retry", "duplicate request", "replay", "exactly once"]
 see_also: ["status-codes", "error-envelope", "async-202", "bulk-endpoints"]
 modes: [ api ]
-tokens: 740
+tokens: 800
 current_state: matches
 ---
 
@@ -21,11 +21,13 @@ before_action :require_idempotency_key, only: [ :create ]
 
 def create
   replayed = IdempotentRequest.replay(key: idempotency_key, user: current_user,
+                                      endpoint: "POST /v1/charges",
                                       fingerprint: request.raw_post)
   return render(json: replayed.body, status: replayed.status) if replayed
 
   result = ChargeService.new(current_user, contract).call
   IdempotentRequest.record!(key: idempotency_key, user: current_user,
+                            endpoint: "POST /v1/charges",
                             fingerprint: request.raw_post,
                             status: 201, body: serialized)
   ...
@@ -42,7 +44,8 @@ rather than racing the work.
 
 **Same key, different body is a client bug and gets `422`.** Reusing a key for
 different content means the client's key generation is broken, and silently replaying
-the old response would hide it. Problem type `idempotency-key-reused`.
+the old response would hide it, so `replay` raises `IdempotentRequest::KeyReused`
+rather than returning the old row. Problem type `idempotency-key-reused`.
 
 **Keys expire, and the window is in the contract.** Twenty-four hours is long enough
 for every retry a client will make and short enough that the table stays small. After

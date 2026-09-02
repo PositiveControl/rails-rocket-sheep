@@ -1,10 +1,5 @@
 # API mode is a generation flag, and it forks the rule corpus
 
-**Status: partly implemented.** The seventeen rules exist, every rule declares its
-`modes`, each mode has its own router pair, and `adopt.rb` installs the corpus for the
-mode it detects. `template.rb` still has no `--api` branch for the gems and base
-classes those rules name.
-
 ## Context
 
 [`out-of-scope/api-scaffolding.md`](../out-of-scope/api-scaffolding.md) declined

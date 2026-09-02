@@ -5,7 +5,7 @@ applies_to: ["app/services/**/*.rb", "test/services/**/*.rb"]
 triggers: ["service object", "ApplicationService", "business logic", "Result", "success?", "failure?", "transaction", "multi-step write", "coordination"]
 see_also: ["controllers", "form-objects", "jobs", "policy-objects"]
 modes: [ web, api ]
-tokens: 620
+tokens: 860
 current_state: matches
 ---
 
@@ -77,3 +77,23 @@ end
 ```
 
 A service never knows a [form object](form-objects.md) exists; a form may call a service.
+
+## In API mode
+
+Unchanged, with one addition that matters: a write can come back needing
+confirmation. `needs_confirmation(**details)` returns a `Result` that is neither a
+success nor a failure, and `confirm` carries what the client has to see.
+
+```ruby
+return needs_confirmation(changes: price_changes) if price_changes.any?
+```
+
+`success?`, `failure?` and `needs_confirmation?` are mutually exclusive, so a caller
+written for two states treats the third as a failure — safe, and wrong enough to
+notice. The controller maps it to `409` with its own problem type; the service never
+knows a status exists — [status-codes](status-codes.md).
+
+A service is also where a network call belongs, and it belongs *outside* the
+transaction. Take the locks, write, commit, then call the provider. Holding a database
+transaction open across a payment API call is how a slow gateway becomes a table-wide
+stall.

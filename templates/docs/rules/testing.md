@@ -5,7 +5,7 @@ applies_to: ["test/**/*.rb", "test/fixtures/**/*.yml"]
 triggers: ["fixture", "fixtures", "VCR", "cassette", "WebMock", "factory", "FactoryBot", "RSpec", "what should I test", "integration test", "system test", "assert_difference", "slow test", "TDD"]
 see_also: ["components", "service-objects", "turbo-status", "jobs"]
 modes: [ web, api ]
-tokens: 1010
+tokens: 1150
 current_state: matches
 ---
 
@@ -83,3 +83,14 @@ Plain `assert_*`, plus the ones that state intent in one line: `assert_differenc
 - Tests are order-independent. No test may depend on another having run.
 - No `skip` without a comment saying why and what unblocks it. A flaky test is
   fixed when it is found, not filed.
+
+## In API mode
+
+Three rows of the table above have nothing to test: there are no components, no
+system tests, and `bin/system-test` has nothing to run. Request tests become the
+primary layer rather than a supplement, because they are the only place the whole
+boundary appears at once — and they are the source of the generated contract, so an
+endpoint without one is undocumented.
+
+What to assert, which statuses to cover, and the authorization cases most often
+missing: [api-testing](api-testing.md).

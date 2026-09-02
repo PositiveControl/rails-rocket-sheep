@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "test/integration/**/*.rb"]
 triggers: ["status code", "201", "202", "204", "409", "422", "400 vs 422", "401 vs 403", "which status", "head :no_content", "needs confirmation"]
 see_also: ["error-envelope", "async-202", "request-contracts", "service-objects"]
 modes: [ api ]
-tokens: 890
+tokens: 920
 current_state: matches
 ---
 
@@ -56,16 +56,17 @@ the client to show it:
 if result.needs_confirmation?
   problem type: "prices-changed", title: "Prices changed", status: :conflict,
           detail: "Confirm the new total to continue",
-          changes: result.price_changes
+          **result.confirm
 else
   ...
 end
 ```
 
-**A two-state Result cannot carry this.** `success?` and `failure?` force the third
-outcome into one of the other two, and flattening it into `422` tells the client to
-fix its input when there is nothing wrong with its input. Whatever
-`ApplicationService::Result` looks like, this case has to survive it —
+**A two-state Result cannot carry this.** `success?` and `failure?` would force the
+third outcome into one of the other two, and flattening it into `422` tells the client
+to fix its input when there is nothing wrong with its input. `ApplicationService`
+carries it as a third state: `needs_confirmation(**details)` returns a Result that is
+neither a success nor a failure, and `confirm` holds what the client has to see —
 [service-objects](service-objects.md).
 
 **Every status in this table gets one request test.** They are the cheapest tests in

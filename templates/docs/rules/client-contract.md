@@ -5,7 +5,7 @@ applies_to: ["openapi.yaml", "app/serializers/**/*.rb", "app/controllers/api/**/
 triggers: ["client", "frontend", "JS client", "SPA", "what can the client assume", "breaking the client", "consumer"]
 see_also: ["openapi-contract", "api-versioning", "error-envelope", "cursor-pagination", "deprecation-policy"]
 modes: [ api ]
-tokens: 740
+tokens: 750
 current_state: matches
 ---
 

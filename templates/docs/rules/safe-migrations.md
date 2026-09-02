@@ -5,7 +5,7 @@ applies_to: ["db/migrate/**/*.rb"]
 triggers: ["migration", "add_column", "add_index", "backfill", "rename column", "remove column", "ignored_columns", "concurrently", "disable_ddl_transaction", "lock table", "deploy blocked"]
 see_also: ["deletes", "database-conventions"]
 modes: [ web, api ]
-tokens: 370
+tokens: 380
 current_state: matches
 ---
 

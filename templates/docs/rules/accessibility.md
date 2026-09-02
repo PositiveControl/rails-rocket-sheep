@@ -5,7 +5,7 @@ applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/javascript/
 triggers: ["accessibility", "a11y", "aria", "aria-label", "contrast", "keyboard", "screen reader", "focus", "outline: none", "clickable div", "semantic HTML", "label for"]
 see_also: ["tailwind", "forms-ui", "components"]
 modes: [ web ]
-tokens: 290
+tokens: 300
 current_state: matches
 ---
 

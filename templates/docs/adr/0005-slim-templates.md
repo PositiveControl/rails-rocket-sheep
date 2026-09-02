@@ -1,5 +1,8 @@
 # Slim Templates
 
+**Applies to:** server-rendered mode. An API-only app has no templates, so this
+decision is inert there — it keeps its number rather than being renumbered away.
+
 **Status:** Accepted
 
 **Context:**

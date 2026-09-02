@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "config/routes.rb"]
 triggers: ["custom action", "member route", "collection route", "fat controller", "new verb", "RESTful", "archive", "duplicate"]
 see_also: ["turbo-status", "exception-boundary", "pagination", "service-objects"]
 modes: [ web, api ]
-tokens: 630
+tokens: 950
 current_state: matches
 ---
 
@@ -82,3 +82,34 @@ land in predictable places, and the class stays readable in one screen.
 
 Genuinely stateless endpoints with no resource behind them — a webhook receiver, a
 health check. Those get their own controller anyway.
+
+## In API mode
+
+The same seven actions, and the same rule that a new verb is a new resource. What
+changes is the last of the four things an action does: instead of choosing a redirect
+or a render, it maps the `Result` to a status and hands a serializer the value.
+
+```ruby
+class Api::V1::ArchivesController < Api::V1::BaseController
+  before_action -> { doorkeeper_authorize! :write }
+
+  def create
+    result = ArchiveOrderService.call(order: current_user.orders.find(params[:order_id]))
+
+    if result.success?
+      render json: OrderSerializer.one(result.value), status: :created
+    elsif result.needs_confirmation?
+      problem type: "confirm-required", title: "Confirmation required",
+              status: :conflict, **result.confirm
+    else
+      problem type: "archive-failed", title: "Could not archive",
+              status: :unprocessable_content, detail: result.errors.join(", ")
+    end
+  end
+end
+```
+
+Inherit `Api::V1::BaseController`, not `ApplicationController` — the boundary, the
+`problem` helper and `current_user` live there. Which status goes with which outcome
+is [status-codes](status-codes.md); there is no `respond_to` block, because there is
+one format.

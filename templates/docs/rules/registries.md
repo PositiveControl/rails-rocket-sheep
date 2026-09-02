@@ -5,7 +5,7 @@ applies_to: ["app/lib/**/*.rb"]
 triggers: ["registry", "plans", "tiers", "product types", "Data.define", "fixed set", "frozen hash", "PlanRegistry", "has_feature?", "fetch", "constants", "app_config"]
 see_also: ["pattern-budget", "optional-patterns"]
 modes: [ web, api ]
-tokens: 780
+tokens: 790
 current_state: matches
 ---
 

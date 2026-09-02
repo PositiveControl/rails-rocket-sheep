@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "app/filters/**/*.rb"]
 triggers: ["pagination", "cursor", "page", "per_page", "offset", "next page", "has_more", "unbounded", "index action", "all records"]
 see_also: ["filtering-sorting", "serialization", "n-plus-one", "database-conventions"]
 modes: [ api ]
-tokens: 860
+tokens: 900
 current_state: matches
 ---
 
@@ -17,18 +17,16 @@ or internal clients — those are where the forty thousand rows live.
 Cursor is the default:
 
 ```ruby
-PER_PAGE_MAX = 100
-
 def index
-  scope  = ItemFilter.new(current_user.items, params).apply
-  page   = Cursor.page(scope, after: params[:cursor], limit: per_page)
+  filter = ItemFilter.new(current_user.items, params)
+  scope  = filter.apply.preload(*ItemSerializer.preloads_for(params[:include]))
+  page   = Cursor.page(scope, after: params[:cursor], limit: per_page, key: filter.sort_key)
 
-  render json: ItemSerializer.collection(page.records).merge(
+  render json: ItemSerializer.collection(
+    page.records,
     next_cursor: page.next_cursor      # nil on the last page
   )
 end
-
-def per_page = params[:per_page].to_i.clamp(1, PER_PAGE_MAX)
 ```
 
 **The scope comes in already narrowed to the caller.** `current_user.items`, not
@@ -51,8 +49,9 @@ of.
 `created_at` at a page boundary will be returned twice, or skipped — no error, no
 failing test, a duplicate in someone's list.
 
-**`per_page` is clamped, always.** It arrives from the internet. An unclamped
-`per_page` is an unbounded query with extra steps.
+**`per_page` is clamped, always.** `Api::V1::BaseController` does it, between 1 and
+`PER_PAGE_MAX`, because the value arrives from the internet — an unclamped `per_page`
+is an unbounded query with extra steps. Do not re-derive it in an action.
 
 **Offset is allowed, and it is named.** A screen with numbered pages needs a total
 and a jump; cursor cannot give it one. Those endpoints take `page`/`per_page`,

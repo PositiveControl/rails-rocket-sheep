@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "app/lib/problem.rb"]
 triggers: ["error response", "problem+json", "RFC 9457", "error envelope", "422 body", "error json", "errors array", "validation errors", "error message"]
 see_also: ["status-codes", "exception-boundary", "serialization", "request-contracts"]
 modes: [ api ]
-tokens: 830
+tokens: 840
 current_state: matches
 ---
 

@@ -5,7 +5,7 @@ applies_to: ["app/serializers/**/*.rb", "app/controllers/**/*.rb"]
 triggers: ["serializer", "as_json", "to_json", "response shape", "JSON keys", "render json", "ApplicationSerializer", "response fields"]
 see_also: ["pattern-budget", "sparse-fieldsets-includes", "n-plus-one", "api-versioning"]
 modes: [ api ]
-tokens: 680
+tokens: 700
 current_state: matches
 ---
 
@@ -16,7 +16,8 @@ objects, one per resource, no gem.
 
 ```ruby
 class ItemSerializer < ApplicationSerializer
-  PRELOADS = [ :category, { capture_images: :image_attachment } ].freeze
+  optional   :description
+  includable :category, preload: :category
 
   def fields
     {
@@ -24,10 +25,11 @@ class ItemSerializer < ApplicationSerializer
       status:     record.status,
       title:      record.title,
       price:      money(record.price_cents),
-      category:   record.category.name,
-      created_at: record.created_at.iso8601
+      created_at: iso(record.created_at)
     }
   end
+
+  def category = { id: record.category.id, name: record.category.name }
 end
 ```
 
@@ -50,10 +52,10 @@ two serializers for one resource drift, and the second one is always the stale o
 currency.** Never a float for money, never a bare epoch integer for a time, never a
 `Date` relying on `to_json`.
 
-**`PRELOADS` lives next to the fields that need it.** The serializer knows which
-associations it touches; the caller applies them. A serializer that reaches for an
-unpreloaded association turns one response into one query per row, and the place it
-happens is a response builder nobody profiles —
+**Every includable declares its own preload, and the controller applies them** with
+`ItemSerializer.preloads_for(params[:include])`, on the scope before it is paginated.
+A serializer that reaches for an unpreloaded association turns one response into one
+query per row, and the place it happens is a response builder nobody profiles —
 [n-plus-one](n-plus-one.md).
 
 **Nothing but a serializer builds a response.** No hash literals in actions, no

@@ -5,7 +5,7 @@ applies_to: ["app/models/**/*.rb", "app/models/concerns/**/*.rb", "app/lib/**/*.
 triggers: ["value object", "Money", "enum", "state machine", "status column", "transition", "concern", "ActiveSupport::Concern", "Publishable", "Sluggable", "fat model"]
 see_also: ["registries", "current-attributes"]
 modes: [ web, api ]
-tokens: 630
+tokens: 640
 current_state: matches
 ---
 

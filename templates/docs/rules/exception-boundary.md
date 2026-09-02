@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb"]
 triggers: ["rescue_from", "RecordNotFound", "404", "403", "forbidden", "rescue", "not found", "leaks existence", "authorization redirect"]
 see_also: ["controllers", "policy-objects", "turbo-status"]
 modes: [ web, api ]
-tokens: 400
+tokens: 610
 current_state: matches
 ---
 
@@ -49,3 +49,21 @@ can't say what it's recovering from is hiding the bug, not handling it.
 
 Record-level questions ("may *this* user do *this*?") go to a
 [policy object](policy-objects.md), which raises `Forbidden` for this boundary to catch.
+
+## In API mode
+
+Same shape, different answer: the boundary renders a problem document instead of a
+redirect, and it is already written — `Api::V1::BaseController` rescues
+`RecordNotFound`, `ParameterMissing` and `Cursor::InvalidCursor`.
+
+```ruby
+rescue_from ActiveRecord::RecordNotFound, with: :not_found   # 404, with a body
+```
+
+So an action never rescues to build an error body. The audited app put six `rescue`
+clauses in one action and got four different error shapes out of them; the shape is
+decided once, at the boundary — [error-envelope](error-envelope.md).
+
+A `404` still carries a body, and it is also the answer for a record the caller may
+not know exists: a `403` there confirms the id is real, which is an enumeration
+oracle.

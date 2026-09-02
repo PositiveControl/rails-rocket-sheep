@@ -16,7 +16,7 @@ a relation and the params, and returns a relation.
 
 ```ruby
 class ItemFilter < ApplicationFilter
-  filter :status,      :string,  in: Item::STATUSES
+  filter :status,      :string,  only: Item::STATUSES
   filter :category_id, :string
   filter :min_price,   :integer, scope: ->(r, v) { r.where(price_cents: v..) }
 

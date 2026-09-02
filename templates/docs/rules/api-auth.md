@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb",
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
 modes: [ api ]
-tokens: 720
+tokens: 750
 current_state: matches
 ---
 
@@ -17,12 +17,12 @@ Doorkeeper. Bearer tokens, OAuth 2, and one line per controller:
 class Api::V1::ItemsController < Api::V1::BaseController
   before_action -> { doorkeeper_authorize! :read },  only: [ :index, :show ]
   before_action -> { doorkeeper_authorize! :write }, only: [ :create, :update, :destroy ]
-
-  private
-
-  def current_user = @current_user ||= User.find(doorkeeper_token.resource_owner_id)
 end
 ```
+
+`current_user` comes from the token's resource owner and is already defined on
+`Api::V1::BaseController`. There is no session to read it from, so an action that
+reaches for one is in the wrong base class.
 
 **Scopes are coarse and about capability, not identity.** `read`, `write`, and one
 per resource family where a client genuinely needs less than all of it. A scope per

@@ -5,7 +5,7 @@ applies_to: ["app/**"]
 triggers: ["where does this go", "new directory", "app/services", "app/forms", "app/queries", "app/policies", "app/lib", "app/components", "seventh directory", "pattern sprawl", "DRY", "extract"]
 see_also: ["rejected-patterns", "write-path", "service-objects", "form-objects", "query-objects", "policy-objects", "registries", "optional-patterns"]
 modes: [ web, api ]
-tokens: 690
+tokens: 970
 current_state: matches
 ---
 
@@ -52,3 +52,22 @@ Same code 2–3 times is the trigger. Where it goes depends on what repeats:
 Extracting into the wrong one costs more than the duplication did.
 
 Patterns that do **not** clear the three bars: [rejected-patterns](rejected-patterns.md).
+
+## In API mode
+
+Seven directories, not six. `app/forms/` and `app/components/` lose their basis — a
+form object shapes a submit and a component renders markup — and three take their
+place.
+
+| Directory | Holds | Add a file when | Rule |
+|---|---|---|---|
+| `app/serializers/` | The response shape for a resource | An endpoint returns that resource | [serialization](serialization.md) |
+| `app/contracts/` | Validation of an untrusted request body | An endpoint accepts a body | [request-contracts](request-contracts.md) |
+| `app/filters/` | Query-string filtering and sorting | An endpoint returns a collection | [filtering-sorting](filtering-sorting.md) |
+
+`services`, `queries`, `policies` and `lib` carry over unchanged.
+
+**Seven. Not eight.** `contracts` and `filters` are the pair most often confused,
+because both allowlist untrusted input at the same boundary. The split is by return
+type: a contract yields a validated object, a filter yields a relation. Two return
+types under one name is how a directory becomes a junk drawer.

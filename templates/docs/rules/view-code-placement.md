@@ -5,7 +5,7 @@ applies_to: ["app/views/**", "app/components/**", "app/helpers/**"]
 triggers: ["component or partial", "where does this markup go", "helper", "extract markup", "reuse markup", "progress_bar", "capacity_bar", "jsonld_tag"]
 see_also: ["components", "partials", "pattern-budget"]
 modes: [ web ]
-tokens: 430
+tokens: 440
 current_state: matches
 ---
 

@@ -5,7 +5,7 @@ applies_to: ["app/views/**/_*.slim", "app/views/**/*.slim"]
 triggers: ["partial", "strict locals", "locals:", "render partial", "collection rendering", "instance variable in partial", "renders blank", "undeclared local", "as: :order"]
 see_also: ["components", "view-code-placement", "slim-gotchas"]
 modes: [ web ]
-tokens: 450
+tokens: 460
 current_state: matches
 ---
 
