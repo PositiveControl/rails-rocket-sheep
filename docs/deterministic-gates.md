@@ -8,7 +8,7 @@ in what order to build it. Written to be argued with, not as marketing.
 
 The premise: an agent will eventually miss a rule or skip a workflow step. The
 alignment layer today ([`CLAUDE.md`](../templates/CLAUDE.md.tt) +
-[38 rules](../templates/docs/rules/INDEX.md) in web mode + [`WORKFLOW.md`](../templates/WORKFLOW.md))
+[39 rules](../templates/docs/rules/INDEX.md) in web mode + [`WORKFLOW.md`](../templates/WORKFLOW.md))
 tells an agent what to do; with three narrow exceptions, nothing *checks* that it
 did. This doc scopes the checking layer.
 
@@ -26,12 +26,13 @@ rule corpus, and three of the five are Claude-Code-specific.
 | [`.claude/settings.json`](../templates/.claude/settings.json) deny list | tool call | force-push, `reset --hard`, `clean -fd`, reading secrets | ❌ Claude Code only |
 | Rails 8 default `ci.yml` + branch protection | push / PR | `scan_ruby`, `scan_js`, `lint` (RuboCop), `test` | ✅ any agent |
 | [`bin/gates`](../templates/bin/gates) via `pre-push` + [`gates.yml`](../templates/.github/workflows/gates.yml) | push / PR | rejected-pattern tokens, `app/` directory budget, `.cursor/commands` mirror, unindexed foreign keys | ✅ any agent |
+| `bin/rails db:queries:check` via the generated `query-ledger.yml` | push / PR | every SQL shape the suite emits from `app/` has a reviewed line in `db/queries.yml` | ✅ any agent |
 
-Net: of **38 rules and 4 workflow gates (G1–G4)** in web mode, **six rules** have a
+Net: of **39 rules and 4 workflow gates (G1–G4)** in web mode, **seven rules** have a
 deterministic backstop — the two RuboCop-and-Slim checks in `post_edit`, the
-Draft-placeholder check in `session_end`, and `rejected-patterns`,
+Draft-placeholder check in `session_end`, `rejected-patterns`,
 `pattern-budget` and the foreign-key half of `database-conventions` in
-`bin/gates`. Everything else is prose. The
+`bin/gates`, and `query-ledger` in its own CI job. Everything else is prose. The
 [inventory](inventory.md) states the problem plainly: *"the alignment layer was
 entirely advisory… Conventions drift under pressure. This reduces divergence; it
 doesn't eliminate it."*
@@ -122,7 +123,7 @@ Hard gates buildable today, ordered by false-positive risk (lowest first).
 | [`audit-trail`](../templates/docs/rules/audit-trail.md) | `has_paper_trail` present without `only:` | medium | Enforces the scoping habit, not correctness. |
 | [`openapi-contract`](../templates/docs/rules/openapi-contract.md) (API mode) | `bin/rails api:contract:check` — regenerate from the request tests and diff against the committed `openapi.yaml` | ~0 | **Built.** Exits 1 on drift. Ships as a generated workflow with a service container matching the database family. An endpoint with no request test records nothing, so it cannot be documented without one. |
 | [`error-envelope`](../templates/docs/rules/error-envelope.md) (API mode) | `assert_problem` in a request test: content type, `type`, `status` matching the status line, `title` present, and no `success` key | ~0 | Not a static check — it runs where the response actually exists. One line per assertion at the call site. |
-| **Query ledger** — every query shape the suite emits from `app/` has a committed, reviewed entry | `bin/rails db:queries:check`: record normalized SQL during the test run, fail on a fingerprint absent from `db/queries.yml` or present with an empty `review:` | ~0 | The gate checks presence in a file, not plan quality, which is what keeps it at ~0. The review it forces is where EXPLAIN happens. Design in [§8](#8-design-the-query-ledger). Not built. |
+| **Query ledger** — every query shape the suite emits from `app/` has a committed, reviewed entry | `bin/rails db:queries:check`: record normalized SQL during the test run, fail on a fingerprint absent from `db/queries.yml` or present with an empty `review:` | ~0 | **Built**, in `lib/tasks/query_ledger.rake` and `test/support/query_ledger.rb`, gated by the generated `query-ledger.yml`. The gate checks presence in a file, not plan quality, which is what keeps it at ~0. The review it forces is where EXPLAIN happens. Design in [§8](#8-design-the-query-ledger). |
 | Unindexed foreign keys ([`database-conventions`](../templates/docs/rules/database-conventions.md)) | every column an `add_foreign_key` in `db/schema.rb` names leads some index on that table | ~0 | **Built** in `bin/gates`. Static, schema only; an app on `structure.sql` is skipped. Leading column, not any column — a second-position column does not serve the constraint's lookup. A derived column name the table lacks is skipped, so a wrong singularization is a miss, never a report. MySQL indexes every constraint itself, so it never fires there. |
 
 ### Bucket B — checkable only dynamically (test-time)
@@ -270,9 +271,9 @@ flowchart LR
    time and delete any that turn out to be noisy."*
 4. **Claude fast-path (~30m).** Call `bin/gates` from `post_edit` for the edited
    file, giving Claude Code in-loop correction. Optional accelerant.
-5. **Query ledger (~half a day).** The one Bucket-A gate that needs a database and
-   a suite run, so it is its own CI job rather than a `bin/gates` check. Design
-   below.
+5. ✅ **Query ledger.** The one Bucket-A gate that needs a database and a suite
+   run, so it is its own CI job rather than a `bin/gates` check. Design below;
+   what building it decided is at the end of §8.
 
 Bucket B stays with the dynamic tools already shipped. Bucket C stays prose.
 
@@ -280,7 +281,8 @@ Bucket B stays with the dynamic tools already shipped. Bucket C stays prose.
 
 ## 8. Design: the query ledger
 
-**Status: Draft** — design for review, nothing built. The conclusion of the
+**Status: Built** — [ADR 0015](../templates/docs/adr/0015-a-query-is-reviewed-once-and-the-ledger-remembers.md),
+rule [`query-ledger`](../templates/docs/rules/query-ledger.md). The conclusion of the
 EXPLAIN question: a gate cannot decide that a query is *good*, but it can decide
 that a query was *looked at*, and it can make looking cheap.
 
@@ -396,14 +398,49 @@ opted in.
 `pr_submit.md` and `pr_review.md` · the term *query ledger* in
 `docs/system/vocabulary.md` · `db/queries.yml` seeded at generation.
 
-### Open before building
+### Decided while building
 
 1. **The `review:` grammar.** Index name or `no index:` is the proposal. Too
    strict and people write `no index: because` everywhere; too loose and it is
-   prose again. Decide on a generated app with real queries in it.
+   prose again. **Decided:** index name or `no index:` followed by at least one
+   word, and `check` rejects anything else; a template-shipped app emits no
+   `app/` queries in its suite, so no third form for generation was needed.
 2. **MySQL normalization.** Inline literals are the hard case: a string literal
    containing a quote, a `LIMIT 20 OFFSET 40` pair, a datetime. The regex has to
-   be proven on a MySQL probe before the check is turned on there.
+   be proven on a MySQL probe before the check is turned on there. **Decided:**
+   one normalizer for both families — `$n`, quoted literals (with `3. **Ledger size.** A mature app might carry several hundred shapes. That is the
+   point — each was looked at — but the file needs to stay reviewable in a diff,
+   so entries are sorted by `from:` then `sql`, and nothing else is stored.
+   **Decided:** as written. The literal query `explain` needs lives in
+   `tmp/query_ledger.jsonl`, never in the ledger.
+4. **Attribution, found by building.** A relation is recorded at the frame that
+   *loads* it, not the one that built it. A scope called and loaded inside a model
+   test has no `app/` frame on the stack and records nothing; the same scope
+   loaded by a controller under a request test records as that controller. That
+   is the plan that matters, and it is now stated in the rule rather than
+   discovered by the first person whose model test armed nothing.
+
+## 9. What this does not do
+
+Same honesty as [`agent-guardrails.md`](agent-guardrails.md): gates reduce the
+blast radius; they don't remove review. An agent can still write logically wrong
+code that passes every mechanical check — the gates decide *shape and process
+conformance*, not correctness. The un-gateable two-thirds of the corpus (Bucket C)
+is exactly the part that most needs a human to read the diff. Gates buy back the
+attention a reviewer would otherwise spend on the mechanical third.
+
+---
+
+## Cross-references
+
+- [`agent-guardrails.md`](agent-guardrails.md) — the existing enforcement layer this extends
+- [`inventory.md`](inventory.md) — shipped/absent status; gap 9 (cursor-drift) folds in here
+- [`../templates/WORKFLOW.md`](../templates/WORKFLOW.md) — the four workflow gates and tier model
+- [`../templates/docs/rules/INDEX.md`](../templates/docs/rules/INDEX.md) — the 39-rule web-mode corpus being bucketed
+- [`../templates/docs/rules/pattern-budget.md`](../templates/docs/rules/pattern-budget.md) — the gate-ability criterion
+` and `''`
+   escapes), bare numbers, then runs of `?` collapse to one. Proven on sample
+   MySQL SQL, not on a live MySQL probe; that run is verification debt.
 3. **Ledger size.** A mature app might carry several hundred shapes. That is the
    point — each was looked at — but the file needs to stay reviewable in a diff,
    so entries are sorted by `from:` then `sql`, and nothing else is stored.

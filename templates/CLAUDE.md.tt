@@ -23,6 +23,7 @@ bin/dev              # Start development server with Tailwind watcher
 bin/test             # Run tests (single worker on macOS)
 bin/rails console    # Rails console
 bin/rails db:migrate # Run migrations
+bin/rails db:queries # Record the SQL shapes the suite emits; review the new ones
 bin/rubocop          # Run linter
 bin/brakeman         # Security analysis
 ```

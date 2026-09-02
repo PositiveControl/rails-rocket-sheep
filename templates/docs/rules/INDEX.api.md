@@ -36,7 +36,7 @@ Editing a file that matches → read these rules.
 | `app/contracts/**` | [request-contracts](request-contracts.md) |
 | `app/filters/**` | [filtering-sorting](filtering-sorting.md) · [cursor-pagination](cursor-pagination.md) |
 | `app/services/**` | [service-objects](service-objects.md) · [jobs](jobs.md) |
-| `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) |
+| `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) · [query-ledger](query-ledger.md) |
 | `app/policies/**` | [policy-objects](policy-objects.md) |
 | `app/lib/**` | [registries](registries.md) |
 | `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) — then the model table below |
@@ -47,6 +47,7 @@ Editing a file that matches → read these rules.
 | `config/initializers/rack_attack.rb` | [rate-limiting](rate-limiting.md) |
 | `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) · [seeds](seeds.md) |
 | `db/seeds.rb`, `db/seeds/**` | [seeds](seeds.md) |
+| `db/queries.yml` | [query-ledger](query-ledger.md) |
 | `test/**` | [api-testing](api-testing.md) · [testing](testing.md) — then the test table below |
 | `openapi.yaml` | [openapi-contract](openapi-contract.md) · [client-contract](client-contract.md) |
 | Anything under `app/`, when you are unsure which layer calls which | [write-path](write-path.md) |
@@ -92,7 +93,7 @@ read one when the work touches it, not because you opened a file of that type.
 | testing who may call what | [api-auth](api-auth.md) · [policy-objects](policy-objects.md) |
 
 **Read cost:** this index (~1600) plus one or two rules (240–1150) ·
-[`SYMPTOMS.md`](SYMPTOMS.md) (~2300) only when routing by path missed. Every `tokens`
+[`SYMPTOMS.md`](SYMPTOMS.md) (~2400) only when routing by path missed. Every `tokens`
 figure is generated from the file by `bin/doc-tokens` — budget from it, and re-run that
 script after editing a rule.
 

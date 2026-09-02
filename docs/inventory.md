@@ -57,7 +57,7 @@ flowchart TB
 | Item | Status | Notes |
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
-| Pattern reference docs | ✅ | `docs/rules/` — 55 single-rule files, 38 shipped in web mode and 40 in API mode. `INDEX.md` routes by path, `SYMPTOMS.md` by symptom or id |
+| Pattern reference docs | ✅ | `docs/rules/` — 56 single-rule files, 39 shipped in web mode and 41 in API mode. `INDEX.md` routes by path, `SYMPTOMS.md` by symptom or id |
 | Workflow commands | ✅ | 24 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `templates/bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
@@ -197,6 +197,8 @@ Individual `bd` commands were verified against a live DB. The *composition* was 
 **V3. Open one issue from the new forms after first push.** *(~5m)*
 
 GitHub validates issue-form schema server-side only. A malformed form silently falls back to a blank issue rather than erroring, so local YAML validation doesn't prove it works.
+
+**V9. Run the query ledger on a MySQL app.** *(~30m, needs a MySQL server)* The recorder's normalizer was proven on sample MySQL SQL — escaped and doubled quotes, a datetime, a `LIMIT`/`OFFSET` pair, an `IN` list — and on a live PostgreSQL app in both modes, but never on a live MySQL suite. What is unproven is whether real mysql2 output carries a literal form the regex has not seen, which would show as two entries for one shape.
 
 ~~**V5. Run a MySQL app's suite against a live server.**~~ **Discharged.** A server-rendered app was generated on MySQL 8.4, migrated, and run. All five unproven things came out right: Solid Queue built its thirteen tables, Cache its `solid_cache_entries`, Cable its `solid_cable_messages`; Devise's `index_users_on_email` is unique; PaperTrail's `object` and `object_changes` are `longtext` with `item_type` as `varchar(191)`, the index-length-safe form; and the fixture generator override held, so `rails g devise User` produced empty fixtures and the suite went green at 19 runs rather than raising on the unique index. No defects.
 

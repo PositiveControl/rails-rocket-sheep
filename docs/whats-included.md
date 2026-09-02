@@ -113,6 +113,9 @@ app's problem envelope rather than answering in a second format.
 | `bin/test` | Test runner; forces a single worker on macOS where Minitest forking is flaky |
 | `test/support/vcr.rb` | VCR configuration, required from `test_helper.rb` |
 | `test/support/slowpoke.rb` | Slow-test reporting, required from `test_helper.rb`; tuned by `SLOWPOKE_*` env vars |
+| `test/support/query_ledger.rb` | Records the SQL shapes application code emits; inert unless `QUERY_LEDGER_OUT` is set |
+| `lib/tasks/query_ledger.rake` | `db:queries`, `db:queries:explain` and `db:queries:check` — every query shape gets a reviewed line in `db/queries.yml` |
+| `.github/workflows/query-ledger.yml` | Runs `db:queries:check` with a service container matching your database |
 | `test/integration/seo_test.rb` | Asserts meta description, canonical URL, JSON-LD, sitemap, robots.txt |
 | `test/components/*_test.rb` | Unit tests for the four shipped components |
 | `.github/workflows/lighthouse.yml` | Weekly Lighthouse CI audit |

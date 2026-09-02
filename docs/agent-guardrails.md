@@ -108,6 +108,10 @@ The one enforcement layer that is not Claude Code only. A git `pre-push` hook (`
 
 Exit 1 on a finding, with the path and the rule it enforces. A check that crashes is skipped locally and fails the run in CI. `git push --no-verify` bypasses the hook once; CI does not have a bypass, which is the point. Which rules can be gated at all, and in what order they will be, is [`deterministic-gates.md`](deterministic-gates.md).
 
+### The query ledger — in CI, after the suite
+
+The one gate that needs a database. `test/support/query_ledger.rb` records every SQL shape application code emits while the suite runs, and `db/queries.yml` holds each one with a `review:` line a person wrote after reading its plan. `bin/rails db:queries:check`, run by the generated `.github/workflows/query-ledger.yml`, fails on a shape the file does not know or a review left empty, and a review is valid only when it names an index in `db/schema.rb` or starts `no index:` with a reason ([`query-ledger`](../templates/docs/rules/query-ledger.md)). It does not judge the plan — on a test database every sequential scan is the right one — it asserts that someone looked, and `bin/rails db:queries:explain` makes looking one screen per query.
+
 ### Turning them off
 
 Remove the relevant entry from `.claude/settings.json`. The scripts are ordinary files; delete them too if you don't want them.
