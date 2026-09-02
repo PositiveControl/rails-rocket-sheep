@@ -89,7 +89,7 @@ flowchart LR
 
 The structural gap this exposes: **every enforcement layer today except CI is
 Claude-Code-specific.** A Cursor or Codex agent — which the template
-[explicitly supports](../templates/AGENTS.md) — gets *zero* local enforcement;
+[explicitly supports](../templates/AGENTS.md.tt) — gets *zero* local enforcement;
 its first feedback is a red CI run minutes after the push. The missing piece is a
 **git `pre-push` hook**, because it is the only mechanism that is both *local*
 (fast) and *tool-neutral* (any agent, any human). The template ships none. This

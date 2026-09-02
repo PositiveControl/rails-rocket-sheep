@@ -43,16 +43,26 @@ RUN bundle install && \
 # Copy application code
 COPY . .
 
+<% unless API -%>
 # Ensure asset builds directory exists and is writable
 RUN mkdir -p app/assets/builds && chmod -R 755 app/assets/builds
 
+<% end -%>
 # Precompile bootsnap code for faster boot times
 RUN bundle exec bootsnap precompile app/ lib/
+<% unless API -%>
 
 # Precompile assets (includes Tailwind CSS build)
 # Note: Requires native x86_64 builder - ARM64 emulation fails with tailwindcss-ruby
 # See: https://github.com/rails/tailwindcss-rails/discussions/499
 RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
+<% end -%>
+<% if API -%>
+
+# No assets:precompile step. `rails new --api` installs no asset pipeline, so the
+# task does not exist and the build would fail on it — docs/rules/cors.md is the
+# only front-end-facing config an API app has.
+<% end -%>
 
 # Final stage for app image
 FROM base
@@ -66,7 +76,7 @@ COPY --from=build /rails /rails
 RUN groupadd --system --gid 1000 rails && \
     useradd rails --uid 1000 --gid 1000 --create-home --shell /bin/bash && \
     chmod -R o+r /rails && \
-    chown -R rails:rails db log storage tmp app/assets/builds
+    chown -R rails:rails db log storage tmp<%= API ? "" : " app/assets/builds" %>
 USER 1000:1000
 
 # Entrypoint prepares the database.

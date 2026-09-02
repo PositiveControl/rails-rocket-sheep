@@ -85,6 +85,22 @@ if ADOPT_STANDALONE
   say ""
 end
 
+# The mode, read rather than asked for (ADR 0009): `rails new --api` writes
+# `config.api_only`, and an app adopting this layer already knows what it is.
+# It is settled here, above the first file that branches on it — CLAUDE.md is
+# always loaded and describes the app's own stack, so shipping the wrong half
+# of it is worse than shipping the wrong rule.
+#
+# Named APP_MODE/API_MODE rather than API because template.rb already owns that
+# constant and evaluates this file inside its own binding.
+APP_MODE = if File.exist?("config/application.rb") &&
+              File.read("config/application.rb").match?(/^\s*config\.api_only\s*=\s*true/)
+  "api"
+else
+  "web"
+end
+API_MODE = APP_MODE == "api"
+
 # =============================================================================
 # Conventions
 # =============================================================================
@@ -137,16 +153,9 @@ copy_template_file "docs/sop/update-from-the-template.md"
 #
 # Which rules ship depends on the mode (ADR 0009). An API-only app has no view
 # layer, so the twelve rules describing one would be advice for an app it is not;
-# it gets the JSON boundary rules instead. The mode is read from the app rather
-# than asked for: `rails new --api` writes `config.api_only`, and an app adopting
-# this layer already knows what it is. Each rule's `modes` is the manifest, so a
-# rule added later ships without an edit here.
-APP_MODE = if File.exist?("config/application.rb") &&
-              File.read("config/application.rb").match?(/^\s*config\.api_only\s*=\s*true/)
-  "api"
-else
-  "web"
-end
+# it gets the JSON boundary rules instead. Each rule's `modes` is the manifest, so
+# a rule added later ships without an edit here. APP_MODE is read further up,
+# because CLAUDE.md and AGENTS.md need it before this point.
 
 RULE_FILES = Dir.glob(File.join(TEMPLATE_ROOT, "templates/docs/rules/*.md"))
                 .reject { |path| File.basename(path).upcase.start_with?("INDEX", "SYMPTOMS") }
@@ -195,7 +204,7 @@ end
 
 # Cursor project rules. Like AGENTS.md, a pointer to CLAUDE.md rather than a
 # second copy of the conventions.
-copy_template_file ".cursor/rules/conventions.mdc"
+template_file ".cursor/rules/conventions.mdc.tt"
 
 # Project permissions + hooks. The allowlist covers this template's own
 # binstubs and read-only git/gh operations, so an agent stops asking to run
@@ -212,7 +221,7 @@ chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
 
 # Tool-neutral pointer to CLAUDE.md, for agents that look for AGENTS.md
-copy_template_file "AGENTS.md"
+template_file "AGENTS.md.tt"
 
 # PR and issue templates. /pr_submit writes a correct PR body on its own; these
 # carry the same conventions into PRs and issues opened by hand, which is where

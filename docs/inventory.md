@@ -202,17 +202,13 @@ Generation was verified for all five accepted `--database=` values, plus the SQL
 
 This is now the only family carrying that debt. A PostgreSQL app was generated, migrated, and run for the first time in this repo's history — see [first-generation findings](first-generation-findings.md) — which found nine defects, two of which had been silently affecting server-rendered apps.
 
-**V6. Run an API-mode app on MySQL.** *(~30m, needs MySQL 8)*
+~~**V6. Run an API-mode app on MySQL.**~~ **Discharged.** Generated, bundled, migrated and exercised on MySQL 8.4: `resource_owner_id` came out `bigint` with the uuid patch correctly skipped, `idempotent_requests.user_id` followed the key type, the unique index and the `json` column built, eleven request tests passed, `api:contract` generated and its drift gate was clean. Cursor pagination was walked across three pages of rows sharing one `created_at` — the tiebreak case the rule warns about — with no row duplicated or skipped. No defects in the database half.
 
-The `--api` branch has been generated and run on PostgreSQL only. MySQL's half is the one thing in it that changes with the database: the Doorkeeper `resource_owner_id` patch is PostgreSQL-only by design (bigint is already correct on MySQL), and the idempotency table's `user_id` follows the primary-key type. Neither has been rendered against MySQL.
+~~**V7. Adopt the layer into an app that already serves JSON.**~~ **Discharged, with a defect.** `bin/rails app:template` into a plain `rails new --api` app the template had never touched installed the 40-rule API corpus and the API router pair; the same run against a plain full-stack app installed the 38-rule web corpus. Mode detection works where the app wrote the setting.
 
-**V7. Adopt the layer into an app that already serves JSON.** *(~30m)*
+It also surfaced the worst defect in this pass: `CLAUDE.md` and `AGENTS.md` were not mode-aware, so an API app — generated or adopted — got a Tech Stack line naming Hotwire, Tailwind, Slim, ViewComponent and Pagy, a convention list pointing at `ApplicationForm` and two rules that mode does not install, and a directory tree with `views/`, `forms/`, `components/` and `javascript/controllers/`. In the one file every agent loads first. Both are now templates that branch on the mode, and `adopt.rb` settles the mode above the first file that reads it.
 
-`adopt.rb` reads `config.api_only` to choose the corpus, and that branch has only been exercised through generation — where `rails new --api` had already written the setting. Adoption into a real API-only app, where the app wrote it, is the case the mechanism exists for and the one nobody has run.
-
-**V8. Deploy an API-mode app with Kamal.** *(~1h, needs a VPS)*
-
-Kamal config is written identically in both modes, and an API app has no asset build, no Thruster-fronted static files, and a different health-check surface. None of that has been deployed.
+~~**V8. Deploy an API-mode app with Kamal.**~~ **Partly discharged, and it was blocking.** No VPS here, so the deploy itself is still unrun — but the image build never needed one. The Dockerfile ran `bin/rails assets:precompile` unconditionally, and in an API app that task does not exist: `rails new --api` installs no asset pipeline, so `kamal deploy` of any generated API app failed at build. The asset steps and `asset_path` are now gated on the mode; `kamal init` and `.kamal/secrets` were verified clean in a full bundling run. What remains is a real deploy: the health-check surface and Thruster fronting an app with no static files.
 
 **V4. Run the update path across a real gap, not a synthetic one.** *(~30m, needs an app generated a while ago)*
 

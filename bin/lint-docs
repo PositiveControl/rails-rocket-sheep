@@ -196,12 +196,14 @@ end
 
 # --- 6. Command routers ------------------------------------------------------
 # A router that omits a command is a router that lies.
-agents_md = File.read(File.join(TEMPLATES, "AGENTS.md"))
+# AGENTS.md is a template: its short list names the mode's patterns (ADR 0009),
+# so it is read here as source rather than as rendered output.
+agents_md = File.read(File.join(TEMPLATES, "AGENTS.md.tt"))
 workflow_md = File.read(File.join(TEMPLATES, "WORKFLOW.md"))
 invocation_table = workflow_md[/^## Who invokes what$.*?^## /m].to_s
 command_paths.each do |path|
   name = File.basename(path, ".md")
-  findings << "templates/AGENTS.md: no entry for /#{name}" unless agents_md.include?(name)
+  findings << "templates/AGENTS.md.tt: no entry for /#{name}" unless agents_md.include?(name)
   findings << "templates/WORKFLOW.md: 'Command inventory' has no entry for /#{name}" unless workflow_md.include?(name)
   findings << "templates/WORKFLOW.md: 'Who invokes what' does not say who invokes /#{name}" unless invocation_table.include?("`/#{name}`")
 end

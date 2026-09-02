@@ -30,8 +30,14 @@ This file is a pointer, not a second source, so the copies cannot drift.
 - `bin/test` must pass before claiming anything works
 - `bin/rubocop` and `bin/brakeman` must be clean
 - Business logic goes in service objects (`ApplicationService`), not controllers
+<% if API_MODE -%>
+- Response bodies come from a serializer in `app/serializers/`, never a hash in an action
+- Request bodies are validated by a contract in `app/contracts/`, never `params.require`
+- Errors are RFC 9457 problem documents, written only by the `problem` helper
+<% else -%>
 - Slim templates, never ERB, in application views
 - Tailwind bracket classes need the `class=""` attribute form — Slim parses `[`
   as attribute syntax
+<% end -%>
 - Fix flaky tests immediately; never skip them
 - Update `docs/` when behaviour changes, and grep for an existing doc first
