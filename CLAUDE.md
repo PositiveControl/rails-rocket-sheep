@@ -233,9 +233,17 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   ([0006](.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)),
   why the database family is read from `rails new` while only primary keys
   diverge
-  ([0007](.agents/adr/0007-database-family-is-chosen-at-generation.md)), and why a
+  ([0007](.agents/adr/0007-database-family-is-chosen-at-generation.md)), why a
   generated app's decisions are one file each in `docs/adr/`
-  ([0008](.agents/adr/0008-decisions-are-one-file-each.md)).
+  ([0008](.agents/adr/0008-decisions-are-one-file-each.md)), why `--api` forks
+  the rule corpus rather than deleting from it
+  ([0009](.agents/adr/0009-api-mode-is-a-generation-flag.md)), why the one
+  shipped skill is a pointer at the index and carries no rules
+  ([0010](.agents/adr/0010-skills-are-a-generated-overlay-over-the-rule-index.md)),
+  why a rule declares in frontmatter how far the app has drifted from it
+  ([0011](.agents/adr/0011-a-rule-declares-how-far-the-app-has-drifted-from-it.md)),
+  and why routing is two-tier in both modes
+  ([0012](.agents/adr/0012-routing-is-two-tier-in-both-modes.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
