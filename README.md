@@ -5,8 +5,9 @@
 `rails new` gives you a framework. Rocket Sheep gives you a codebase an agent can be
 productive in on the first prompt: the patterns are already there, the conventions
 are written down one rule per file, and a generated `CLAUDE.md` routes the agent to
-the right rule before it touches anything. The result is that the tenth feature
-looks like the first one.
+the right rule before it touches anything, and the rules a machine can check are
+checked at push time and in CI. The result is that the tenth feature looks like the
+first one.
 
 It is applied once and leaves behind ordinary Rails files you own. There is no gem,
 no runtime dependency, and nothing to upgrade. MIT licensed.
@@ -23,8 +24,16 @@ no runtime dependency, and nothing to upgrade. MIT licensed.
   `ApplicationForm`, `ApplicationComponent`, `Data`-based registries, and a fixed
   budget of directories under `app/` so the catalogue names its own limit.
 - **A workflow, not just advice.** 24 slash commands from "what should I do next"
-  to a merged PR, with gates, mirrored to Claude Code and Cursor, plus hooks that
-  enforce the rules that can be enforced mechanically.
+  to a merged PR, with review gates, mirrored to Claude Code and Cursor.
+- **Gates that do not depend on the agent cooperating.** An agent will eventually
+  miss a rule, so the rules a machine can check are checked. `bin/gates` runs from a
+  git `pre-push` hook and again in CI, for every editor and agent, and refuses
+  rejected patterns, a directory outside the `app/` budget, a drifted command
+  mirror, and a foreign key with no index. A query ledger fails CI on any SQL
+  shape the suite emits that nobody has reviewed, and in API mode the OpenAPI
+  contract fails CI when it disagrees with the request tests. Everything else
+  stays prose on purpose: a gate that fires wrongly gets disabled and takes the
+  useful ones with it.
 - **The Rails 8 stack, configured.** Solid Queue, Cache, and Cable on their own
   databases, Devise, Petergate, PaperTrail, Discard, Bullet, RuboCop, Brakeman,
   WebMock and VCR, and a Kamal 2 deploy with a database accessory that follows
@@ -115,7 +124,7 @@ they sit in is [templates/WORKFLOW.md](templates/WORKFLOW.md).
 | [Adoption drift findings](docs/adoption-drift-findings.md) | What happened to the rule corpus when a real app adopted it |
 | [JSON boundary audit](docs/json-boundary-audit.md) | A Rails app's JSON surface with no rules governing it |
 | [Layer boundary traces](docs/layer-boundary-traces.md) | Three requests traced end to end through a real app |
-| [Deterministic gates](docs/deterministic-gates.md) | Draft: which rules can be enforced mechanically, and where |
+| [Deterministic gates](docs/deterministic-gates.md) | Which rules are enforced mechanically, where each gate attaches, what is built, and what stays prose on purpose |
 | [Skills adoption assessment](.agents/skills-adoption-assessment.md) | What was taken from the skills repo as commands, and why they did not become skills |
 
 ---
