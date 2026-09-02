@@ -1,6 +1,6 @@
 # Deterministic Gates — Design
 
-**Status: Phase 1 built** — `bin/gates`, the pre-push hook and the CI job ship with the three zero-false-positive checks. Phases 2–4 below are still proposals.
+**Status: Phase 1 built** — `bin/gates`, the pre-push hook and the CI job ship with the four zero-false-positive checks. Phases 2–4 below are still proposals.
 
 A working document for deciding which rules and workflow steps can be enforced
 *mechanically* rather than by prompt, where the enforcement should attach, and
@@ -25,12 +25,13 @@ rule corpus, and three of the five are Claude-Code-specific.
 | [`bin/hooks/session_end`](../templates/bin/hooks/session_end) (Stop) | turn ends | `Status: Draft` doc placeholders | ❌ Claude Code only |
 | [`.claude/settings.json`](../templates/.claude/settings.json) deny list | tool call | force-push, `reset --hard`, `clean -fd`, reading secrets | ❌ Claude Code only |
 | Rails 8 default `ci.yml` + branch protection | push / PR | `scan_ruby`, `scan_js`, `lint` (RuboCop), `test` | ✅ any agent |
-| [`bin/gates`](../templates/bin/gates) via `pre-push` + [`gates.yml`](../templates/.github/workflows/gates.yml) | push / PR | rejected-pattern tokens, `app/` directory budget, `.cursor/commands` mirror | ✅ any agent |
+| [`bin/gates`](../templates/bin/gates) via `pre-push` + [`gates.yml`](../templates/.github/workflows/gates.yml) | push / PR | rejected-pattern tokens, `app/` directory budget, `.cursor/commands` mirror, unindexed foreign keys | ✅ any agent |
 
-Net: of **38 rules and 4 workflow gates (G1–G4)** in web mode, **five rules** have a
+Net: of **38 rules and 4 workflow gates (G1–G4)** in web mode, **six rules** have a
 deterministic backstop — the two RuboCop-and-Slim checks in `post_edit`, the
-Draft-placeholder check in `session_end`, and `rejected-patterns` and
-`pattern-budget` in `bin/gates`. Everything else is prose. The
+Draft-placeholder check in `session_end`, and `rejected-patterns`,
+`pattern-budget` and the foreign-key half of `database-conventions` in
+`bin/gates`. Everything else is prose. The
 [inventory](inventory.md) states the problem plainly: *"the alignment layer was
 entirely advisory… Conventions drift under pressure. This reduces divergence; it
 doesn't eliminate it."*
@@ -122,7 +123,7 @@ Hard gates buildable today, ordered by false-positive risk (lowest first).
 | [`openapi-contract`](../templates/docs/rules/openapi-contract.md) (API mode) | `bin/rails api:contract:check` — regenerate from the request tests and diff against the committed `openapi.yaml` | ~0 | **Built.** Exits 1 on drift. Ships as a generated workflow with a service container matching the database family. An endpoint with no request test records nothing, so it cannot be documented without one. |
 | [`error-envelope`](../templates/docs/rules/error-envelope.md) (API mode) | `assert_problem` in a request test: content type, `type`, `status` matching the status line, `title` present, and no `success` key | ~0 | Not a static check — it runs where the response actually exists. One line per assertion at the call site. |
 | **Query ledger** — every query shape the suite emits from `app/` has a committed, reviewed entry | `bin/rails db:queries:check`: record normalized SQL during the test run, fail on a fingerprint absent from `db/queries.yml` or present with an empty `review:` | ~0 | The gate checks presence in a file, not plan quality, which is what keeps it at ~0. The review it forces is where EXPLAIN happens. Design in [§8](#8-design-the-query-ledger). Not built. |
-| Unindexed foreign keys | every column an `add_foreign_key` in `db/schema.rb` names appears in some index on that table | ~0 | Static, schema only. `t.references` indexes by default, so hits are rare and always real. A `bin/gates` check, not a suite run. Not built. |
+| Unindexed foreign keys ([`database-conventions`](../templates/docs/rules/database-conventions.md)) | every column an `add_foreign_key` in `db/schema.rb` names leads some index on that table | ~0 | **Built** in `bin/gates`. Static, schema only; an app on `structure.sql` is skipped. Leading column, not any column — a second-position column does not serve the constraint's lookup. A derived column name the table lacks is skipped, so a wrong singularization is a miss, never a report. MySQL indexes every constraint itself, so it never fires there. |
 
 ### Bucket B — checkable only dynamically (test-time)
 
@@ -253,8 +254,8 @@ flowchart LR
   style P4 fill:#FDFDFB,stroke:#5F6E7C,color:#3D4954
 ```
 
-1. ✅ **Skeleton.** `bin/gates` with the three ~0-FP checks (`rejected-patterns`,
-   `pattern-budget`, `.cursor/commands` drift), the `pre-push` hook installed by
+1. ✅ **Skeleton.** `bin/gates` with the ~0-FP checks (`rejected-patterns`,
+   `pattern-budget`, `.cursor/commands` drift, then unindexed foreign keys), the `pre-push` hook installed by
    `adopt.rb` through `core.hooksPath`, and the CI `gates` job. Whole-tree scans,
    no diff mode yet. Building it corrected two assumptions: `rejected-patterns`'
    frontmatter triggers are prose, not grep tokens, so the token list lives in
@@ -271,7 +272,7 @@ flowchart LR
    file, giving Claude Code in-loop correction. Optional accelerant.
 5. **Query ledger (~half a day).** The one Bucket-A gate that needs a database and
    a suite run, so it is its own CI job rather than a `bin/gates` check. Design
-   below; the unindexed-foreign-key check rides along as a `bin/gates` method.
+   below.
 
 Bucket B stays with the dynamic tools already shipped. Bucket C stays prose.
 

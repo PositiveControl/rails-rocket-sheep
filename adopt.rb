@@ -228,7 +228,7 @@ chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
 
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
-# and the command mirror. One script, run from a git pre-push hook here and from
+# the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that
 # fires for every editor and agent, not just Claude Code.
 copy_template_file "bin/gates"

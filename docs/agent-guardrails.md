@@ -99,11 +99,12 @@ Scans the doc canon for `Status: Draft` placeholders and reports any it finds.
 
 ### `bin/gates` — before every push, and in CI
 
-The one enforcement layer that is not Claude Code only. A git `pre-push` hook (`bin/hooks/pre-push`, reached through `core.hooksPath bin/hooks`) runs it for every editor, agent, and human, and `.github/workflows/gates.yml` runs it again with `--strict` so nothing on the pushing side can skip it. Three checks, each a grep, a listing, or a diff:
+The one enforcement layer that is not Claude Code only. A git `pre-push` hook (`bin/hooks/pre-push`, reached through `core.hooksPath bin/hooks`) runs it for every editor, agent, and human, and `.github/workflows/gates.yml` runs it again with `--strict` so nothing on the pushing side can skip it. Four checks, each a grep, a listing, a diff, or a read of `db/schema.rb`:
 
 - **Rejected patterns** — `accepts_nested_attributes_for`, `SimpleDelegator`, `Dry::`, `Interactor` in `app/`, and the `dry-*` / `interactor` gems in the Gemfile ([`rejected-patterns`](../templates/docs/rules/rejected-patterns.md)).
 - **Pattern budget** — a directory under `app/` that is neither Rails' own nor in the mode's budget, unless an ADR in `docs/adr/` names it ([`pattern-budget`](../templates/docs/rules/pattern-budget.md)).
 - **Command mirror** — `.claude/commands/` and `.cursor/commands/` differ.
+- **Unindexed foreign keys** — a column `add_foreign_key` names in `db/schema.rb` that leads no index on its table ([`database-conventions`](../templates/docs/rules/database-conventions.md)).
 
 Exit 1 on a finding, with the path and the rule it enforces. A check that crashes is skipped locally and fails the run in CI. `git push --no-verify` bypasses the hook once; CI does not have a bypass, which is the point. Which rules can be gated at all, and in what order they will be, is [`deterministic-gates.md`](deterministic-gates.md).
 
