@@ -912,6 +912,7 @@ after_bundle do
   # that matter; the commit is a convenience, so it is skipped with a note rather
   # than taken as fatal.
   git :init
+  install_git_hooks
   git add: "."
 
   # `git :init` above ran here without a path, so this does too.

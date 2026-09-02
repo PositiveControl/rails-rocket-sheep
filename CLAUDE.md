@@ -59,6 +59,7 @@ templates/               Everything copied into the generated app.
 ├── .cursor/rules/       Cursor pointer to the same index
 ├── .llm/                Task template, doc index
 ├── bin/rocket-sheep-update  Three-way merges a newer template into an app
+├── bin/gates            Mechanical checks, run from bin/hooks/pre-push and .github/workflows/gates.yml
 └── app/ bin/ config/ …  Application code the template installs
 
 docs/                    Product documentation for buyers. Not shipped.

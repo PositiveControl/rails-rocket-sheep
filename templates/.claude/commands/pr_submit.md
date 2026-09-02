@@ -248,7 +248,7 @@ PR merged! Automation handles issue close, board → Done, and branch deletion.
 - Slow CI checks (skip polling, ran locally): test
 - Informational checks (ignore): CodeQL / Analyze
 - CI check `state` values: PENDING, IN_PROGRESS, SUCCESS, FAILURE, SKIPPED (no `conclusion` field)
-- Local pre-push checks: bin/rubocop --force-exclusion (changed files), bin/brakeman -q --no-pager, bin/test, bin/rails test:system
+- Local pre-push checks: bin/gates, bin/rubocop --force-exclusion (changed files), bin/brakeman -q --no-pager, bin/test, bin/rails test:system
 - Pre-existing test failures: system tests may have failures on main — only fix failures introduced by the branch
 - Issue label for review: "{{REVIEW_LABEL}}"
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}

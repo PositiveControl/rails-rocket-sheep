@@ -241,7 +241,7 @@ Two things fell out of building it. Writing the check made `modes` legible as wh
 
 `/update_docs` ends on `bin/doc-tokens` then `bin/lint-docs`, which is the deterministic ending this gap asked for. Both tools were shipping already and neither was named anywhere the app would read; the generated `CLAUDE.md` names them now.
 
-**14. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
+~~**14. `.cursor/commands/` drift guard — ~20m.**~~ **Discharged.** `bin/gates` diffs the two directories, from the `pre-push` hook and from `.github/workflows/gates.yml`. It is one of three checks there; the rest of the gate corpus is [deterministic-gates.md](deterministic-gates.md).
 
 #### Maintenance, ongoing
 
