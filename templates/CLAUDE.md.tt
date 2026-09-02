@@ -216,6 +216,17 @@ else.
 `.llm/README.md` indexes committed docs. Conventions are single-sourced in
 `docs/rules/`; task files in `.llm/tasks/` reference them and never restate them.
 
+Two of those properties are checked rather than trusted:
+
+```bash
+bin/doc-tokens     # rewrites each rule's `tokens:` figure and the figures derived from it
+bin/lint-docs      # rule frontmatter, index routing, read costs, path resolution, quoted counts
+```
+
+Run both after editing anything under `docs/rules/` or `.claude/commands/`, or any
+doc that quotes a count — `/update_docs` ends on them. A doc that disagrees with the
+tree is worse than no doc, because the agent reading it cannot tell.
+
 ## Project Structure
 
 ```

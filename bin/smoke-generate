@@ -102,6 +102,16 @@ fi
 check "nothing generation wrote is untracked" "$(
   [[ -z "$(git status --porcelain 2>/dev/null | grep '^??')" ]] && echo 0 || echo 1)"
 
+# The app's own copy of the checks, against the app's own docs. If it does not pass
+# here it will not pass for a buyer either, and this is the only place both halves
+# of the two-home shim get exercised.
+if bin/lint-docs > lint.log 2>&1; then
+  check "bin/lint-docs passes in the app" 0
+else
+  check "bin/lint-docs passes in the app" 1; tail -20 lint.log
+fi
+check "bin/lint-docs is executable" "$([[ -x bin/lint-docs ]] && echo 0 || echo 1)"
+
 # It has to boot. Fixtures ship empty, so a green suite here proves the app loads,
 # the database is reachable and the initializers do not raise.
 if bin/rails test > test.log 2>&1; then

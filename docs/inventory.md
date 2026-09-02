@@ -58,7 +58,7 @@ flowchart TB
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
 | Pattern reference docs | ✅ | `docs/rules/` — 55 single-rule files, 38 shipped in web mode and 40 in API mode. `INDEX.md` routes by path, `SYMPTOMS.md` by symptom or id |
-| Workflow commands | ✅ | 24 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `bin/lint-docs` |
+| Workflow commands | ✅ | 24 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `templates/bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
@@ -71,7 +71,7 @@ flowchart TB
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
 | Template update path | ✅ | `bin/rocket-sheep-update` — three-way merges the alignment layer from the commit stamped in `CLAUDE.md`. Pull-only, `--check` mode, conflicts left as markers, ERB-rendered files reported not guessed ([ADR 0005](../.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)) |
 | Adoption into an existing app | ✅ | `adopt.rb` via `bin/rails app:template`. Alignment layer only — never `Gemfile`, `app/`, `config/`, `db/`. Same file defines the layer for generation and for updates, so there is one list ([ADR 0006](../.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)) |
-| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, cross-mode links and `see_also`, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose, and no routable IP or real ssh host in any doc. Not shipped into generated apps yet — see gap 9 |
+| Doc drift checks | ✅ | `bin/lint-docs`, in this repo and in every generated app: rule frontmatter, index rows, token budgets, cross-mode links and `see_also`, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose, and no routable IP or real ssh host in any doc. Four repo-only checks are skipped in an app |
 | MCP config | ❌ | No `.mcp.json` |
 | CI for this repo | ✅ | `.github/workflows/ci.yml`: the two doc gates plus `bin/smoke-generate`, which generates a real app in each mode and asserts the mode branched, the ERB rendered, and the app boots |
 
@@ -235,12 +235,11 @@ board is the bottleneck.
 
 **8. `docs/qa/` and `docs/plans/` examples — ~30m.** Both ship empty. One worked QA guide and one design-doc template would make `/pr_qa` and `/feature_plan` output more consistent.
 
-**9. Ship `bin/lint-docs` into generated apps — ~1h.** The generator now checks its
-own docs against its own tree. A generated app carries the same corpus, the same
-commands, and the same index, so it inherits the same drift risk with none of the
-checking. The obstacle is scope, not difficulty: the checks that read
-`templates/` need a path shim, and the count checks need to run against the app's
-own docs. It would also give `/update_docs` something deterministic to end with.
+~~**9. Ship `bin/lint-docs` into generated apps.**~~ **Shipped.** One file with two homes: it reads its own directory name to know whether it is in the template repo or in an app, and points at `templates/` or the app root accordingly. Four checks compare the `templates/` tree to the generators, or the stamp regex to the file that writes it, and are skipped in an app because there is nothing there for them to be true or false about. Everything an agent is asked to trust — rule frontmatter, index routing, read costs, cross-mode links, `see_also`, path resolution, command frontmatter, router completeness, quoted counts, and no routable host in any doc — is checked in both.
+
+Two things fell out of building it. Writing the check made `modes` legible as what it is — a manifest of which apps a rule ships to, not a claim about the app running the check — and the first run in an API app flagged all twenty shared rules until that was fixed. And a link into a rule the other mode has is absent by design in an app rather than a typo, so the missing-target finding is now suppressed exactly where the `## In API mode` guard already tells a reader not to go.
+
+`/update_docs` ends on `bin/doc-tokens` then `bin/lint-docs`, which is the deterministic ending this gap asked for. Both tools were shipping already and neither was named anywhere the app would read; the generated `CLAUDE.md` names them now.
 
 **14. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
 

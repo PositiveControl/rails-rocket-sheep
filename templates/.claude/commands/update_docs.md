@@ -99,10 +99,25 @@ merge with one listed, and the session-end hook fails the turn if one survives.
 `docs/rules/` is not indexed doc by doc, on purpose. Link `INDEX.md` and stop;
 the index is the index.
 
-### Step 7: Report
+### Step 7: Run the checks
+
+Two of the things this command just edited are machine-checkable, so end on them
+rather than on a claim:
+
+```bash
+bin/doc-tokens     # rewrites the `tokens:` figure in each rule, and the figures derived from it
+bin/lint-docs      # rule frontmatter, index routing, read costs, path resolution, quoted counts
+```
+
+`bin/doc-tokens` writes; run it first, then `bin/lint-docs` to check what is left.
+Fix everything it names. A finding here is a doc that disagrees with the tree, and
+an agent reading it has no way to tell — which is the whole reason these exist.
+
+### Step 8: Report
 
 State what you changed, what you consolidated or deleted and why, and anything
 you found that needs a decision rather than a doc (that is an ADR, or an issue).
+Say that the checks are clean, or which finding you could not resolve and why.
 
 ## Reference
 - Doc index: `.llm/README.md` — committed docs only, marker blocks per directory

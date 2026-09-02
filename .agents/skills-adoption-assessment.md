@@ -5,7 +5,7 @@ commands (`/grill`, `/resolve_conflicts`, `/research`, `/diagnose`), A5 folded i
 `/update_docs` Step 5, G6 added as `/pr_review` Step 7, the three stolen
 conventions added to `docs/writing-commands.md`, A6 recorded as gap 12 in
 `docs/inventory.md`, and the command count moved 19 → 24 across every site.
-`bin/lint-docs` is clean. Section 3 stands: the commands did not become skills.
+`templates/bin/lint-docs` is clean. Section 3 stands: the commands did not become skills.
 
 **Superseding A5:** `domain-modeling` was then adopted in full as `/domain_model`,
 and with it the skill's ADR path convention. Decisions are now one file each in
@@ -117,7 +117,7 @@ file is installed by generation, installed by adoption, mirrored to
 edit. This is the payoff of ADR 0006 and the reason the marginal command is
 mostly free to *ship*.
 
-**Required per command, and checked by `bin/lint-docs`:**
+**Required per command, and checked by `templates/bin/lint-docs`:**
 
 1. A row in `templates/AGENTS.md` and in `templates/WORKFLOW.md`. The linter
    fails on omission ("a router that omits a command is a router that lies").
@@ -133,7 +133,7 @@ mostly free to *ship*.
 6. Every backticked `/name` the new command mentions must be a real command,
    and the commands it slots between should name it back.
 
-**The count bump.** `bin/lint-docs` matches `(\d+) (workflow|slash )?commands?`
+**The count bump.** `templates/bin/lint-docs` matches `(\d+) (workflow|slash )?commands?`
 across the whole repo, so "19" has to change everywhere at once:
 `README.md:177`, `CLAUDE.md:52`, `CLAUDE.md:215`, `docs/writing-commands.md:3`,
 `docs/workflow.md:3`, `docs/workflow.md:7`, `docs/whats-included.md:123`,
@@ -232,10 +232,10 @@ lives.
    `docs/writing-commands.md`, and ADRs 0001, 0002, 0004: fifteen lines. The ADR
    files are
    outside the linter's glob (Ruby's `**` skips dot-directories), so those three
-   were found by hand rather than by `bin/lint-docs`.
+   were found by hand rather than by `templates/bin/lint-docs`.
 7. **The commands stayed commands.** No `SKILL.md`, no ADR reversed.
 
-Verification: `bin/lint-docs` clean (38 rules, 23 commands),
+Verification: `templates/bin/lint-docs` clean (38 rules, 23 commands),
 `ruby -c template.rb adopt.rb preamble.rb` OK, and a
 `rails new --database=postgresql --skip-bundle` probe installed all 23 commands
 into both `.claude/commands/` and `.cursor/commands/`. That probe then failed at

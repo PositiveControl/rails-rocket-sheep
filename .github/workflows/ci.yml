@@ -22,7 +22,7 @@ jobs:
       # Plain Ruby, no gems: these run against the tree, not against an app.
       - name: Entry scripts parse
         run: |
-          for f in template.rb adopt.rb preamble.rb bin/lint-docs \
+          for f in template.rb adopt.rb preamble.rb templates/bin/lint-docs \
                    templates/bin/doc-tokens templates/bin/rocket-sheep-update; do
             ruby -c "$f" > /dev/null || exit 1
           done
@@ -31,7 +31,7 @@ jobs:
         run: ruby templates/bin/doc-tokens --check
 
       - name: Docs lint
-        run: bin/lint-docs
+        run: templates/bin/lint-docs
 
   # What only a generated app can answer: whether the ERB rendered, whether the
   # mode branched, and whether the thing boots. Needs a real bundle, because

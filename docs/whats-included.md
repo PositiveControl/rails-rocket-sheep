@@ -154,6 +154,7 @@ app's problem envelope rather than answering in a second format.
 | [`.llm/tasks/task_template.md`](../templates/.llm/tasks/task_template.md) | Resumable task file format — the artifact that makes `/implement` idempotent |
 | `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
 | `bin/doc-tokens` | Regenerates the `tokens:` figure in each `docs/rules/*.md` and the four figures derived from it in the routers; `--check` fails on drift |
+| `bin/lint-docs` | The same checks this template runs on its own docs, pointed at yours: rule frontmatter, index routing, read costs, cross-mode links, path resolution, command frontmatter, quoted counts, and no routable host in any doc. `/update_docs` ends on it |
 | [`.github/PULL_REQUEST_TEMPLATE.md`](../templates/.github/PULL_REQUEST_TEMPLATE.md) | Tier-neutral PR body + checklist, for PRs opened by hand |
 | [`.github/ISSUE_TEMPLATE/`](../templates/.github/ISSUE_TEMPLATE/) | Issue forms carrying the ≤5-acceptance-criteria sizing rule |
 

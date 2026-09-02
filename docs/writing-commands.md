@@ -7,7 +7,7 @@ clears before it ships.
 
 It governs `templates/.claude/commands/` only. Conventions for generated *app
 code* are one rule per file in `templates/docs/rules/`; this is about the commands
-themselves. `bin/lint-docs` checks the mechanical half of what follows, so run it
+themselves. `templates/bin/lint-docs` checks the mechanical half of what follows, so run it
 before you commit.
 
 ## What a command is
@@ -62,7 +62,7 @@ to invoke it:
 Three things earn their place there: what it does, what it is *not* (the sibling
 command that does the adjacent thing), and the invocation with a real argument.
 The invocation has to name **this** command; two commands once documented
-themselves under names nobody could type, and `bin/lint-docs` checks for it now.
+themselves under names nobody could type, and `templates/bin/lint-docs` checks for it now.
 
 ### `### Step N`
 
@@ -104,7 +104,7 @@ readable and the constants live in one place.
   types it: a command cannot invoke another command. Write "next: `/pr_submit`",
   never phrasing that implies the command will do it for you.
 - **Classify who invokes it.** A new command gets a row in `Who invokes what` in
-  `templates/WORKFLOW.md`, and `bin/lint-docs` checks the row exists. The test: a
+  `templates/WORKFLOW.md`, and `templates/bin/lint-docs` checks the row exists. The test: a
   command that reads and edits locally can be one an agent reaches for; a command
   that posts, pushes, moves a board, or sits at a gate belongs to the human. Say
   which in the row, with the reason.
@@ -132,7 +132,7 @@ readable and the constants live in one place.
 
 ## Done when
 
-Machine-checked by `bin/lint-docs`:
+Machine-checked by `templates/bin/lint-docs`:
 
 - Frontmatter parses, and every value is a string.
 - `description` exists, is under 80 characters, and opens with the job rather than
