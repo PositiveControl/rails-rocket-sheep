@@ -5,7 +5,7 @@ applies_to: ["app/serializers/**/*.rb", "app/controllers/**/*.rb"]
 triggers: ["serializer", "as_json", "to_json", "response shape", "JSON keys", "render json", "ApplicationSerializer", "response fields"]
 see_also: ["pattern-budget", "sparse-fieldsets-includes", "n-plus-one", "api-versioning"]
 modes: [ api ]
-tokens: 770
+tokens: 800
 current_state: matches
 ---
 
@@ -72,3 +72,5 @@ serializer; one record's shape was defined by three copies of the same private
 controller method.
 
 Which directory this is and when a new one is justified: [pattern-budget](pattern-budget.md).
+
+Rationale and consequences: [ADR 0010](../adr/0010-serializers-are-plain-objects.md).

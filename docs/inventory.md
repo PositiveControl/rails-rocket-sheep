@@ -67,6 +67,7 @@ flowchart TB
 | Project `.claude/settings.json` | ✅ | Allowlist + deny rules; credentials blocked from context |
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
+| Model-invocable conventions | ✅ | One skill, `.claude/skills/rails-conventions/`, pointing at `docs/rules/INDEX.md`. Closes the one cost [ADR 0001](../.agents/adr/0001-plain-markdown-commands-not-skills.md) accepted and could not mitigate: routing that only fires when something tells the agent to read the index first. Carries no rule content and no routing table ([ADR 0010](../.agents/adr/0010-skills-are-a-generated-overlay-over-the-rule-index.md)) |
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
 | Template update path | ✅ | `bin/rocket-sheep-update` — three-way merges the alignment layer from the commit stamped in `CLAUDE.md`. Pull-only, `--check` mode, conflicts left as markers, ERB-rendered files reported not guessed ([ADR 0005](../.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)) |
 | Adoption into an existing app | ✅ | `adopt.rb` via `bin/rails app:template`. Alignment layer only — never `Gemfile`, `app/`, `config/`, `db/`. Same file defines the layer for generation and for updates, so there is one list ([ADR 0006](../.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)) |
@@ -138,7 +139,7 @@ flowchart LR
 
 **2. Hooks.** `bin/hooks/post_edit` runs RuboCop on edited Ruby and catches Tailwind bracket classes in Slim shorthand — the pitfall `CLAUDE.md` documents but that otherwise fails at render time. `bin/hooks/session_end` reports `Status: Draft` doc placeholders left open. All three exit 0 on any internal error: a broken hook must never block work. See [Agent Guardrails](agent-guardrails.md).
 
-**5. `AGENTS.md`.** Tool-neutral pointer to `CLAUDE.md` with an orientation table. Deliberately a pointer, not a second source — anything restated would drift. `.cursorrules` still absent.
+**5. `AGENTS.md`.** Tool-neutral pointer to `CLAUDE.md` with an orientation table. Deliberately a pointer, not a second source — anything restated would drift. Its short list, `CLAUDE.md`'s, and the Cursor conventions file are all rendered per mode, because an API app told to use `ApplicationForm` and Slim is being told about an app it is not. `.cursorrules` still absent.
 
 **7. Seeds.** `db/seeds.rb` creates an admin user, idempotent, password from `SEED_ADMIN_PASSWORD` or generated and printed once, and refuses to run in production without `SEED_ALLOW_PRODUCTION=1`.
 
@@ -202,17 +203,13 @@ Generation was verified for all five accepted `--database=` values, plus the SQL
 
 This is now the only family carrying that debt. A PostgreSQL app was generated, migrated, and run for the first time in this repo's history — see [first-generation findings](first-generation-findings.md) — which found nine defects, two of which had been silently affecting server-rendered apps.
 
-**V6. Run an API-mode app on MySQL.** *(~30m, needs MySQL 8)*
+~~**V6. Run an API-mode app on MySQL.**~~ **Discharged.** Generated, bundled, migrated and exercised on MySQL 8.4: `resource_owner_id` came out `bigint` with the uuid patch correctly skipped, `idempotent_requests.user_id` followed the key type, the unique index and the `json` column built, eleven request tests passed, `api:contract` generated and its drift gate was clean. Cursor pagination was walked across three pages of rows sharing one `created_at` — the tiebreak case the rule warns about — with no row duplicated or skipped. No defects in the database half.
 
-The `--api` branch has been generated and run on PostgreSQL only. MySQL's half is the one thing in it that changes with the database: the Doorkeeper `resource_owner_id` patch is PostgreSQL-only by design (bigint is already correct on MySQL), and the idempotency table's `user_id` follows the primary-key type. Neither has been rendered against MySQL.
+~~**V7. Adopt the layer into an app that already serves JSON.**~~ **Discharged, with a defect.** `bin/rails app:template` into a plain `rails new --api` app the template had never touched installed the 40-rule API corpus and the API router pair; the same run against a plain full-stack app installed the 38-rule web corpus. Mode detection works where the app wrote the setting.
 
-**V7. Adopt the layer into an app that already serves JSON.** *(~30m)*
+It also surfaced the worst defect in this pass: `CLAUDE.md` and `AGENTS.md` were not mode-aware, so an API app — generated or adopted — got a Tech Stack line naming Hotwire, Tailwind, Slim, ViewComponent and Pagy, a convention list pointing at `ApplicationForm` and two rules that mode does not install, and a directory tree with `views/`, `forms/`, `components/` and `javascript/controllers/`. In the one file every agent loads first. Both are now templates that branch on the mode, and `adopt.rb` settles the mode above the first file that reads it.
 
-`adopt.rb` reads `config.api_only` to choose the corpus, and that branch has only been exercised through generation — where `rails new --api` had already written the setting. Adoption into a real API-only app, where the app wrote it, is the case the mechanism exists for and the one nobody has run.
-
-**V8. Deploy an API-mode app with Kamal.** *(~1h, needs a VPS)*
-
-Kamal config is written identically in both modes, and an API app has no asset build, no Thruster-fronted static files, and a different health-check surface. None of that has been deployed.
+~~**V8. Deploy an API-mode app with Kamal.**~~ **Partly discharged, and it was blocking.** No VPS here, so the deploy itself is still unrun — but the image build never needed one. The Dockerfile ran `bin/rails assets:precompile` unconditionally, and in an API app that task does not exist: `rails new --api` installs no asset pipeline, so `kamal deploy` of any generated API app failed at build. The asset steps and `asset_path` are now gated on the mode; `kamal init` and `.kamal/secrets` were verified clean in a full bundling run. What remains is a real deploy: the health-check surface and Thruster fronting an app with no static files.
 
 **V4. Run the update path across a real gap, not a synthetic one.** *(~30m, needs an app generated a while ago)*
 

@@ -85,7 +85,7 @@ read one when the work touches it, not because you opened a file of that type.
 | changing what a fresh checkout needs | [seeds](seeds.md) |
 | adding a fixed set of variants with attributes | [registries](registries.md) |
 
-**Read cost:** this index (~1400) plus one or two rules (220–1150) ·
+**Read cost:** this index (~1400) plus one or two rules (240–1150) ·
 [`SYMPTOMS.md`](SYMPTOMS.md) (~2300) only when routing by path missed. Every `tokens`
 figure is generated from the file by `bin/doc-tokens` — budget from it, and re-run that
 script after editing a rule.

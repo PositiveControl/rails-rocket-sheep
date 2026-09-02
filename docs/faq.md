@@ -99,7 +99,7 @@ Delete the file. Nothing reads it at runtime.
 **Does this only work with Claude Code?**
 No. `docs/rules/` is the single source — plain markdown with YAML frontmatter, no harness features — and every pointer routes to the same `docs/rules/INDEX.md`:
 
-- **Claude Code** — reads `CLAUDE.md` and `.claude/commands/`
+- **Claude Code** — reads `CLAUDE.md` and `.claude/commands/`, plus one skill (`.claude/skills/rails-conventions/`) that points at the same index. The skill is the one harness-specific advantage: it can fire on its own when an agent starts editing Rails code without being told to look, which is the gap a pointer in `CLAUDE.md` cannot close.
 - **Cursor** — reads `.cursor/rules/conventions.mdc` and `.cursor/commands/`, both shipped. The commands are the same files, mirrored at generation time rather than forked.
 - **Anything else** — `AGENTS.md` carries an orientation table and a commands table. Cursor and a growing number of tools read `AGENTS.md` natively.
 

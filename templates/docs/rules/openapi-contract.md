@@ -5,7 +5,7 @@ applies_to: ["test/integration/**/*.rb", "openapi.yaml", ".github/workflows/**"]
 triggers: ["OpenAPI", "swagger", "API docs", "contract", "spec drift", "schema", "client generation", "documentation"]
 see_also: ["api-testing", "serialization", "filtering-sorting", "client-contract", "api-versioning"]
 modes: [ api ]
-tokens: 700
+tokens: 730
 current_state: matches
 ---
 
@@ -49,3 +49,5 @@ generated against a merged document has no way to tell which endpoints it may ca
 ([api-versioning](api-versioning.md)).
 
 The client repo consumes this file and nothing else — [client-contract](client-contract.md).
+
+Rationale and consequences: [ADR 0013](../adr/0013-the-api-contract-is-generated-from-its-tests.md).

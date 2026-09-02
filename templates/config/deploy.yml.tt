@@ -72,8 +72,13 @@ aliases:
 volumes:
   - "<%= app_name %>_storage:/rails/storage"
 
+<% unless API -%>
 # Bridge assets between deploys
 asset_path: /rails/public/assets
+<% else -%>
+# No asset_path: an API app compiles no assets, so there is nothing to bridge
+# between deploys and naming a directory that stays empty only misleads.
+<% end -%>
 
 # Docker build configuration
 # Use remote builder to avoid ARM64→x86_64 emulation issues with Tailwind CSS

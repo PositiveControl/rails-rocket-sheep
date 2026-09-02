@@ -15,7 +15,11 @@ Leave the commit on the line above intact: it is where the merge starts from.
 ## Quick Start
 
 ```bash
+<% if API_MODE -%>
+bin/dev              # Start development server
+<% else -%>
 bin/dev              # Start development server with Tailwind watcher
+<% end -%>
 bin/test             # Run tests (single worker on macOS)
 bin/rails console    # Rails console
 bin/rails db:migrate # Run migrations
@@ -26,9 +30,19 @@ bin/brakeman         # Security analysis
 ## Tech Stack
 
 - **Backend:** Rails 8 + <%= DB_LABEL %> (`<%= DB_ADAPTER %>`), <%= DB_PRIMARY_KEY %> primary keys
+<% if API_MODE -%>
+- **Shape:** API-only (`config.api_only`). No view layer, no asset pipeline — the
+  client is a separate repo and consumes `openapi.yaml`
+- **Serialization:** plain objects in `app/serializers/` over `ApplicationSerializer`
+- **Errors:** RFC 9457 problem documents, `application/problem+json`
+- **Pagination:** cursor by default (`Cursor`), offset as a named per-endpoint exception
+- **API auth:** Doorkeeper (OAuth 2, bearer tokens, coarse scopes)
+- **Contract:** `openapi.yaml`, generated from the request tests, CI fails on drift
+<% else -%>
 - **Frontend:** Hotwire (Turbo + Stimulus), Tailwind CSS, Slim (not ERB)
 - **Components:** ViewComponent (`app/components`, `ApplicationComponent`)
 - **Pagination:** Pagy (wired into `ApplicationController`)
+<% end -%>
 - **Solid Stack:** Solid Queue, Solid Cache, Solid Cable — all database-backed, no Redis
 - **Auth:** Devise + Petergate
 - **Deployment:** Kamal 2 with Docker
@@ -59,24 +73,51 @@ and the "when not to" — follow the link before you argue with the rule.
 - **Tests first.** `bin/test` passes before you claim anything works. `bin/rubocop`
   and `bin/brakeman` clean. Fix flaky tests immediately, even when unrelated to
   your change. Minitest and fixtures, no factories → `docs/rules/testing.md`
+<% if API_MODE -%>
+- **Errors are problem documents.** One shape, written only by the `problem` helper
+  on `Api::V1::BaseController`; a client branches on `type`, never on `detail`
+  → `docs/rules/error-envelope.md`
+- **Nothing but a serializer builds a response body.** No hash literals in actions
+  → `docs/rules/serialization.md`
+- **A request body is validated by a contract** in `app/contracts/`, not by
+  `params.require` in an action → `docs/rules/request-contracts.md`
+- **Controllers stay RESTful** — seven actions, a new verb gets a new controller,
+  actions under ~10 lines, every route inside a version namespace
+  → `docs/rules/controllers.md`, `docs/rules/api-versioning.md`
+- **Every collection paginates by cursor** and `per_page` is clamped
+  → `docs/rules/cursor-pagination.md`
+<% else -%>
 - **Form failures render with `status: :unprocessable_content`.** Without it Turbo
   discards the response and the form silently freezes → `docs/rules/turbo-status.md`
 - **Controllers stay RESTful** — seven actions, a new verb gets a new controller,
   actions under ~10 lines → `docs/rules/controllers.md`
 - **Every index paginates** → `docs/rules/pagination.md`
+<% end -%>
 - **Scope every lookup** (`current_user.orders.find(...)`) and let the miss raise
   → `docs/rules/exception-boundary.md`
 - **Business logic goes in `ApplicationService`**, not controllers, not callbacks.
   Transactions live there → `docs/rules/service-objects.md`
+<% unless API_MODE -%>
 - **Multi-model forms use `ApplicationForm`.** Never `accepts_nested_attributes_for`
   → `docs/rules/form-objects.md`
+<% end -%>
 - **Scopes, never class methods** returning relations → `docs/rules/scopes.md`
 - **Callbacks touch only their own record** → `docs/rules/callbacks.md`
+<% unless API_MODE -%>
 - **Slim only, never ERB.** Tailwind bracket classes need the `class=""` form
   → `docs/rules/slim-gotchas.md`
+<% end -%>
 - **Deletes are real by default.** Discard is opt-in per table → `docs/rules/deletes.md`
+<% if API_MODE -%>
+- **Seven sanctioned directories under `app/`** — `services`, `queries`, `policies`,
+  `lib`, `serializers`, `contracts`, `filters`. An eighth needs an ADR
+  → `docs/rules/pattern-budget.md`
+- **`openapi.yaml` is regenerated in the same PR** that changes an endpoint, or CI
+  fails → `docs/rules/openapi-contract.md`
+<% else -%>
 - **Six sanctioned directories under `app/`** — `services`, `forms`, `queries`,
   `policies`, `lib`, `components`. A seventh needs an ADR → `docs/rules/pattern-budget.md`
+<% end -%>
 - **Update `docs/` when behaviour changes**, and `grep` for an existing doc first.
 
 ## Development workflow
@@ -182,6 +223,17 @@ app/
 ├── lib/                    # Registries and config modules
 ├── models/                 # ActiveRecord models
 ├── services/               # Service objects (inherit ApplicationService)
+<% if API_MODE -%>
+├── serializers/            # Response shapes (inherit ApplicationSerializer)
+├── contracts/              # Request body validation (inherit ApplicationContract)
+├── filters/                # Query-string filtering and sorting (inherit ApplicationFilter)
+├── controllers/api/v1/     # Endpoints (inherit Api::V1::BaseController)
+└── jobs/                   # Background jobs (Solid Queue)
+
+# Created on first use, not shipped empty:
+#   app/queries/   Query objects — reads joining ≥2 models
+#   app/policies/  Record-level authorization
+<% else -%>
 ├── forms/                  # Form objects (inherit ApplicationForm)
 ├── components/             # ViewComponents (inherit ApplicationComponent)
 ├── controllers/            # RESTful controllers
@@ -193,6 +245,7 @@ app/
 # Created on first use, not shipped empty:
 #   app/queries/   Query objects — reads joining ≥2 models
 #   app/policies/  Record-level authorization
+<% end -%>
 
 docs/                       # names are load-bearing
 ├── rules/                  # One convention per file

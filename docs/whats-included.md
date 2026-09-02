@@ -131,7 +131,7 @@ app's problem envelope rather than answering in a second format.
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
-| `docs/adr/` (8 files) | One decision per file, numbered — pre-seeded with the template's own eight |
+| `docs/adr/` (13 files) | One decision per file, numbered — pre-seeded with the template's own thirteen. Five are API-only and five carry an **Applies to:** line naming the mode they hold in |
 | `docs/rules/` (38 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
 | `docs/system/models.md` | Model documentation stub |
 | `docs/system/vocabulary.md` | What each workflow and doc term means, and the near-synonyms to avoid |
@@ -148,11 +148,12 @@ app's problem envelope rather than answering in a second format.
 | File | Purpose |
 |---|---|
 | `.claude/commands/*.md` | 24 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| `.claude/skills/rails-conventions/SKILL.md` | One skill, and it is a pointer at `docs/rules/INDEX.md` — it makes the routing model-invocable, so an agent that starts editing a controller on its own initiative still passes through the index. Carries no rule content and no routing table, so there is nothing in it to fall out of step |
 | `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
 | `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
 | `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |
 | `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
-| `bin/doc-tokens` | Regenerates the `tokens:` figure in each `docs/rules/*.md`; `--check` fails on drift |
+| `bin/doc-tokens` | Regenerates the `tokens:` figure in each `docs/rules/*.md` and the four figures derived from it in the routers; `--check` fails on drift |
 | `.github/PULL_REQUEST_TEMPLATE.md` | Tier-neutral PR body + checklist, for PRs opened by hand |
 | `.github/ISSUE_TEMPLATE/` | Issue forms carrying the ≤5-acceptance-criteria sizing rule |
 

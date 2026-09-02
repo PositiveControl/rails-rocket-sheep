@@ -62,25 +62,25 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [pagination](pagination.md) | 360 | Pagy, every index paginates |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
 | [exception-boundary](exception-boundary.md) | 610 | `rescue_from` once, scoped lookups |
-| [service-objects](service-objects.md) | 860 | `ApplicationService`, Result, transactions |
+| [service-objects](service-objects.md) | 910 | `ApplicationService`, Result, transactions |
 | [form-objects](form-objects.md) | 690 | `ApplicationForm`, never nested attributes |
-| [query-objects](query-objects.md) | 450 | Joins ≥2 models, always return a relation |
+| [query-objects](query-objects.md) | 530 | Joins ≥2 models, always return a relation |
 | [policy-objects](policy-objects.md) | 750 | Record-level auth vs Petergate roles |
 | [registries](registries.md) | 790 | `Data` objects, `fetch`, capabilities not identities |
-| [scopes](scopes.md) | 220 | Scopes, never class methods |
+| [scopes](scopes.md) | 280 | Scopes, never class methods |
 | [callbacks](callbacks.md) | 370 | Same record only, `after_commit` for jobs |
 | [n-plus-one](n-plus-one.md) | 370 | `includes`, `counter_cache`, aggregate in SQL |
-| [deletes](deletes.md) | 500 | `destroy` by default, Discard opt-in, the `.kept` tax |
-| [audit-trail](audit-trail.md) | 300 | PaperTrail, scoped with `only:` |
-| [jobs](jobs.md) | 520 | Thin wrapper, IDs not records, idempotent, after commit |
-| [caching](caching.md) | 490 | Solid Cache, russian-doll, always key by user |
-| [safe-migrations](safe-migrations.md) | 380 | Concurrent indexes, two-deploy column removal |
+| [deletes](deletes.md) | 610 | `destroy` by default, Discard opt-in, the `.kept` tax |
+| [audit-trail](audit-trail.md) | 560 | PaperTrail, scoped with `only:` |
+| [jobs](jobs.md) | 600 | Thin wrapper, IDs not records, idempotent, after commit |
+| [caching](caching.md) | 1090 | Solid Cache, russian-doll, always key by user |
+| [safe-migrations](safe-migrations.md) | 500 | Concurrent indexes, two-deploy column removal |
 | [database-conventions](database-conventions.md) | 560 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
-| [seeds](seeds.md) | 420 | Idempotent seeds, kept in step with models and processes |
+| [seeds](seeds.md) | 480 | Idempotent seeds, kept in step with models and processes |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
-| [pattern-budget](pattern-budget.md) | 970 | Six directories, DRY triggers, ADR for a seventh |
-| [rejected-patterns](rejected-patterns.md) | 510 | Repository, CQRS, hexagonal, interactors, DI, decorators |
+| [pattern-budget](pattern-budget.md) | 1000 | Six directories, DRY triggers, ADR for a seventh |
+| [rejected-patterns](rejected-patterns.md) | 520 | Repository, CQRS, hexagonal, interactors, DI, decorators |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 | [slim-gotchas](slim-gotchas.md) | 630 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
 | [tailwind-build](tailwind-build.md) | 340 | Interpolated classes are purged; no class strings in JS |
@@ -96,8 +96,8 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [accessibility](accessibility.md) | 300 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~20,690 tokens across 38 rules. Typical read: this index (~3000)
-plus one or two rules (210–1110). Reading the whole corpus is a bug, not thoroughness.
+**Total corpus:** ~22,150 tokens across 38 rules. Typical read: this index (~3000)
+plus one or two rules (240–1150). Reading the whole corpus is a bug, not thoroughness.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand —
 a hand-typed one is stale the next time a rule is edited, and a budget nobody can

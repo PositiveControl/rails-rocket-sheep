@@ -386,7 +386,10 @@ if API
   copy_template_file "app/lib/cursor.rb"
   copy_template_file "app/controllers/api/v1/base_controller.rb"
   copy_template_file "app/models/idempotent_request.rb"
-  copy_template_file "config/initializers/cors.rb"
+  # force, because `rails new --api` has already written a commented-out sample at
+  # this path. Without it an interactive generation stops and asks the user whether
+  # to keep the file the template deliberately came here to write.
+  copy_template_file "config/initializers/cors.rb", nil, force: true
   copy_template_file "lib/tasks/api_contract.rake"
 
   # The gate that makes "generated from the request tests" a promise rather than a

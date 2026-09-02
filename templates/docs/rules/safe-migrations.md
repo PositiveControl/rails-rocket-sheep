@@ -5,7 +5,7 @@ applies_to: ["db/migrate/**/*.rb"]
 triggers: ["migration", "add_column", "add_index", "backfill", "rename column", "remove column", "ignored_columns", "concurrently", "disable_ddl_transaction", "lock table", "deploy blocked"]
 see_also: ["deletes", "database-conventions"]
 modes: [ web, api ]
-tokens: 380
+tokens: 500
 current_state: matches
 ---
 
@@ -39,3 +39,11 @@ class AddIndexToOrders < ActiveRecord::Migration[8.0]
   end
 end
 ```
+
+**The split is not theoretical.** An audited MySQL app has 126 migrations adding an
+index and not one `algorithm: :concurrently`, because on MySQL that argument would
+have raised. Copying the PostgreSQL form onto MySQL does not degrade quietly — it
+fails the migration. Read the Tech Stack line before writing either.
+
+The two-migration rules are the ones that actually get skipped: the same audited app
+backfills in the migration that adds the column twice.
