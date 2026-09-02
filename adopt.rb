@@ -202,6 +202,13 @@ WORKFLOW_COMMANDS.each do |command|
   copy_template_file command, command.sub(".claude/", ".cursor/")
 end
 
+# One skill, and it is a router (ADR 0010). ADR 0001 keeps docs/rules/ as the only
+# source and plain markdown as the format; the cost it accepted was that routing
+# only fires when something tells the agent to read the index first, so an agent
+# that starts editing a controller on its own initiative never passes through it.
+# A model-invocable pointer closes that without any rule being written twice.
+copy_template_file ".claude/skills/rails-conventions/SKILL.md"
+
 # Cursor project rules. Like AGENTS.md, a pointer to CLAUDE.md rather than a
 # second copy of the conventions.
 template_file ".cursor/rules/conventions.mdc.tt"

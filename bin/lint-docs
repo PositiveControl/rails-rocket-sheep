@@ -178,7 +178,11 @@ end
 # placeholder (`<id>`, a date, a glob), and those are skipped: the path is a
 # pattern, not a file. A bare basename with no directory is a name in prose.
 PLACEHOLDER = /[<>*$]|YYYY|\{\{/
-command_paths.each do |path|
+# The skill is a router too (ADR 0010), and its one job is to name paths that
+# exist — a skill pointing at a missing index routes an agent nowhere, silently.
+skill_paths = Dir.glob(File.join(TEMPLATES, ".claude/skills/*/SKILL.md")).sort
+findings << "templates/.claude/skills: no SKILL.md, so nothing makes the index model-invocable" if skill_paths.empty?
+(command_paths + skill_paths).each do |path|
   File.readlines(path).each_with_index do |line, i|
     next if line.include?(IGNORE) # a file this command creates at runtime
 

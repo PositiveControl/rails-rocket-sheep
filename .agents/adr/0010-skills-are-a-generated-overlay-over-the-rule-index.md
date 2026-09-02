@@ -1,6 +1,6 @@
 # Skills are a generated overlay over the rule index, not a second corpus
 
-**Status: draft.** Amends [ADR 0001](0001-plain-markdown-commands-not-skills.md),
+Amends [ADR 0001](0001-plain-markdown-commands-not-skills.md),
 which stands except for the consequence it accepted: routing is still plain
 markdown, and it is no longer only routed *to*.
 
@@ -31,15 +31,23 @@ tool-agnostic source is a shape this product already uses.
 
 ## Decision
 
-`docs/rules/` stays the only source. Generation additionally emits **one** skill,
-`.claude/skills/rails-conventions/SKILL.md`, whose body is the routing content of
-`INDEX.md` — the route-by-path table, the route-by-symptom table — and whose
-instruction is to read the one rule file it routed to.
+`docs/rules/` stays the only source. Generation additionally installs **one** skill,
+`.claude/skills/rails-conventions/SKILL.md`, whose `description` covers Rails work
+under `app/`, `db/migrate/`, `config/` and `test/`, and whose body is the three-step
+route: read `docs/rules/INDEX.md`, read only the rules it names, fall back to
+`SYMPTOMS.md` on a miss.
 
-The skill carries no rule content. It is a router, so there is nothing in it to
-drift from the rule files; the only fact it repeats is which paths and symptoms
-map to which id, which `bin/lint-docs` already checks in `INDEX.md` and can check
-here from the same data.
+It carries no routing tables. The draft of this decision put `INDEX.md`'s
+route-by-path table in the body, to save the agent a hop; that was dropped when it
+was built. [ADR 0012](0012-routing-is-two-tier-in-both-modes.md) had since made the
+index the one place routing lives — and copying the table back out would have
+recreated, inside a generated app, the third copy this decision's own consequences
+list as its worst cost, plus a `lint-docs` check to hold the copy in step. The hop
+it saves is one file read; the drift it avoids is an agent routed to the wrong rule
+with nothing to tell it. There is also a second index now, one per mode, and a
+pointer needs no branch: both modes install their router under the same name.
+
+So the skill repeats no fact from anywhere. It is a door, not a map.
 
 Rejected: one skill per rule. Thirty-eight-plus skill descriptions is a listing an
 agent pays for on every turn to route work the index routes for free, and it puts
@@ -47,8 +55,9 @@ thirty-eight `description` lines under maintenance beside the `title` and
 `triggers` they restate. The index is already the router; the skill's job is to
 make the index model-invocable, not to replace it.
 
-`bin/lint-docs` gains one check: the skill's tables match `INDEX.md`'s. Nothing
-else changes. The enforcement layer stays harness-specific because it degrades to
+`bin/lint-docs` gains two checks, both cheap because the body is a pointer: a
+`SKILL.md` exists at all, and every path it names resolves — the same check the
+workflow commands already get, extended to the skill. Nothing else changes. The enforcement layer stays harness-specific because it degrades to
 nothing (ADR 0001); the skill is now the same kind of thing — an agent in Cursor
 loses the auto-pull and still reads the same index that says which rule applies.
 
@@ -56,11 +65,10 @@ loses the auto-pull and still reads the same index that says which rule applies.
 
 Accepted:
 
-- **A third copy of the routing tables exists in a generated app.** `INDEX.md`,
-  `.cursor/rules/conventions.mdc`, and now the skill. All three are generated from
-  one source in this repo, which is where they are written, but a buyer who edits
-  `INDEX.md` in their app leaves two stale. This is the cost ADR 0002 already
-  accepted for commands, taken a second time.
+- ~~**A third copy of the routing tables exists in a generated app.**~~ Avoided,
+  by dropping the tables from the body. `INDEX.md` stays the only place the routing
+  is written, and the skill names it rather than restating it. This was the
+  consequence that decided the built shape.
 - **The skill is Claude Code only, and the corpus must not come to depend on it.**
   The moment a rule says "the skill will pull this in", the corpus has forked by
   tool, which is what 0001 was protecting. Rules keep stating their own
@@ -69,9 +77,14 @@ Accepted:
   matching the model's read of the task. It will miss. `CLAUDE.md` keeps telling
   the agent to read the index, because the skill is an addition to the routing
   path and not a replacement for it.
-- **One more thing generation can get wrong silently.** A skill with stale tables
-  routes an agent to the wrong rule, which is worse than no skill. Hence the
-  `bin/lint-docs` check landing in the same change, not after it.
+- **One more thing generation can get wrong silently.** A skill naming an index
+  that is not there routes an agent nowhere, which is worse than no skill. Hence
+  the `bin/lint-docs` checks landing in the same change, not after it. Both were
+  proved to fire before the change was committed.
+- **The pointer costs a hop.** The skill fires, its body sends the agent to the
+  index, the index sends it to a rule: three reads where an inlined table would
+  have been two. That is the price of one copy instead of two, and it is only paid
+  when the skill fires on work that actually needs routing.
 
 Gained: the one consequence 0001 accepted and could not mitigate. A rule can now
 reach an agent that never asked for it, without any rule being written twice.
@@ -79,7 +92,10 @@ reach an agent that never asked for it, without any rule being written twice.
 ## Revisit when
 
 A second harness ships a model-invocable format, or the single-skill router
-measurably fails to fire on work it should cover. The first makes this a generated
+measurably fails to fire on work it should cover. Inlining the path table is the
+other thing to revisit, and the evidence for it would be agents that read the
+skill and then stop before reading the index — not an argument that two reads are
+better than three. The first makes this a generated
 pair rather than a generated file; the second is an argument for per-rule skills
 that should be made with evidence about what did not fire, since it reverses the
 rejection above.
