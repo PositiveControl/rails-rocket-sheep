@@ -1,0 +1,130 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# bin/gates — the mechanical checks on this app's shape.
+#
+# Each check enforces one convention a machine can decide without judgment: a
+# grep, a directory listing, a diff. Nothing here decides whether code is good.
+# docs/rules/pattern-budget.md draws that line: "a reviewer can check it in a
+# diff" is the bar a rule clears to be gated at all.
+#
+# One script, three callers:
+#   bin/hooks/pre-push              before every push — any editor, any agent
+#   .github/workflows/gates.yml     in CI, with --strict
+#   bin/gates                       by hand, from anywhere in the repo
+#
+# Exit 0 clean, 1 on a violation. A check that crashes is skipped with a note
+# unless --strict is given: a broken gate must never wedge a push, and CI must
+# never go green on a gate that did not run. Bypass locally with
+# `git push --no-verify`.
+
+STRICT = ARGV.delete("--strict")
+Dir.chdir(File.expand_path("..", __dir__))
+
+# --- rejected-patterns -------------------------------------------------------
+# docs/rules/rejected-patterns.md lists the patterns by name; these are the
+# tokens each one leaves in code. Comment lines are skipped so a rule quoted
+# in a comment does not trip the gate that quotes it.
+
+CODE_PATTERNS = {
+  /\baccepts_nested_attributes_for\b/ => "accepts_nested_attributes_for",
+  /\bSimpleDelegator\b/ => "SimpleDelegator",
+  /\bDry::/ => "dry-rb",
+  /\bInteractor\b/ => "Interactor"
+}.freeze
+GEM_PATTERN = /^\s*gem\s+["'](dry-\w+|interactor)\b/
+
+def rejected_patterns
+  findings = Dir.glob("app/**/*.rb").sort.flat_map do |file|
+    File.foreach(file).with_index(1).filter_map do |line, number|
+      next if line.lstrip.start_with?("#")
+
+      hit = CODE_PATTERNS.find { |pattern, _| line.match?(pattern) }
+      "#{file}:#{number}: #{hit.last}" if hit
+    end
+  end
+
+  if File.exist?("Gemfile")
+    File.foreach("Gemfile").with_index(1) do |line, number|
+      findings << "Gemfile:#{number}: #{line.strip}" if line.match?(GEM_PATTERN)
+    end
+  end
+
+  findings
+end
+
+# --- pattern-budget ----------------------------------------------------------
+# Only the directory count, never the contents. Rails' own directories plus the
+# mode's budget; anything else needs an ADR in docs/adr/ that names it, which is
+# exactly what the rule asks for.
+
+RAILS_DIRS = %w[assets channels controllers helpers javascript jobs mailboxes mailers models views].freeze
+WEB_DIRS = %w[services forms queries policies lib components].freeze
+API_DIRS = %w[services queries policies lib serializers contracts filters].freeze
+
+def api_mode?
+  File.exist?("config/application.rb") &&
+    File.read("config/application.rb").match?(/^\s*config\.api_only\s*=\s*true/)
+end
+
+def pattern_budget
+  return [] unless Dir.exist?("app")
+
+  budget = api_mode? ? API_DIRS : WEB_DIRS
+  adrs = Dir.glob("docs/adr/*.md").map { |file| File.read(file) }.join
+
+  Dir.children("app").sort.filter_map do |dir|
+    next unless File.directory?("app/#{dir}")
+    next if RAILS_DIRS.include?(dir) || budget.include?(dir)
+    next if adrs.include?("app/#{dir}/")
+
+    "app/#{dir}/ is outside the #{budget.size}-directory budget and no ADR in docs/adr/ names it"
+  end
+end
+
+# --- command mirror ----------------------------------------------------------
+# .cursor/commands/ is a copy of .claude/commands/, made at generation and
+# filled by /workflow_setup. Nothing else keeps them equal.
+
+def command_mirror
+  return [] unless Dir.exist?(".claude/commands") && Dir.exist?(".cursor/commands")
+
+  output = `diff -rq .claude/commands .cursor/commands 2>&1`
+  raise "diff failed: #{output.strip}" if $?.exitstatus > 1
+
+  output.lines.map(&:strip)
+end
+
+# --- runner ------------------------------------------------------------------
+
+CHECKS = [
+  ["Rejected patterns", :rejected_patterns, "docs/rules/rejected-patterns.md",
+   "Remove it, or record why this app needs it as an ADR in docs/adr/."],
+  ["Pattern budget", :pattern_budget, "docs/rules/pattern-budget.md",
+   "Move the files into a budgeted directory, or write the ADR that names the new one."],
+  ["Command mirror", :command_mirror, "AGENTS.md",
+   "Copy the newer file over the older one; the two directories are one set of commands."]
+].freeze
+
+failed = false
+
+CHECKS.each do |title, check, rule, fix|
+  findings =
+    begin
+      send(check)
+    rescue StandardError => e
+      raise if STRICT
+
+      warn "gates: #{title} check crashed and was skipped (#{e.class}: #{e.message})"
+      next
+    end
+  next if findings.empty?
+
+  failed = true
+  warn "#{title} — #{rule}"
+  findings.each { |finding| warn "  #{finding}" }
+  warn "  #{fix}"
+  warn ""
+end
+
+exit(failed ? 1 : 0)

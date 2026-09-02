@@ -1,0 +1,20 @@
+name: Gates
+
+# The hard backstop for bin/gates — the same checks the pre-push hook runs, but
+# nothing on the agent's side can skip this one. Make it required under branch
+# protection and it becomes a merge gate.
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  gates:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: false
+      - run: bin/gates --strict

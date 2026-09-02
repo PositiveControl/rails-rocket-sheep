@@ -227,6 +227,39 @@ copy_template_file "bin/hooks/session_end"
 chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
 
+# The mechanical gates: rejected patterns, the pattern budget's directory count,
+# and the command mirror. One script, run from a git pre-push hook here and from
+# CI with --strict. The pre-push hook is the only enforcement in the layer that
+# fires for every editor and agent, not just Claude Code.
+copy_template_file "bin/gates"
+copy_template_file "bin/hooks/pre-push"
+chmod "bin/gates", 0755
+chmod "bin/hooks/pre-push", 0755
+copy_template_file ".github/workflows/gates.yml"
+
+# git reads hooks from .git/hooks, which is not versioned, so the shipped hook is
+# only reachable through core.hooksPath. Set it if nothing else has claimed the
+# hooks: an app already running lefthook, overcommit or hand-written hooks keeps
+# them, and is told how to chain ours. template.rb calls this again after its own
+# `git :init`, for a generation that ran with --skip-git.
+def install_git_hooks
+  return unless Dir.exist?(File.join(destination_root, ".git"))
+
+  current = `git config core.hooksPath`.strip
+  return if current == "bin/hooks"
+
+  custom = Dir.glob(File.join(destination_root, ".git/hooks/*")).reject { |hook| hook.end_with?(".sample") }
+  if current.empty? && custom.empty?
+    git config: "core.hooksPath bin/hooks"
+  else
+    say "bin/hooks/pre-push was not installed: this repo already has git hooks " \
+        "(#{current.empty? ? custom.map { |hook| File.basename(hook) }.join(", ") : "core.hooksPath=#{current}"}). " \
+        "Call bin/gates from your pre-push hook, or run: git config core.hooksPath bin/hooks", :yellow
+  end
+end
+
+install_git_hooks
+
 # Tool-neutral pointer to CLAUDE.md, for agents that look for AGENTS.md
 template_file "AGENTS.md.tt"
 

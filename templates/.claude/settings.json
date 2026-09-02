@@ -4,6 +4,7 @@
       "Bash(bin/test:*)",
       "Bash(bin/rubocop:*)",
       "Bash(bin/brakeman:*)",
+      "Bash(bin/gates:*)",
       "Bash(bin/rails routes:*)",
       "Bash(bin/rails db:migrate:*)",
       "Bash(bin/rails db:prepare:*)",

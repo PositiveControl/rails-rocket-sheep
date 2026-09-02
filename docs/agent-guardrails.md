@@ -74,7 +74,7 @@ The rule of thumb: **allow it if you'd approve it every time without reading it.
 
 ## Hooks
 
-Two hook scripts, both plain Ruby in `bin/hooks/`, both readable and editable.
+Two Claude Code hook scripts, both plain Ruby in `bin/hooks/`, both readable and editable — and beside them a git `pre-push` hook, covered after them.
 
 Claude Code passes the tool call as JSON on stdin. Exit 0 is silent success; **exit 2 sends stderr back to the agent as feedback it has to address.** Both scripts exit 0 on any unexpected error — a broken hook must never block work.
 
@@ -96,6 +96,16 @@ div class="max-h-[85vh]"   # correct
 Scans the doc canon for `Status: Draft` placeholders and reports any it finds.
 
 `/feature_plan` creates placeholders and `/pr_submit` is meant to complete or delete them, but a session ending in between leaves them silently — and `WORKFLOW.md` forbids merging a PR with a Draft placeholder behind it. The hook stays quiet unless there's something to report.
+
+### `bin/gates` — before every push, and in CI
+
+The one enforcement layer that is not Claude Code only. A git `pre-push` hook (`bin/hooks/pre-push`, reached through `core.hooksPath bin/hooks`) runs it for every editor, agent, and human, and `.github/workflows/gates.yml` runs it again with `--strict` so nothing on the pushing side can skip it. Three checks, each a grep, a listing, or a diff:
+
+- **Rejected patterns** — `accepts_nested_attributes_for`, `SimpleDelegator`, `Dry::`, `Interactor` in `app/`, and the `dry-*` / `interactor` gems in the Gemfile ([`rejected-patterns`](../templates/docs/rules/rejected-patterns.md)).
+- **Pattern budget** — a directory under `app/` that is neither Rails' own nor in the mode's budget, unless an ADR in `docs/adr/` names it ([`pattern-budget`](../templates/docs/rules/pattern-budget.md)).
+- **Command mirror** — `.claude/commands/` and `.cursor/commands/` differ.
+
+Exit 1 on a finding, with the path and the rule it enforces. A check that crashes is skipped locally and fails the run in CI. `git push --no-verify` bypasses the hook once; CI does not have a bypass, which is the point. Which rules can be gated at all, and in what order they will be, is [`deterministic-gates.md`](deterministic-gates.md).
 
 ### Turning them off
 
