@@ -44,7 +44,7 @@ gh pr diff $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --name-only
 Each non-trivial changed file: read full file, not just diff. Critical — diff without full-file context gives shallow feedback.
 
 Read priority:
-1. Database migrations
+1. Database migrations, and the `db/queries.yml` hunk — every new entry is a query this PR added, with a review line CI could only check the shape of
 2. Models (validations, associations, scopes, callbacks)
 3. Controllers
 4. Services / business logic
@@ -141,6 +141,7 @@ Review the code using the criteria from the language-specific review doc (Step 5
 - Security vulnerabilities (injection, XSS, mass assignment, etc.)
 - Data integrity issues (missing validations, unsafe migrations, race conditions)
 - Seeds left out of step: a new model, process, or dependency landed without a matching idempotent `db/seeds.rb` update (`docs/rules/seeds.md`)
+- A `db/queries.yml` review line that is wrong: it names an index the query cannot use, or a `no index:` reason that does not hold for the table's size or growth (`docs/rules/query-ledger.md`). CI checked that the line exists, not that it is right
 - Missing or broken tests for new behavior
 - Significant performance issues
 

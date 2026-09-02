@@ -33,7 +33,7 @@ Editing a file that matches → read these rules.
 | `app/controllers/**` | [controllers](controllers.md) · [turbo-status](turbo-status.md) · [policy-objects](policy-objects.md) — then the controller table below |
 | `app/services/**` | [service-objects](service-objects.md) · [jobs](jobs.md) |
 | `app/forms/**` | [form-objects](form-objects.md) |
-| `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) |
+| `app/queries/**` | [query-objects](query-objects.md) · [n-plus-one](n-plus-one.md) · [query-ledger](query-ledger.md) |
 | `app/policies/**` | [policy-objects](policy-objects.md) |
 | `app/lib/**` | [registries](registries.md) |
 | `app/models/**` | [scopes](scopes.md) · [callbacks](callbacks.md) · [n-plus-one](n-plus-one.md) — then the model table below |
@@ -47,6 +47,7 @@ Editing a file that matches → read these rules.
 | `app/javascript/controllers/**` | [stimulus](stimulus.md) · [tailwind-build](tailwind-build.md) |
 | `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) · [seeds](seeds.md) |
 | `db/seeds.rb`, `db/seeds/**` | [seeds](seeds.md) |
+| `db/queries.yml` | [query-ledger](query-ledger.md) |
 | `test/**` | [testing](testing.md) |
 | `test/components/**` | [testing](testing.md) · [components](components.md) |
 | Anything under `app/`, when you are unsure which layer calls which | [write-path](write-path.md) |
@@ -85,7 +86,7 @@ read one when the work touches it, not because you opened a file of that type.
 | changing what a fresh checkout needs | [seeds](seeds.md) |
 | adding a fixed set of variants with attributes | [registries](registries.md) |
 
-**Read cost:** this index (~1400) plus one or two rules (240–1150) ·
+**Read cost:** this index (~1500) plus one or two rules (240–1150) ·
 [`SYMPTOMS.md`](SYMPTOMS.md) (~2300) only when routing by path missed. Every `tokens`
 figure is generated from the file by `bin/doc-tokens` — budget from it, and re-run that
 script after editing a rule.

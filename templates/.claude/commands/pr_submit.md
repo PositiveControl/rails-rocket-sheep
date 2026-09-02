@@ -47,6 +47,13 @@ Pick relevant system tests from the branch diff (`git diff --name-only origin/<B
 
 The full system suite runs in CI. Local system runs are single-worker and slow — don't run the whole suite before push.
 
+**Query ledger** — every SQL shape the suite emits has a reviewed line (`docs/rules/query-ledger.md`):
+```bash
+bin/rails db:queries                                          # merges new shapes into db/queries.yml
+grep -q "review: ''" db/queries.yml && bin/rails db:queries:explain  # plan + indexes for each unreviewed one
+```
+An unreviewed entry → read its plan and the indexes printed beneath, write the `review:` line (an index name from `db/schema.rb`, or `no index:` and why), and commit `db/queries.yml` with the code that emits the query. CI runs `db:queries:check` and fails on an empty or unknown one.
+
 Lint + static analysis run parallel (independent). Then tests.
 
 Check fails:
@@ -236,7 +243,7 @@ PR merged! Automation handles issue close, board → Done, and branch deletion.
 - Slow CI checks (skip polling, ran locally): test
 - Informational checks (ignore): CodeQL / Analyze
 - CI check `state` values: PENDING, IN_PROGRESS, SUCCESS, FAILURE, SKIPPED (no `conclusion` field)
-- Local pre-push checks: bin/gates, bin/rubocop --force-exclusion (changed files), bin/brakeman -q --no-pager, bin/test, bin/rails test:system
+- Local pre-push checks: bin/gates, bin/rubocop --force-exclusion (changed files), bin/brakeman -q --no-pager, bin/test, bin/rails test:system, bin/rails db:queries
 - Pre-existing test failures: system tests may have failures on main — only fix failures introduced by the branch
 - Issue label for review: "{{REVIEW_LABEL}}"
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}
