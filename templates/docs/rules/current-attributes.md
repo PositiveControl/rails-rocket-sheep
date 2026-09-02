@@ -5,6 +5,7 @@ applies_to: ["app/models/current.rb", "app/models/**/*.rb", "app/controllers/**/
 triggers: ["Current.user", "CurrentAttributes", "ActiveSupport::CurrentAttributes", "ambient state", "thread local", "global user", "tests pass in isolation"]
 see_also: ["audit-trail", "service-objects"]
 tokens: 230
+current_state: matches
 ---
 
 # `CurrentAttributes` — a trap, documented

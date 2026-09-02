@@ -5,6 +5,7 @@ applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/components/
 triggers: ["tailwind", "colors", "semantic color", "dark mode", "dark:", "responsive", "breakpoint", "sm:", "lg:", "mobile first", "palette"]
 see_also: ["tailwind-build", "components", "accessibility"]
 tokens: 470
+current_state: matches
 ---
 
 # Tailwind

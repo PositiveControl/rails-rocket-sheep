@@ -5,6 +5,7 @@ applies_to: ["app/controllers/**/*.rb"]
 triggers: ["rescue_from", "RecordNotFound", "404", "403", "forbidden", "rescue", "not found", "leaks existence", "authorization redirect"]
 see_also: ["controllers", "policy-objects", "turbo-status"]
 tokens: 400
+current_state: matches
 ---
 
 # One exception boundary, not fifty rescues

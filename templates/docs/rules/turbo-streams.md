@@ -5,6 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "app/views/**/*.turbo_stream.slim", "app
 triggers: ["turbo_stream", "broadcasts_to", "broadcast", "turbo stream append", "live update", "respond_to format.turbo_stream", "after_commit broadcast", "real time"]
 see_also: ["turbo-frames", "turbo-status", "callbacks", "jobs"]
 tokens: 560
+current_state: matches
 ---
 
 # Turbo streams

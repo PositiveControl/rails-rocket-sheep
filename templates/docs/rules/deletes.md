@@ -4,7 +4,8 @@ title: Deletes are real by default; Discard is opt-in per table
 applies_to: ["app/models/**/*.rb", "db/migrate/**/*.rb"]
 triggers: ["soft delete", "Discard", "discarded_at", "kept", "undiscard", "destroy", "default_scope", "restore a record", "reify"]
 see_also: ["audit-trail", "safe-migrations"]
-tokens: 490
+tokens: 500
+current_state: matches
 ---
 
 # Deletes: real by default

@@ -4,7 +4,8 @@ title: Turbo frames — stable ids, matching responses, lazy loading
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/controllers/**/*.rb"]
 triggers: ["turbo_frame_tag", "turbo frame", "frame missing", "content missing", "dom_id", "turbo_frame: _top", "lazy loading", "loading: :lazy"]
 see_also: ["turbo-streams", "turbo-status"]
-tokens: 380
+tokens: 390
+current_state: matches
 ---
 
 # Turbo frames

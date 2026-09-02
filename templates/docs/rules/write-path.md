@@ -4,7 +4,8 @@ title: The write path end to end — which layer calls which
 applies_to: ["app/**"]
 triggers: ["layering", "which layer", "order of operations", "architecture overview", "jumps a layer", "view calls service", "model sends mail", "how do these fit together"]
 see_also: ["pattern-budget", "controllers", "service-objects", "form-objects"]
-tokens: 310
+tokens: 320
+current_state: matches
 ---
 
 # The write path, end to end

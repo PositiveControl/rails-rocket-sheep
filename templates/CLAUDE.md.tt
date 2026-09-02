@@ -38,14 +38,18 @@ bin/brakeman         # Security analysis
 
 **Conventions are one rule per file in `docs/rules/`. Do not read them all.**
 
-Start at [`docs/rules/INDEX.md`](docs/rules/INDEX.md). It routes three ways:
+Start at [`docs/rules/INDEX.md`](docs/rules/INDEX.md). It routes by the file you are
+editing: a small set that applies to any edit in that path, then conditional tables
+for what you are actually doing. Read what it names and stop.
 
-1. **By the file you are editing** — the `applies_to` glob table
-2. **By symptom** — `grep -l "<keyword>" docs/rules/*.md`, or the trigger table
-3. **By rule id** — the file is always `docs/rules/<id>.md`
+If it did not answer you — you know the symptom but not the file — the fallback is
+[`docs/rules/SYMPTOMS.md`](docs/rules/SYMPTOMS.md), which carries the symptom table
+and the full annotated list. It costs about twice the index, so it is second, not
+first. `grep -l "<keyword>" docs/rules/*.md` finds a rule by its `triggers` without
+loading anything, and a rule id is always `docs/rules/<id>.md`.
 
-The index carries the read cost of every rule, so budget from it rather than
-guessing. Reading the whole directory is a mistake, not diligence.
+Both routers carry read costs, so budget from them rather than guessing. Reading the
+whole directory is a mistake, not diligence.
 
 ## Non-negotiables
 
@@ -150,7 +154,7 @@ these exact paths — don't rename them.
 
 | Directory | Holds | Written by |
 |-----------|-------|------------|
-| `docs/rules/` | One convention per file + `INDEX.md` | Hand-maintained; see the index's own rules |
+| `docs/rules/` | One convention per file + `INDEX.md` router and `SYMPTOMS.md` fallback | Hand-maintained; see the index's own rules |
 | `docs/plans/` | Design docs for features | `/feature_plan` |
 | `docs/adr/` | One decision per file, numbered — why a rule exists | `/domain_model` |
 | `docs/system/` | Architecture state — how things currently work | `/pr_submit`, `/update_docs` |
@@ -192,7 +196,8 @@ app/
 
 docs/                       # names are load-bearing
 ├── rules/                  # One convention per file
-│   └── INDEX.md            #   Router — start here
+│   ├── INDEX.md            #   Router — start here
+│   └── SYMPTOMS.md         #   Fallback — by symptom, and the full list
 ├── plans/                  # Design docs (/feature_plan)
 ├── adr/                    # One decision per file, numbered
 ├── system/                 # Architecture state

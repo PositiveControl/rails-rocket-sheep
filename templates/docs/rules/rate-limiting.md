@@ -5,6 +5,7 @@ applies_to: ["app/controllers/**/*.rb"]
 triggers: ["rate_limit", "rate limiting", "throttle", "too many requests", "sign in", "password reset", "signup", "brute force", "contact form", "webhook"]
 see_also: ["controllers", "caching"]
 tokens: 330
+current_state: matches
 ---
 
 # Rate-limit what strangers can reach

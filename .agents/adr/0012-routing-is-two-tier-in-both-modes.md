@@ -1,8 +1,5 @@
 # Routing is two-tier, in both modes
 
-**Status: draft.** Decided; not implemented. `templates/docs/rules/INDEX.md` is still
-one file and there is no `SYMPTOMS.md`.
-
 ## Context
 
 `INDEX.md` routes by path: the file you are about to edit names the rules that apply.
@@ -67,6 +64,20 @@ Accepted:
 Gained: the entry point stops costing three thousand tokens to answer a question
 whose answer is two hundred, and the API corpus does not repeat the measurement to
 learn it.
+
+Measured on this corpus after the port, entry point 3,030 → 1,433:
+
+| Flow | Before | After |
+|---|---|---|
+| Slim edit, everything the path row named | 7,070 | 2,983 |
+| Slim edit, writing a form | 7,070 | 3,353 |
+| Controller edit, path row as named | 6,330 | 3,023 |
+| Controller edit, an index action | 6,330 | 3,383 |
+| Model edit, path row as named | 5,410 | 2,373 |
+| **Five flows summed** | **32,210** | **15,115** |
+
+Fifty-four percent, against the roughly fifty the adopted app measured on its own
+eight flows. `SYMPTOMS.md` costs ~2,280 when routing by path misses.
 
 ## Revisit when
 

@@ -196,9 +196,12 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   states one has to pass it. Run it before you commit a doc change; a doc that
   disagrees with the tree is worse than no doc, because the agent cannot tell.
 - **Rules go in `templates/docs/rules/`, one per file**, with complete frontmatter
-  (`id`, `applies_to`, `triggers`, `see_also`, `tokens`). The `id` must match the
-  filename. Add rows to all three tables in `INDEX.md` — route by path, route by
-  symptom, full list.
+  (`id`, `applies_to`, `triggers`, `see_also`, `tokens`, `current_state`). The `id`
+  must match the filename. Routing is two-tier: add a row to `INDEX.md` — the path
+  table for a rule that applies to any edit in that path, a conditional table
+  otherwise — and rows to *route by symptom* and *full list* in `SYMPTOMS.md`.
+  `bin/lint-docs` checks all three, and a rule declaring `current_state: diverges`
+  must carry a `## Where this app is` section.
 - **Rules say what to do. ADRs say why it was chosen.** There are two ADR homes,
   because there are two products: decisions about a *generated app* go in
   `templates/docs/adr/`, one file per decision, and ship, and decisions about *this

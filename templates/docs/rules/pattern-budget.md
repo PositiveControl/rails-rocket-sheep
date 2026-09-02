@@ -4,7 +4,8 @@ title: Pattern budget — six directories, where code goes
 applies_to: ["app/**"]
 triggers: ["where does this go", "new directory", "app/services", "app/forms", "app/queries", "app/policies", "app/lib", "app/components", "seventh directory", "pattern sprawl", "DRY", "extract"]
 see_also: ["rejected-patterns", "write-path", "service-objects", "form-objects", "query-objects", "policy-objects", "registries", "optional-patterns"]
-tokens: 680
+tokens: 690
+current_state: matches
 ---
 
 # Pattern budget

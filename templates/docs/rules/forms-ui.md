@@ -4,7 +4,8 @@ title: Form markup — form_with, ErrorSummaryComponent, field errors
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim"]
 triggers: ["form_with", "form markup", "error display", "ErrorSummaryComponent", "field error", "full_messages_for", "label", "submit button"]
 see_also: ["form-objects", "turbo-status", "components", "accessibility"]
-tokens: 360
+tokens: 370
+current_state: matches
 ---
 
 # Form markup

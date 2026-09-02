@@ -1,8 +1,5 @@
 # A rule declares in frontmatter whether the app still obeys it
 
-**Status: draft.** Decided; not implemented. No rule carries the field yet and
-`bin/lint-docs` does not check it.
-
 ## Context
 
 Adopting this corpus into an existing app rewrote most of it, and eight rules grew
