@@ -17,7 +17,6 @@
       "Bash(bin/rails tailwindcss:build:*)",
       "Bash(bin/rails zeitwerk:check:*)",
       "Bash(bin/importmap:*)",
-      "Bash(bin/pr-stack:*)",
       "Bash(bundle install:*)",
       "Bash(bundle show:*)",
       "Bash(bundle exec rubocop:*)",

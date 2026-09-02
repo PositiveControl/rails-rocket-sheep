@@ -18,8 +18,8 @@ Execute an approved task plan. Idempotent — first run after `/task_plan` appro
 
 ### Step 2: Load state
 
-1. Read `.llm/tasks/<id>_*.md` — goal, acceptance criteria, Next Actions, progress log. **No task file → stop, run `/task_plan <issue>` first.** Never implement without an approved plan.
-2. Verify the branch: on `{{BRANCH_PREFIX}}/<id>/*`? If not, check it out. `git status` + `git log origin/main..HEAD --oneline` — what's already committed.
+1. Read `.llm/tasks/<id>_*.md` — goal, acceptance criteria, `Base:` (the branch this slice's PR targets: `main` or `feature/<slug>`), Next Actions, progress log. **No task file → stop, run `/task_plan <issue>` first.** Never implement without an approved plan.
+2. Verify the branch: on `{{BRANCH_PREFIX}}/<id>/*`? If not, check it out. `git status` + `git log origin/<BASE>..HEAD --oneline` — what's already committed.
 3. Cross-check progress log vs actual commits — the log can lag reality; commits are truth.
 
 ### Step 3: Orient
@@ -40,7 +40,7 @@ Work through Next Actions in order. Per logical unit:
 Rules in force:
 
 - **Conventions**: `docs/rules/` is the single source, routed by `docs/rules/INDEX.md` — do not restate rules in the task file
-- **Scope escape**: forecast passes ~600 added lines, or new acceptance criteria surface → STOP. Split a sub-issue (`gh issue create`, link to parent), note it in the task file, land the current slice clean
+- **Scope escape**: forecast passes ~1,500 added lines or 25 files, or new acceptance criteria surface → STOP. Split a sub-issue (`gh issue create`, link to parent), note it in the task file, land the current slice clean
 - **Segue valve**: rabbit hole, plan contradiction, or theory-war debugging → suggest `/segue <question>` instead of burning the session
 - Remove all debugging code before finishing
 
@@ -59,4 +59,4 @@ Criteria remain → keep looping or report the blocker.
 - Task files: `.llm/tasks/<id>_<slug>.md`
 - Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number or `bd-<hash>`
 - Test runner: `bin/test` (specific file: `bin/test <path-to-test-file>`), system: `bin/rails test:system`
-- Sizing: PR target 100–600 added lines / 5–15 files
+- Sizing: PR target 200–1,500 added lines / ≤25 files

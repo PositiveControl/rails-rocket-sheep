@@ -56,7 +56,7 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `task_plan` | Design doc → task file + implementation plan → branch |
 | `implement` | Idempotent resume: load task file, execute, commit per logical unit |
 | `pr_submit` | Local suite → docs resolved → PR → review comments |
-| `pr_review` | Reviewer side: full-context diff review |
+| `pr_review` | Full-context diff review; also the self-review pass on a slice, from a fresh session |
 | `pr_qa` | Guided manual QA pass, structured report |
 | `rails_code_review` | Rails-specific review against this stack's conventions |
 | `update_docs` | Deep doc pass; keeps the index honest |

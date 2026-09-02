@@ -83,19 +83,29 @@ Practical effect: `/implement` is idempotent. Run it in a fresh session with no 
 
 ## Sizing
 
-Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median of one day; 600+ took three.
+The bound is what one review pass can hold with every changed file read in full, not how long a human takes to merge. Past it, review goes shallow.
 
 | Size | Added lines | Guidance |
 |---|---|---|
-| XS | <100 | Fine; consider batching with related work |
-| S | 100–300 | Ideal — merges in ~1 day |
-| M | 300–600 | Healthy upper bound |
-| L | 600–1,200 | Split if possible; expect ~3-day review |
-| XL | 1,200+ | Must split |
+| XS | <200 | Fine; consider batching with related work |
+| S | 200–600 | Ideal |
+| M | 600–1,000 | Healthy |
+| L | 1,000–1,500 | Upper bound; expect a third review pass |
+| XL | 1,500+ | Must split |
 
 An issue fits when its acceptance criteria fit in ≤5 testable bullets. More than that is an epic — decompose it.
 
-**Scope-escape rule:** if a forecast passes 600 added lines mid-implementation, or new acceptance criteria appear, stop. Split a sub-issue and land the current slice clean. This is the rule that prevents the runaway PR.
+**Scope-escape rule:** if a forecast passes 1,500 added lines or 25 files mid-implementation, or new acceptance criteria appear, stop. Split a sub-issue and land the current slice clean. This is the rule that prevents the runaway PR.
+
+---
+
+## Feature branches
+
+A feature with more than one slice does not land on `main` one slice at a time. `/task_plan` for the first slice creates `feature/<slug>`, named after the design doc, and opens a draft PR from it to `main`. Every slice branches from that branch and its PR targets it. Each slice PR is reviewed by `/pr_review` run from a fresh session — a new context per pass, until a pass is clean, at most five — and you merge it there on that review rather than your own reading. The feature reaches `main` as one PR, reviewed by a human as a walk over the design doc's slice list and the slice reviews rather than as one enormous diff.
+
+Two consequences are easy to miss. GitHub's `Closes #n` only fires on a merge to the default branch, so slice PRs carry no `Closes` line and the feature PR carries one per landed slice: Done still means *in `main`*, on every tier. And doc placeholders belong to the feature, so a slice completes what it can and the "no Draft left behind" rule is enforced on the feature PR.
+
+A single-slice feature skips all of this and opens its PR against `main`. The spec is the *Feature branches* section of the generated app's `WORKFLOW.md`.
 
 ---
 
@@ -137,8 +147,8 @@ Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there �
 | `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
 | `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit |
-| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR (with `Closes #n` where the tier uses it) → stack footer → comments (G4) |
-| `/pr_review` | Core | Reviewer side: full-context diff review |
+| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR (with `Closes #n` where the tier uses it) → comments (G4) |
+| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/rails_code_review` | Core | Rails-specific review against this stack's conventions |

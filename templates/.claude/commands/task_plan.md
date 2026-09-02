@@ -40,6 +40,7 @@ Create `.llm/tasks/<issue_number>_<snake_case_slug>.md` from `.llm/tasks/task_te
 - **Goal**: from issue body
 - **Background/Context**: synthesized from issue, comments, design doc, exploration
 - **Requirements & Acceptance Criteria**: from the issue (in scope AND out of scope explicit)
+- **Base**: `main`, unless the issue body, its parent, or the design doc names a feature branch `feature/<slug>` — then that. Every later command diffs and opens the PR against this line
 - **Next Actions**: concrete implementation steps — files to modify, approach, test strategy
 - **References**: issue, parent, design doc, key source files
 
@@ -51,7 +52,7 @@ Conventions live in `CLAUDE.md` — the task file references it, never copies ru
 2. **Approach**: high-level fix/feature description
 3. **Files to change**: each file + brief change description
 4. **New tests**: coverage to add
-5. **Size forecast**: estimated added lines vs the 100–600 target — over → propose a split now
+5. **Size forecast**: estimated added lines and files vs the 200–1,500 / 25 target — over → propose a split now
 6. **Risks/Questions**: anything needing clarification
 7. **Flagged decisions**: architecture choices or new patterns (ALWAYS need user approval)
 
@@ -63,15 +64,35 @@ After approval:
 
 **Clean working tree:** `git status` — uncommitted changes → ask user: stash or commit first.
 
-**Feature branch:**
+**Feature branch, if the task file's `Base:` names one and it is not on the remote yet** — this is the feature's first slice, so create it and open its draft PR:
 
-The `<ID>` segment is the tracker's identifier — a bare number under `github-projects` and `labels` (`1613`), or the bead ID under `beads` (`bd-a3f2dd`, from `tst-a3f2dd` with the prefix normalised to `bd-`). It is the thread ID that ties branch, task file, and PR together.
+```bash
+git checkout main && git pull
+git checkout -b feature/<slug> && git push -u origin feature/<slug>
+gh pr create --draft --base main --head feature/<slug> --title "{{PR_TITLE_PREFIX}} | <PARENT> | <feature title>" --body "$(cat <<'EOF'
+## Feature
+<one line, and a link to docs/plans/<design doc>>
+
+## Slices
+- [ ] #<sub-issue> — <slice title>
+- [ ] …
+
+Closes #<PARENT>
+EOF
+)"
+```
+
+`<PARENT>` is the parent issue under `github-projects`. Under `labels` there is none — use the slug in the title and drop the `Closes` line. Under `beads` drop the `Closes` line too; the epic is reconciled by `/pick`. Slice PRs never carry `Closes`; this body collects them as slices land (`WORKFLOW.md`, *Feature branches*).
+
+**Slice branch:**
+
+The `<ID>` segment is the tracker's identifier — a bare number under `github-projects` and `labels` (`1613`), or the bead ID under `beads` (`bd-a3f2dd`, from `tst-a3f2dd` with the prefix normalised to `bd-`). It is the thread ID that ties branch, task file, and PR together. `<BASE>` is the task file's `Base:` line.
 
 ```bash
 git branch --list "{{BRANCH_PREFIX}}/<ID>/*"
 ```
 - Exists → `git checkout {{BRANCH_PREFIX}}/<ID>/<slug>`
-- Not → `git checkout main && git pull && git checkout -b {{BRANCH_PREFIX}}/<ID>/<short-slug>`
+- Not → `git fetch origin <BASE> && git checkout -b {{BRANCH_PREFIX}}/<ID>/<short-slug> origin/<BASE>`
 
 **Mark In Progress** — tier `{{TRACKER}}`:
 
@@ -102,7 +123,8 @@ Plan approved and branch ready. Run: /implement <ISSUE_NUMBER>
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
 - Task template: .llm/tasks/task_template.md
 - Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number, or `bd-<hash>` under tier `beads`
+- Feature branch: `feature/<slug>`, named in the design doc and sub-issue bodies; base for every slice of a multi-slice feature
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}
 - Tracker tier: `{{TRACKER}}`
 - Status option IDs (tier `github-projects`): Blocked={{STATUS_BLOCKED}}, Todo={{STATUS_TODO}}, In Progress={{STATUS_IN_PROGRESS}}, Up for Review={{STATUS_UP_FOR_REVIEW}}, Done={{STATUS_DONE}}
-- Sizing: PR target 100–600 added lines / 5–15 files
+- Sizing: PR target 200–1,500 added lines / ≤25 files
