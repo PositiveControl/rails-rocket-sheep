@@ -1,5 +1,10 @@
 # Pattern Budget
 
+**Applies to:** both modes, with a different membership. Server-rendered mode gets
+six directories; API mode gets seven — `forms` and `components` lose their basis,
+and `serializers`, `contracts` and `filters` take their place. The budget is the
+decision; the list is per mode. See `docs/rules/pattern-budget.md`.
+
 **Status:** Accepted
 
 **Context:**

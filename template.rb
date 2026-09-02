@@ -11,8 +11,11 @@
 #   - Sets up Kamal 2 deployment with PostgreSQL accessory
 #   - Adds Devise + Petergate for authentication and authorization
 #   - Configures UUID primary keys for all models (PostgreSQL only)
-#   - Adds ApplicationService base class with Result pattern
-#   - Adds ApplicationForm base class for multi-model form objects
+#   - Adds ApplicationService base class with a three-state Result
+#   - Adds ApplicationForm base class for multi-model form objects (HTML mode)
+#   - With --api: Doorkeeper, rack-cors, and the serializer / contract / filter /
+#     cursor base classes, an RFC 9457 problem helper, an idempotency table, and
+#     an OpenAPI document generated from the request tests
 #   - Adds a Data-based registry pattern for fixed variant sets
 #   - Adds ViewComponent with ApplicationComponent and four shipped components
 #   - Includes generic Stimulus controllers (toggle, modal)
@@ -128,6 +131,14 @@ DB_PORT = POSTGRESQL ? 5432 : 3306
 
 say "Database: #{DB_LABEL} (adapter #{DB_ADAPTER}, #{DB_PRIMARY_KEY} primary keys)", :green
 
+# API mode (ADR 0009). By the time this runs, `rails new --api` has already skipped
+# the view and asset tooling and thinned the middleware stack; what is left is
+# choosing the gems, the base classes the API rules name, and — through adopt.rb,
+# which reads config.api_only — which half of the rule corpus ships.
+API = options[:api].present?
+
+say "Mode: #{API ? 'API-only — JSON, no view layer' : 'server-rendered HTML'}", :green
+
 # Solid Stack configs are re-copied in after_bundle because Rails 8 runs
 # `solid_cache:install solid_queue:install solid_cable:install` after bundling,
 # which overwrites whatever the template wrote during the main pass.
@@ -151,22 +162,32 @@ gsub_file "Gemfile", /gem "sqlite3".*\n/, ""
 # We only add gems that aren't in the default Rails 8 Gemfile
 
 # Frontend
-gem "tailwindcss-rails"
+gem "tailwindcss-rails" unless API
 
 # Authentication & Authorization
 gem "devise"
 gem "petergate"
 
+if API
+  # OAuth 2 with server-side revocation. Chosen for what it does not have to be
+  # replaced by later — docs/rules/api-auth.md.
+  gem "doorkeeper", "~> 5.7"
+  # The client is a separate origin, so this is load-bearing — docs/rules/cors.md.
+  gem "rack-cors"
+end
+
 # Data management
 gem "discard"                # Soft deletes
 gem "paper_trail"            # Audit trail / versioning
 
-# Pagination
-gem "pagy", "~> 43.6"
+unless API
+  # Pagination. API mode paginates by cursor instead — docs/rules/cursor-pagination.md.
+  gem "pagy", "~> 43.6"
 
-# Templates
-gem "slim-rails"
-gem "view_component", "~> 4.0"   # UI components with tests
+  # Templates
+  gem "slim-rails"
+  gem "view_component", "~> 4.0"   # UI components with tests
+end
 
 # Email (optional - Resend API)
 gem "resend", "~> 1.7"
@@ -229,18 +250,27 @@ inject_into_file "config/application.rb", after: "class Application < Rails::App
     RUBY
   end
 
+  # ViewComponent is not installed in API mode, and a setting for a gem that is
+  # absent raises on boot rather than being ignored.
+  components = if API
+    ""
+  else
+    <<~RUBY.strip
+      # ViewComponent: generate a sidecar directory so a component's class,
+      # template, and any component-scoped Stimulus controller sit together.
+      # Template engine follows config.generators.template_engine, which
+      # slim-rails sets to :slim.
+      config.view_component.generate.sidecar = true
+    RUBY
+  end
+
   <<~RUBY.indent(4)
     #{generators.strip}
 
-    # Autoload app/lib for registries and game config
+    # Autoload app/lib for registries and, in API mode, the cursor
     config.autoload_paths << Rails.root.join("app/lib")
 
-    # ViewComponent: generate a sidecar directory so a component's class,
-    # template, and any component-scoped Stimulus controller sit together.
-    # Template engine follows config.generators.template_engine, which
-    # slim-rails sets to :slim.
-    config.view_component.generate.sidecar = true
-
+    #{components}
   RUBY
 end
 
@@ -348,8 +378,61 @@ say "Adding service object patterns...", :green
 # ApplicationService base class
 copy_template_file "app/services/application_service.rb"
 
-# ApplicationForm base class (multi-model / non-AR forms)
-copy_template_file "app/forms/application_form.rb"
+if API
+  # The seven directories an API app gets — docs/rules/pattern-budget.md.
+  copy_template_file "app/serializers/application_serializer.rb"
+  copy_template_file "app/contracts/application_contract.rb"
+  copy_template_file "app/filters/application_filter.rb"
+  copy_template_file "app/lib/cursor.rb"
+  copy_template_file "app/controllers/api/v1/base_controller.rb"
+  copy_template_file "app/models/idempotent_request.rb"
+  copy_template_file "config/initializers/cors.rb"
+  copy_template_file "lib/tasks/api_contract.rake"
+
+  # The gate that makes "generated from the request tests" a promise rather than a
+  # preference. Written here rather than shipped as a static file because the
+  # service container follows the database family — docs/rules/openapi-contract.md.
+  create_file ".github/workflows/api-contract.yml", <<~YAML
+    name: API contract
+
+    on: [ push, pull_request ]
+
+    jobs:
+      contract:
+        runs-on: ubuntu-latest
+
+        services:
+          db:
+            image: #{DB_ACCESSORY_IMAGE}
+            env:
+              #{POSTGRESQL ? "POSTGRES_PASSWORD: postgres" : "MYSQL_ROOT_PASSWORD: root"}
+            ports:
+              - #{DB_PORT}:#{DB_PORT}
+            options: >-
+              --health-cmd "#{POSTGRESQL ? 'pg_isready' : 'mysqladmin ping'}"
+              --health-interval 10s --health-timeout 5s --health-retries 5
+
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: #{POSTGRESQL ? "postgres://postgres:postgres@localhost:#{DB_PORT}" : "mysql2://root:root@127.0.0.1:#{DB_PORT}"}
+
+        steps:
+          - uses: actions/checkout@v4
+
+          - uses: ruby/setup-ruby@v1
+            with:
+              bundler-cache: true
+
+          - run: bin/rails db:prepare
+
+          # Regenerates from the request tests and diffs against the committed copy.
+          # A stale openapi.yaml fails here rather than reaching a client.
+          - run: bin/rails api:contract:check
+    YAML
+else
+  # ApplicationForm base class (multi-model / non-AR forms)
+  copy_template_file "app/forms/application_form.rb"
+end
 
 # Canonical registry — Data objects, fetch-based lookup
 copy_template_file "app/lib/plan_registry.rb"
@@ -362,6 +445,10 @@ copy_template_file "app/lib/app_config.rb"
 # =============================================================================
 
 say "Setting up frontend...", :green
+
+# Nothing in this phase exists in API mode: no asset pipeline, no components, no
+# Stimulus, and pagination is by cursor rather than Pagy.
+unless API
 
 # Generic Stimulus controllers
 copy_template_file "app/javascript/controllers/toggle_controller.js"
@@ -390,9 +477,16 @@ inject_into_class "app/controllers/application_controller.rb", "ApplicationContr
   "  include Pagy::Method\n\n"
 end
 
+end # unless API
+
 # =============================================================================
 # Phase 9: SEO Foundation
 # =============================================================================
+
+# SEO is a property of pages, and an API serves none. The client repo owns it.
+if API
+  say "Skipping SEO foundation — no pages to describe", :yellow
+else
 
 say "Setting up SEO foundation...", :green
 
@@ -409,6 +503,8 @@ copy_template_file "test/integration/seo_test.rb"
 copy_template_file ".github/workflows/lighthouse.yml"
 copy_template_file ".github/lighthouse-budget.json"
 
+end # if API
+
 
 # =============================================================================
 # Phase 10: Testing Setup
@@ -422,6 +518,14 @@ copy_template_file "test/support/vcr.rb"
 # Slowpoke slow-test reporting
 copy_template_file "test/support/slowpoke.rb"
 
+if API
+  # assert_problem and a token-per-scope helper — docs/rules/api-testing.md.
+  copy_template_file "test/support/api_helpers.rb"
+  # Records what the request tests exercise, so the contract is a build output —
+  # docs/rules/openapi-contract.md.
+  copy_template_file "test/support/api_contract.rb"
+end
+
 # Generator override: stock fixtures emit two identical placeholder records,
 # which violate any unique index (notably Devise's email) on first test run.
 copy_template_file "lib/templates/test_unit/model/fixtures.yml"
@@ -430,8 +534,14 @@ copy_template_file "lib/templates/test_unit/model/fixtures.yml"
 # the empty db/seeds.rb Rails ships, so a fresh app has something to log in as.
 copy_template_file "db/seeds.rb", nil, force: true
 
-# Update test_helper to require VCR
-inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/ do
+# Update test_helper to require VCR.
+#
+# Anchored on the `rails/test_help` require, not on the TestCase declaration:
+# Rails 8.1 generates `module ActiveSupport` with a nested `class TestCase`, and an
+# anchor on `class ActiveSupport::TestCase` matches nothing. inject_into_file then
+# prints "File unchanged!" and generation continues, so the support files shipped
+# and were never loaded — VCR configured nothing and WebMock blocked nothing.
+inject_into_file "test/test_helper.rb", after: %(require "rails/test_help"\n) do
   <<~RUBY
   # VCR for HTTP request recording
   require_relative "support/vcr"
@@ -440,6 +550,19 @@ inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/
   require_relative "support/slowpoke"
 
   RUBY
+end
+
+if API
+  inject_into_file "test/test_helper.rb", after: %(require "rails/test_help"\n) do
+    <<~RUBY
+    # assert_problem, api_headers
+    require_relative "support/api_helpers"
+
+    # Arms the OpenAPI recorder when OPENAPI_OUT is set; inert otherwise
+    require_relative "support/api_contract"
+
+    RUBY
+  end
 end
 
 # =============================================================================
@@ -468,7 +591,34 @@ instance_eval(File.read(File.join(TEMPLATE_ROOT, "adopt.rb")), "adopt.rb")
 # Phase 13: Routes Configuration
 # =============================================================================
 
-say "Configuring routes and home page...", :green
+say "Configuring routes...", :green
+
+if API
+  remove_file "config/routes.rb"
+  create_file "config/routes.rb", <<~RUBY
+    Rails.application.routes.draw do
+      # Health check endpoint for Kamal
+      get "up" => "rails/health#show", as: :rails_health_check
+
+      # OAuth 2 token and authorization endpoints
+      use_doorkeeper
+
+      # Every route lives in a version namespace, with no exceptions — not a
+      # health check, not a webhook, not "just internally". The one that escapes
+      # is the one an external client finds. See docs/rules/api-versioning.md.
+      namespace :api do
+        namespace :v1 do
+          # resources :items, only: [ :index, :show, :create, :update ]
+        end
+      end
+
+      # Email preview in development
+      if Rails.env.development?
+        mount LetterOpenerWeb::Engine, at: "/letter_opener"
+      end
+    end
+  RUBY
+else
 
 # Create HomeController with sitemap
 create_file "app/controllers/home_controller.rb", <<~RUBY
@@ -558,6 +708,8 @@ create_file "config/routes.rb", <<~RUBY
   end
 RUBY
 
+end # if API
+
 # =============================================================================
 # Phase 14: Git Configuration
 # =============================================================================
@@ -603,14 +755,27 @@ after_bundle do
   say "Installing Devise...", :yellow
   generate "devise:install"
 
-  # Configure Devise for Turbo
+  # Devise's navigational formats decide when it redirects rather than answering
+  # with a status. An API has nowhere to redirect to.
   inject_into_file "config/initializers/devise.rb", after: "Devise.setup do |config|\n" do
-    <<~RUBY
-    # Turbo compatibility
-    config.navigational_formats = ['*/*', :html, :turbo_stream]
+    if API
+      <<~RUBY
+      # API-only: never redirect, always answer with a status
+      config.navigational_formats = []
 
-    RUBY
+      RUBY
+    else
+      <<~RUBY
+      # Turbo compatibility
+      config.navigational_formats = ['*/*', :html, :turbo_stream]
+
+      RUBY
+    end
   end
+
+  # Everything from here to PaperTrail edits the HTML layout, which an API app
+  # does not have.
+  unless API
 
   # Inject SEO meta tags into layout
   say "Adding SEO meta tags to layout...", :yellow
@@ -640,13 +805,88 @@ after_bundle do
     "    <%= render FlashComponent.new(flash: flash) %>\n"
   end
 
+  end # unless API
+
   # Install PaperTrail
   say "Installing PaperTrail...", :yellow
   generate "paper_trail:install", "--with-changes"
 
-  # Install Tailwind
-  say "Installing Tailwind CSS...", :yellow
-  rails_command "tailwindcss:install"
+  unless API
+    say "Installing Tailwind CSS...", :yellow
+    rails_command "tailwindcss:install"
+  end
+
+  if API
+    say "Installing Doorkeeper...", :yellow
+    generate "doorkeeper:install"
+    generate "doorkeeper:migration"
+
+    # Coarse scopes, about capability rather than identity — a scope per endpoint
+    # is a permission system pretending to be a scope list.
+    inject_into_file "config/initializers/doorkeeper.rb", after: "Doorkeeper.configure do\n" do
+      <<~RUBY
+        # docs/rules/api-auth.md
+        default_scopes  :read
+        optional_scopes :write
+
+        # Raise instead of rendering, so an auth failure goes through the app's own
+        # problem-document boundary rather than Doorkeeper's HTML response. Flipping
+        # this back gives the app a second error format.
+        handle_auth_errors :raise
+
+      RUBY
+    end
+
+    # Doorkeeper ships an authenticator whose body raises until it is wired up.
+    # Replace the raise, not the block: Doorkeeper puts explanatory comments
+    # between it and the `end`, and a regex that assumed otherwise left the raise
+    # in place and said nothing. The body only runs at request time, so this is
+    # safe before `rails g devise User`.
+    gsub_file "config/initializers/doorkeeper.rb",
+              /^\s*raise "Please configure doorkeeper resource_owner_authenticator.*$/,
+              "    current_user || warden.authenticate!(scope: :user)"
+
+    # Doorkeeper's migration writes `t.references :resource_owner` with no type,
+    # which emits a bigint. On PostgreSQL this app's keys are uuid, so a uuid
+    # resource owner id casts to a meaningless integer, `User.find_by` returns
+    # nil, and authorization appears to succeed with no current user. This is the
+    # failure docs/rules/database-conventions.md warns about, committed by a
+    # generator this template does not own.
+    if POSTGRESQL
+      Dir["db/migrate/*_create_doorkeeper_tables.rb"].each do |migration|
+        gsub_file migration, "t.references :resource_owner,", "t.references :resource_owner, type: :uuid,"
+      end
+    end
+
+    say "Adding the idempotency table...", :yellow
+
+    # Doorkeeper's generator just wrote migrations, and a hand-rolled timestamp
+    # collides with them whenever both land in the same second — which is most of
+    # the time. Take one past the highest version present instead.
+    latest = Dir["db/migrate/*.rb"].map { |file| File.basename(file)[/\A\d+/].to_i }.max.to_i
+    version = [ latest + 1, Time.now.utc.strftime("%Y%m%d%H%M%S").to_i ].max
+
+    create_file "db/migrate/#{version}_create_idempotent_requests.rb", <<~RUBY
+      class CreateIdempotentRequests < ActiveRecord::Migration[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]
+        def change
+          create_table :idempotent_requests#{POSTGRESQL ? ", id: :uuid" : ""} do |t|
+            t.string  :key,         null: false
+            t.#{DB_PRIMARY_KEY} :user_id
+            t.string  :endpoint,    null: false
+            t.string  :fingerprint, null: false
+            t.integer :status,      null: false
+            t.json    :body,        null: false
+
+            t.timestamps
+          end
+
+          # A concurrent retry loses the insert rather than racing the work.
+          add_index :idempotent_requests, [ :user_id, :key, :endpoint ], unique: true
+          add_index :idempotent_requests, :created_at
+        end
+      end
+    RUBY
+  end
 
   # Create and migrate database
   say "Setting up database...", :yellow
@@ -671,14 +911,30 @@ after_bundle do
   say ""
   say "  3. Set up secrets in .kamal/secrets"
   say ""
-  say "  4. Update SEO URLs:"
-  say "     - public/robots.txt (Sitemap URL)"
-  say "     - .github/workflows/lighthouse.yml (production URL)"
+
+  if API
+    say "  4. Name the client origins CORS will allow:"
+    say "     bin/rails credentials:edit   # api: { allowed_origins: [...] }"
+    say ""
+    say "  5. Check the Doorkeeper resource owner is wired to Devise:"
+    say "     config/initializers/doorkeeper.rb — resource_owner_authenticator"
+    say ""
+    say "  6. Add your first endpoint under app/controllers/api/v1/, then:"
+    say "     bin/rails api:contract       # generate openapi.yaml from the tests"
+    say ""
+    say "  7. Start developing:"
+    say "     bin/rails server"
+  else
+    say "  4. Update SEO URLs:"
+    say "     - public/robots.txt (Sitemap URL)"
+    say "     - .github/workflows/lighthouse.yml (production URL)"
+    say ""
+    say "  5. Start developing:"
+    say "     bin/dev"
+  end
+
   say ""
-  say "  5. Start developing:"
-  say "     bin/dev"
-  say ""
-  say "  6. Deploy when ready:"
+  say "  Deploy when ready:"
   say "     kamal setup && kamal deploy"
   say ""
 end

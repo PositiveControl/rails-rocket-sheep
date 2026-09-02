@@ -4,7 +4,9 @@ title: Slim gotchas — where Slim collides with Tailwind and Ruby
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim"]
 triggers: ["slim", "bracket", "max-h-[", "arbitrary value", "pipe", "text on its own line", "multi-line ruby", "interpolation in attribute", "strict locals", "template renders blank", "unexpected element"]
 see_also: ["tailwind-build"]
-tokens: 620
+modes: [ web ]
+tokens: 630
+current_state: matches
 ---
 
 # Slim gotchas

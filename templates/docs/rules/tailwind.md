@@ -4,7 +4,9 @@ title: Tailwind — semantic colors, dark mode, responsive
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/components/**/*.rb"]
 triggers: ["tailwind", "colors", "semantic color", "dark mode", "dark:", "responsive", "breakpoint", "sm:", "lg:", "mobile first", "palette"]
 see_also: ["tailwind-build", "components", "accessibility"]
-tokens: 470
+modes: [ web ]
+tokens: 480
+current_state: matches
 ---
 
 # Tailwind

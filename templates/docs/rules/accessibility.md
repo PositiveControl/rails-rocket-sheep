@@ -4,7 +4,9 @@ title: Accessibility — non-negotiable, cheap when done as you go
 applies_to: ["app/views/**/*.slim", "app/components/**/*.slim", "app/javascript/controllers/**/*.js"]
 triggers: ["accessibility", "a11y", "aria", "aria-label", "contrast", "keyboard", "screen reader", "focus", "outline: none", "clickable div", "semantic HTML", "label for"]
 see_also: ["tailwind", "forms-ui", "components"]
-tokens: 290
+modes: [ web ]
+tokens: 300
+current_state: matches
 ---
 
 # Accessibility

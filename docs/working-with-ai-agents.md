@@ -81,14 +81,30 @@ ruby:
 
 This section alone prevents a recurring class of failure.
 
-### Two pattern docs, one index
+### One rule per file, routed in two tiers
 
-`CLAUDE.md` states the rules in short form and points at the reasoning:
-`docs/rules/` for the backend (controllers, services, forms,
-queries, policies, jobs, caching) and the view
-layer. Both carry a "when not to" for every pattern and a table of patterns
-explicitly rejected — repository, CQRS, hexagonal, interactor chains, DI
-containers.
+`CLAUDE.md` states the rules in short form and points at the reasoning. The reasoning
+lives in `docs/rules/`, one convention per file, and an agent is routed to a rule
+rather than reading the directory.
+
+Routing is two tiers, because a flat index does not stay cheap. `INDEX.md` is the entry
+point: a small set that applies to *any* edit in a path, then conditional tables for
+what the work actually touches. `SYMPTOMS.md` carries the symptom table and the full
+annotated list, and is read only when routing by path missed. The split was measured
+before it was adopted — a Slim edit used to cost around 7,000 tokens to answer and now
+costs under 3,000, and five representative flows dropped 54% in total.
+
+Each rule carries frontmatter the routing runs on — `applies_to` globs, `triggers`
+keywords, a generated `tokens` read cost, and two more:
+
+- **`modes`** decides which app a rule ships to. Twenty-three rules go to both,
+  fifteen only to a server-rendered app, seventeen only to an API. It is the manifest,
+  so a rule added later reaches the right apps with no install script to edit.
+- **`current_state`** is `matches` or `diverges`. A rule that says `diverges` must
+  carry a `## Where this app is` section, and one that says `matches` must not —
+  checked both ways, so the paragraph an adopting app needs cannot go missing and
+  cannot outlive the divergence it describes. A generated app starts with every rule
+  at `matches`; an app that adopted the layer usually does not.
 
 Keeping the detail out of `CLAUDE.md` matters for a boring reason: the same rule
 written in three places drifts, and the agent then has three answers.

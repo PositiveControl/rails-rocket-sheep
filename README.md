@@ -10,6 +10,9 @@ rails new myapp \
   --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
 ```
 
+Add `--api` for a JSON API with a separate frontend, and you get a different app and a
+different rule corpus — see [API mode](#api-mode) below.
+
 Swap in `--database=mysql` (or `trilogy`, `mariadb-mysql`, `mariadb-trilogy`) and everything follows it. SQLite is refused.
 
 Roughly three minutes later you have a running, deployable, linted, tested Rails 8 app with authentication, background jobs, SEO, and a Kamal deploy config — plus the conventions doc that keeps an agent from inventing its own.
@@ -132,7 +135,7 @@ No base class to learn. A mistyped attribute raises `NoMethodError` instead of r
 
 ### SEO foundation
 
-Not a checkbox — an actual working setup:
+Server-rendered mode. Not a checkbox — an actual working setup:
 
 - `public/robots.txt` with sane crawl rules
 - Dynamic `/sitemap.xml` from `HomeController#sitemap`
@@ -165,7 +168,51 @@ Around them: `bin/test` wraps `rails test` and forces a single worker on macOS, 
 
 ### Frontend
 
-Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules each get their own rule file in `docs/rules/` — the failures they prevent are silent ones.
+Server-rendered mode. Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules each get their own rule file in `docs/rules/` — the failures they prevent are silent ones.
+
+<a id="api-mode"></a>
+### API mode
+
+`rails new myapp --api --template=...` generates a JSON API with no view layer, for an
+app whose frontend is a separate repository. It is not the same app with the templates
+deleted: twelve rules describing a view layer do not ship, seventeen describing a JSON
+boundary do, and the mode is read from `config.api_only` rather than carried as a flag.
+
+**The conventions came first, and they are the point.** An API needs its own answer to
+things the HTML corpus already answered differently — an error envelope instead of a
+redirect, a 404 with a body, cursor pagination instead of Pagy — and shipping
+scaffolding without them puts a second architecture in the app with nothing describing
+it. So the seventeen rules were written before any base class existed:
+
+| | |
+|---|---|
+| Errors | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents, one helper, a machine-readable `type` a client can branch on |
+| Serialization | Plain Ruby objects in `app/serializers/`, explicit fields, `optional` and `includable` with their own preloads |
+| Requests | `app/contracts/` validates an untrusted body before a model sees it; `app/filters/` turns a query string into a relation |
+| Pagination | Cursor first on `(sort column, id)`, offset as a named per-endpoint exception |
+| Auth | OAuth 2 via Doorkeeper — coarse scopes, server-side revocation, and its own failures routed through the same problem envelope |
+| Versioning | One number in the path, additive within it, and a sunset date before anything is removed |
+| The contract | `openapi.yaml` generated from the request tests, with CI failing on drift |
+
+Plus rules for idempotency keys, `202` and a status resource, sparse fieldsets,
+bulk endpoints, CORS, deprecation headers, what to test at which layer, and what the
+client repository may rely on. Forty rules in API mode against thirty-eight in
+server-rendered mode, each with its own two-tier routing index.
+
+**The contract is a build output, not a document someone maintains.** A recorder writes
+a line per API request while the request tests run; `bin/rails api:contract` folds that
+into an OpenAPI 3.1 document; `api:contract:check` exits 1 when the committed copy
+disagrees, and ships as a workflow with a service container matching your database. An
+endpoint with no request test records nothing — which is the property this buys, and
+the reason it is generated from tests rather than from routes.
+
+**It has been generated and run.** One app, one endpoint built from the rules alone,
+eleven request tests, and a JavaScript client holding the server to the committed
+contract: 17 checks covering snake_case keys, money as minor units, opaque cursors and
+non-overlapping pages, `401` distinguished from `403`, and CORS refusing an unnamed
+origin. That run found nine defects, which are fixed and written down in
+[`docs/first-generation-findings.md`](docs/first-generation-findings.md) — including
+one that had been silently affecting server-rendered apps all along.
 
 ---
 
@@ -187,7 +234,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 
 The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
 
-Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs/adr/` (eight decisions, one file each), `docs/system/models.md`, `docs/system/vocabulary.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships: `docs/rules/` (38 rules in web mode, 40 in API mode, + a two-tier routing index), `docs/adr/` (eight decisions, one file each), `docs/system/models.md`, `docs/system/vocabulary.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 
@@ -196,7 +243,7 @@ Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs
 - Ruby 3.3+ (Pagy 43 sets the floor; developed and tested on 4.0)
 - Rails 8.0+
 - PostgreSQL 13+ (uses built-in `gen_random_uuid()`, no pgcrypto extension needed), **or** MySQL 8+ / MariaDB 10.5+
-- Node.js — only if you swap Tailwind for a bundler-based frontend
+- Node.js — only if you swap Tailwind for a bundler-based frontend. Not needed at all in `--api` mode
 
 ---
 
@@ -210,6 +257,12 @@ bin/test               # run the suite
 ```
 
 Then edit `config/deploy.yml`, fill in `.kamal/secrets`, and update the sitemap URL in `public/robots.txt`.
+
+In `--api` mode, `bin/rails server` replaces `bin/dev`, there is no sitemap, and two
+things need doing before the API answers anything useful: name the client origins CORS
+will allow (`bin/rails credentials:edit`, under `api: allowed_origins:`), and add your
+first endpoint under `app/controllers/api/v1/` — then `bin/rails api:contract` to
+generate the document your client consumes.
 
 See [Getting Started](docs/getting-started.md) for the full walkthrough.
 

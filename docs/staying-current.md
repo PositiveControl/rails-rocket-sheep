@@ -89,6 +89,12 @@ canon, the hooks, the PR and issue templates, and the origin stamp — so
 `bin/rocket-sheep-update` works from then on. Keep the clone: it is what the
 update reads.
 
+**Which rules you get depends on the app.** Adoption reads `config.api_only` and
+installs one corpus and one routing pair: the server-rendered rules, or the JSON
+boundary rules. It says which as it runs. If the app changes its mind later, nothing
+about the installed corpus follows — `bin/rocket-sheep-update` notices the mismatch and
+tells you to re-run adoption rather than merging the wrong half.
+
 The only files that can already exist are `CLAUDE.md`, `AGENTS.md`, and
 `.gitignore`. The first two arrive as a Thor conflict prompt, where `d` shows the
 diff before you decide. Running adoption twice is safe — the second run reports

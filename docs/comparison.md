@@ -77,10 +77,10 @@ Stated plainly so nobody buys the wrong thing:
 - **No teams or multi-tenancy.** Single-tenant. Adding tenancy is on you.
 - **No admin panel.** No Avo, no Administrate, no ActiveAdmin.
 - **No component library.** ViewComponent is configured and four utility components ship (alert, flash, error summary, empty state); buttons, tables, and navs are yours.
-- **No API scaffolding.** No JSON serializers, no versioning, no docs generation.
+- **No GraphQL.** `--api` mode ships a REST JSON boundary — serializers, versioning, cursor pagination, RFC 9457 errors, OAuth 2, and an OpenAPI document generated from the request tests. A graph API is a different product and is not here.
 - **No OmniAuth.** Devise with email and password only.
 - **No background job dashboard.** Solid Queue's Mission Control is not wired up.
 
 Several of these are deliberate. A template that includes everything is a framework, and frameworks are the thing you eventually fight.
 
-Five of them are decided rather than merely absent, and the reasoning is written down: [billing](../.agents/out-of-scope/billing.md), [teams and multi-tenancy](../.agents/out-of-scope/teams-and-multi-tenancy.md), [an admin panel](../.agents/out-of-scope/admin-panel.md), [API scaffolding](../.agents/out-of-scope/api-scaffolding.md), and [a fourth tracker tier](../.agents/out-of-scope/more-tracker-tiers.md). Each says what to do instead, and what would change our mind. The rest — a component library, OmniAuth, a job dashboard — are simply not built yet, which is a different thing from declined.
+Four of them are decided rather than merely absent, and the reasoning is written down: [billing](../.agents/out-of-scope/billing.md), [teams and multi-tenancy](../.agents/out-of-scope/teams-and-multi-tenancy.md), [an admin panel](../.agents/out-of-scope/admin-panel.md), and [a fourth tracker tier](../.agents/out-of-scope/more-tracker-tiers.md). Each says what to do instead, and what would change our mind. A fifth, [API scaffolding](../.agents/out-of-scope/api-scaffolding.md), was declined and has since been reversed on the terms it set — the file records both, because a ruling that disappears when it is overturned teaches nobody anything. The rest — a component library, OmniAuth, a job dashboard — are simply not built yet, which is a different thing from declined.

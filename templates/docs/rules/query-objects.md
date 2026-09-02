@@ -4,7 +4,9 @@ title: Query objects — joins across models, always a relation
 applies_to: ["app/queries/**/*.rb", "app/models/**/*.rb", "test/queries/**/*.rb"]
 triggers: ["query object", "joins", "left_joins", "complex query", "to_a", "select in Ruby", "scope too long", "app/queries"]
 see_also: ["scopes", "pagination", "n-plus-one"]
-tokens: 440
+modes: [ web, api ]
+tokens: 450
+current_state: matches
 ---
 
 # Query objects

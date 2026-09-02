@@ -172,10 +172,46 @@ raw.each_line do |line|
   end
 end
 
-# Destinations: templates/X installs to X, and a command under .claude/ is
-# mirrored to .cursor/ at install time — merge both copies, or the mirror rots.
+# The rule routers are the one pair of files whose name changes on the way in:
+# each mode has its own, and the mode's pair installs as INDEX.md / SYMPTOMS.md
+# (ADR 0009). Without this, a change to the web index would merge into an API
+# app's index, which is the same filename holding different routing.
+APP_MODE = if File.exist?(File.join(APP, "config/application.rb")) &&
+              File.read(File.join(APP, "config/application.rb")).match?(/^\s*config\.api_only\s*=\s*true/)
+  "api"
+else
+  "web"
+end
+ROUTER_SOURCES = { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }.freeze
+ROUTERS = ROUTER_SOURCES.values.flatten.freeze
+
+# An app can change its mind after generation — add `config.api_only`, or drop it —
+# and nothing about the installed corpus follows. Probe it: a rule that only ships
+# to one mode is present exactly when that mode's corpus was installed.
+MODE_WITNESS = { "web" => "docs/rules/slim-gotchas.md", "api" => "docs/rules/error-envelope.md" }.freeze
+
+installed_mode = MODE_WITNESS.find { |_, witness| File.exist?(File.join(APP, witness)) }&.first
+if installed_mode && installed_mode != APP_MODE
+  warn "This app reads as #{APP_MODE} mode but carries the #{installed_mode} rule corpus."
+  warn "Merging will keep the #{installed_mode} rules. To switch, re-run adoption:"
+  warn "  bin/rails app:template LOCATION=<template>/adopt.rb"
+  warn ""
+end
+
+# Destinations: templates/X installs to X, except a router, which installs under
+# the shared name when it belongs to this app's mode and nowhere at all when it
+# does not. A command under .claude/ is mirrored to .cursor/ at install time —
+# merge both copies, or the mirror rots.
 destinations = lambda do |path|
   dest = path.sub(%r{\Atemplates/}, "")
+  base = File.basename(dest)
+
+  if File.dirname(dest) == "docs/rules" && ROUTERS.include?(base)
+    next [] unless ROUTER_SOURCES.fetch(APP_MODE).include?(base)
+
+    next [ "docs/rules/#{base.sub(/\.api\.md\z/, '.md')}" ]
+  end
+
   mirror = dest.sub(%r{\A\.claude/}, ".cursor/")
   [dest, (mirror if mirror != dest && File.exist?(File.join(APP, mirror)))].compact
 end

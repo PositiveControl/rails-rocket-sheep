@@ -4,7 +4,9 @@ title: Seeds — idempotent, and kept in step with the schema
 applies_to: ["db/seeds.rb", "db/seeds/**/*.rb"]
 triggers: ["seed", "db:seed", "seeds.rb", "find_or_create_by", "demo data", "sample data", "idempotent", "SEED_ADMIN_PASSWORD", "SEED_ALLOW_PRODUCTION"]
 see_also: ["database-conventions", "testing"]
-tokens: 400
+modes: [ web, api ]
+tokens: 420
+current_state: matches
 ---
 
 # Seeds

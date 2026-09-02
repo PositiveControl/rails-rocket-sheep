@@ -89,10 +89,11 @@ wrong version, is in the matching `docs/rules/` file.
 
 ## Finding a rule without reading everything
 
-`docs/rules/` holds one convention per file. `docs/rules/INDEX.md` routes three ways:
-by the path you are editing, by symptom, or by rule id (`docs/rules/<id>.md`). Each
-rule file carries `applies_to` globs and `triggers` keywords in its frontmatter, so
-`grep -l "<keyword>" docs/rules/*.md` also works.
+`docs/rules/` holds one convention per file. Start at `docs/rules/INDEX.md`, which
+routes by the path you are editing. When you know the symptom but not the file, the
+fallback is `docs/rules/SYMPTOMS.md` — it also carries the full list. A rule id is
+always `docs/rules/<id>.md`. Each rule file carries `applies_to` globs and `triggers`
+keywords in its frontmatter, so `grep -l "<keyword>" docs/rules/*.md` also works.
 
 **Read the index, then only the rules it points you to.** Reading the whole
 directory is a mistake, not diligence.

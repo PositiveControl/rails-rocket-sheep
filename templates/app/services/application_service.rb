@@ -46,16 +46,29 @@
 #   end
 #
 class ApplicationService
-  # Result object for consistent return values
-  Result = Struct.new(:success, :value, :errors, keyword_init: true) do
+  # Result object for consistent return values.
+  #
+  # Three states, not two. A write can be correct, permitted, and still not safe to
+  # complete without the client confirming something that changed underneath it — a
+  # cart whose prices moved between loading and checkout is the ordinary example,
+  # not an edge case. Forcing that into `failure` tells the caller to fix its input
+  # when there is nothing wrong with its input. See docs/rules/status-codes.md,
+  # which maps it to 409 with its own problem type.
+  Result = Struct.new(:success, :value, :errors, :confirm, keyword_init: true) do
     # @return [Boolean] true if the operation succeeded
     def success?
       success
     end
 
-    # @return [Boolean] true if the operation failed
+    # @return [Boolean] true if the operation failed outright. False for a result
+    # awaiting confirmation, which is neither.
     def failure?
-      !success
+      !success && confirm.nil?
+    end
+
+    # @return [Boolean] true if the caller has to confirm something and retry
+    def needs_confirmation?
+      !confirm.nil?
     end
 
     # Alias for value - useful when result represents a created record
@@ -89,6 +102,13 @@ class ApplicationService
   def failure(errors)
     errors = [ errors ] unless errors.is_a?(Array)
     Result.new(success: false, value: nil, errors: errors)
+  end
+
+  # Return a result the caller has to confirm before it can proceed.
+  # @param details [Hash] what changed, in enough detail for the client to show it
+  # @return [Result] a result that is neither a success nor a failure
+  def needs_confirmation(**details)
+    Result.new(success: false, value: nil, errors: [], confirm: details)
   end
 
   # Log an error (override for custom logging)

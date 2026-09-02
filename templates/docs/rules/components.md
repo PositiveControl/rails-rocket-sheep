@@ -4,7 +4,9 @@ title: ViewComponent — shape, slots, variants, tests
 applies_to: ["app/components/**/*.rb", "app/components/**/*.slim", "test/components/**/*.rb"]
 triggers: ["ViewComponent", "component", "ApplicationComponent", "render_inline", "renders_one", "renders_many", "slots", "render?", "sidecar", "generate component", "AlertComponent", "variants"]
 see_also: ["view-code-placement", "partials", "tailwind-build", "registries"]
-tokens: 1110
+modes: [ web ]
+tokens: 1120
+current_state: matches
 ---
 
 # ViewComponent

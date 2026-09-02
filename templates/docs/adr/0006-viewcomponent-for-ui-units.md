@@ -1,5 +1,8 @@
 # ViewComponent for UI Units
 
+**Applies to:** server-rendered mode. An API-only app renders no UI, so this
+decision is inert there — it keeps its number rather than being renumbered away.
+
 **Status:** Accepted
 
 **Context:**

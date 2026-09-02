@@ -17,5 +17,5 @@ the feature.
 | [billing](billing.md) | No Stripe, no subscriptions, no plan management |
 | [teams-and-multi-tenancy](teams-and-multi-tenancy.md) | Single-tenant; tenancy is an architecture choice, not a feature |
 | [admin-panel](admin-panel.md) | No Avo, Administrate, or ActiveAdmin |
-| [api-scaffolding](api-scaffolding.md) | No serializers, versioning, or docs generation |
+| [api-scaffolding](api-scaffolding.md) | **Reversed** — the rule set landed first, then the scaffolding ([ADR 0009](../adr/0009-api-mode-is-a-generation-flag.md)) |
 | [more-tracker-tiers](more-tracker-tiers.md) | Three tracker tiers, not four |
