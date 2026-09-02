@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb",
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
 modes: [ api ]
-tokens: 830
+tokens: 850
 current_state: matches
 ---
 
@@ -60,3 +60,5 @@ hand-built bearer tokens, signed verification, digest-keyed revocation and
 per-user invalidation timestamps — Doorkeeper's feature list, arrived at because the
 requirements are real ones that show up after launch. The library costs a migration set
 now; reaching it late costs a rewrite of every client.
+
+Rationale and consequences: [ADR 0011](../adr/0011-oauth-2-via-doorkeeper.md).

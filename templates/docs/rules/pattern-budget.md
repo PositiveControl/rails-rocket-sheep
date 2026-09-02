@@ -5,7 +5,7 @@ applies_to: ["app/**"]
 triggers: ["where does this go", "new directory", "app/services", "app/forms", "app/queries", "app/policies", "app/lib", "app/components", "seventh directory", "pattern sprawl", "DRY", "extract"]
 see_also: ["rejected-patterns", "write-path", "service-objects", "form-objects", "query-objects", "policy-objects", "registries", "optional-patterns"]
 modes: [ web, api ]
-tokens: 970
+tokens: 990
 current_state: matches
 ---
 
@@ -71,3 +71,5 @@ place.
 because both allowlist untrusted input at the same boundary. The split is by return
 type: a contract yields a validated object, a filter yields a relation. Two return
 types under one name is how a directory becomes a junk drawer.
+
+Rationale and consequences: [ADR 0007](../adr/0007-pattern-budget.md).

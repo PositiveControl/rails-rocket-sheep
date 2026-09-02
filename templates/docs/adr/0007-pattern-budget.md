@@ -13,10 +13,17 @@ holding two classes nobody can tell apart, and a codebase where finding the code
 runs takes four hops.
 
 **Decision:**
-Six pattern directories are sanctioned: `services`, `forms`, `queries`, `policies`,
-`lib` (registries), `components`. Each has a stated trigger in
-`docs/rules/pattern-budget.md`. A seventh top-level directory under `app/` requires
-an ADR. Explicitly rejected: repository pattern, CQRS/event sourcing, hexagonal
+A fixed set of pattern directories is sanctioned, and it is per mode. Server-rendered
+mode gets six: `services`, `forms`, `queries`, `policies`, `lib` (registries),
+`components`. API mode gets seven: `services`, `queries`, `policies`, `lib`,
+`serializers`, `contracts`, `filters` — `forms` and `components` have no basis
+without a view layer, and the three that replace them each clear the bars the rule
+states. Each directory has a stated trigger in `docs/rules/pattern-budget.md`. A
+directory beyond this app's set requires an ADR.
+
+`contracts` and `filters` are adjacent and split by return type: a request body
+becomes a validated value object, a query string becomes a relation. That one line is
+the whole test, and without it the seventh directory becomes the sixth by drift. Explicitly rejected: repository pattern, CQRS/event sourcing, hexagonal
 architecture, interactor chains, DI containers, `accepts_nested_attributes_for`.
 
 **Consequences:**

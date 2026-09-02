@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "app/filters/**/*.rb"]
 triggers: ["pagination", "cursor", "page", "per_page", "offset", "next page", "has_more", "unbounded", "index action", "all records"]
 see_also: ["filtering-sorting", "serialization", "n-plus-one", "database-conventions"]
 modes: [ api ]
-tokens: 900
+tokens: 920
 current_state: matches
 ---
 
@@ -70,3 +70,5 @@ than the page is the bug this pattern reliably produces.
 
 `includes` goes on the scope before the limit, not after — [n-plus-one](n-plus-one.md).
 Where the filtering and sorting that feed this live: [filtering-sorting](filtering-sorting.md).
+
+Rationale and consequences: [ADR 0012](../adr/0012-cursor-pagination-by-default.md).

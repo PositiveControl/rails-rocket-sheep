@@ -54,7 +54,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [api-auth](api-auth.md) | 830 | Doorkeeper, coarse scopes, server-side revocation |
+| [api-auth](api-auth.md) | 850 | Doorkeeper, coarse scopes, server-side revocation |
 | [api-testing](api-testing.md) | 750 | Request tests are the layer that matters |
 | [api-versioning](api-versioning.md) | 610 | One number in the path, additive within it |
 | [async-202](async-202.md) | 610 | 202, a `Location`, and a real status resource |
@@ -66,19 +66,19 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [controllers](controllers.md) | 950 | Seven actions, new verb = new resource, thin actions |
 | [cors](cors.md) | 590 | Named origins, and never a wildcard with credentials |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
-| [cursor-pagination](cursor-pagination.md) | 900 | Cursor first, `(created_at, id)`, never an array |
+| [cursor-pagination](cursor-pagination.md) | 920 | Cursor first, `(created_at, id)`, never an array |
 | [database-conventions](database-conventions.md) | 560 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
 | [deletes](deletes.md) | 500 | `destroy` by default, Discard opt-in, the `.kept` tax |
 | [deprecation-policy](deprecation-policy.md) | 630 | `Deprecation` and `Sunset`, a date, and evidence |
-| [error-envelope](error-envelope.md) | 840 | RFC 9457 problem documents, and a machine-readable `type` |
+| [error-envelope](error-envelope.md) | 860 | RFC 9457 problem documents, and a machine-readable `type` |
 | [exception-boundary](exception-boundary.md) | 610 | `rescue_from` once, scoped lookups |
 | [filtering-sorting](filtering-sorting.md) | 730 | An allowlist that is data, not control flow |
 | [idempotency](idempotency.md) | 800 | A key on every write that costs money |
 | [jobs](jobs.md) | 520 | Thin wrapper, IDs not records, idempotent, after commit |
 | [n-plus-one](n-plus-one.md) | 370 | `includes`, `counter_cache`, aggregate in SQL |
-| [openapi-contract](openapi-contract.md) | 700 | Generated from the request tests; CI fails on drift |
+| [openapi-contract](openapi-contract.md) | 730 | Generated from the request tests; CI fails on drift |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
-| [pattern-budget](pattern-budget.md) | 970 | Six directories, DRY triggers, ADR for a seventh |
+| [pattern-budget](pattern-budget.md) | 990 | Six directories, DRY triggers, ADR for a seventh |
 | [policy-objects](policy-objects.md) | 750 | Record-level auth vs Petergate roles |
 | [query-objects](query-objects.md) | 450 | Joins ≥2 models, always return a relation |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
@@ -88,14 +88,14 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [safe-migrations](safe-migrations.md) | 380 | Concurrent indexes, two-deploy column removal |
 | [scopes](scopes.md) | 220 | Scopes, never class methods |
 | [seeds](seeds.md) | 420 | Idempotent seeds, kept in step with models and processes |
-| [serialization](serialization.md) | 770 | One plain object per resource, explicit fields, nothing else |
-| [service-objects](service-objects.md) | 860 | `ApplicationService`, Result, transactions |
+| [serialization](serialization.md) | 800 | One plain object per resource, explicit fields, nothing else |
+| [service-objects](service-objects.md) | 880 | `ApplicationService`, Result, transactions |
 | [sparse-fieldsets-includes](sparse-fieldsets-includes.md) | 700 | `fields` and `include`, allowlisted, one level deep |
 | [status-codes](status-codes.md) | 920 | Which status, and the outcome that is neither success nor failure |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 
-**Total corpus:** ~25,860 tokens across 40 rules — but nobody reads it whole.
+**Total corpus:** ~26,020 tokens across 40 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a

@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "app/lib/problem.rb"]
 triggers: ["error response", "problem+json", "RFC 9457", "error envelope", "422 body", "error json", "errors array", "validation errors", "error message"]
 see_also: ["status-codes", "exception-boundary", "serialization", "request-contracts"]
 modes: [ api ]
-tokens: 840
+tokens: 860
 current_state: matches
 ---
 
@@ -77,3 +77,5 @@ Control flow through a prose string is what an envelope with no `type` costs.
 
 Which status goes with which failure: [status-codes](status-codes.md). Turning a
 raised exception into one of these: [exception-boundary](exception-boundary.md).
+
+Rationale and consequences: [ADR 0009](../adr/0009-errors-are-problem-documents.md).

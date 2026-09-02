@@ -5,7 +5,7 @@ applies_to: ["app/services/**/*.rb", "test/services/**/*.rb"]
 triggers: ["service object", "ApplicationService", "business logic", "Result", "success?", "failure?", "transaction", "multi-step write", "coordination"]
 see_also: ["controllers", "form-objects", "jobs", "policy-objects"]
 modes: [ web, api ]
-tokens: 860
+tokens: 880
 current_state: matches
 ---
 
@@ -97,3 +97,5 @@ A service is also where a network call belongs, and it belongs *outside* the
 transaction. Take the locks, write, commit, then call the provider. Holding a database
 transaction open across a payment API call is how a slow gateway becomes a table-wide
 stall.
+
+Rationale and consequences: [ADR 0003](../adr/0003-service-object-pattern.md).

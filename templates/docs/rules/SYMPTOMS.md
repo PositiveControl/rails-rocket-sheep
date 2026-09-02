@@ -62,7 +62,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [pagination](pagination.md) | 360 | Pagy, every index paginates |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
 | [exception-boundary](exception-boundary.md) | 610 | `rescue_from` once, scoped lookups |
-| [service-objects](service-objects.md) | 860 | `ApplicationService`, Result, transactions |
+| [service-objects](service-objects.md) | 880 | `ApplicationService`, Result, transactions |
 | [form-objects](form-objects.md) | 690 | `ApplicationForm`, never nested attributes |
 | [query-objects](query-objects.md) | 450 | Joins ≥2 models, always return a relation |
 | [policy-objects](policy-objects.md) | 750 | Record-level auth vs Petergate roles |
@@ -79,7 +79,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [seeds](seeds.md) | 420 | Idempotent seeds, kept in step with models and processes |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
-| [pattern-budget](pattern-budget.md) | 970 | Six directories, DRY triggers, ADR for a seventh |
+| [pattern-budget](pattern-budget.md) | 990 | Six directories, DRY triggers, ADR for a seventh |
 | [rejected-patterns](rejected-patterns.md) | 510 | Repository, CQRS, hexagonal, interactors, DI, decorators |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 | [slim-gotchas](slim-gotchas.md) | 630 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
@@ -96,7 +96,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [accessibility](accessibility.md) | 300 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~20,690 tokens across 38 rules. Typical read: this index (~3000)
+**Total corpus:** ~20,730 tokens across 38 rules. Typical read: this index (~3000)
 plus one or two rules (210–1110). Reading the whole corpus is a bug, not thoroughness.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand —

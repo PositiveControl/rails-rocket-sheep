@@ -131,7 +131,7 @@ app's problem envelope rather than answering in a second format.
 | File | Purpose |
 |---|---|
 | `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
-| `docs/adr/` (8 files) | One decision per file, numbered — pre-seeded with the template's own eight |
+| `docs/adr/` (13 files) | One decision per file, numbered — pre-seeded with the template's own thirteen. Five are API-only and five carry an **Applies to:** line naming the mode they hold in |
 | `docs/rules/` (38 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
 | `docs/system/models.md` | Model documentation stub |
 | `docs/system/vocabulary.md` | What each workflow and doc term means, and the near-synonyms to avoid |

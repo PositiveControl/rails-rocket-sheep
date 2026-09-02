@@ -59,8 +59,8 @@ a template loses its three-way merge ([ADR
 are separate files and `INDEX.md` is generated per mode; `adopt.rb` copies by glob,
 so a rule added later is adoptable without a manifest edit.
 
-What the flag concretely means — each of these is a generated-app decision and is
-owed a file in `templates/docs/adr/` when its rule lands:
+What the flag concretely means — each of these is a generated-app decision, and each
+now has its file in `templates/docs/adr/` (0009-0013, with the budget amending 0007):
 
 | Concern | Ruling |
 |---|---|
