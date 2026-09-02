@@ -41,6 +41,9 @@ Or from a local clone, which is faster if you're generating more than one app:
 ```bash
 git clone https://github.com/PositiveControl/rails-rocket-sheep.git
 rails new myapp --database=postgresql --template=rails-rocket-sheep/template.rb
+
+# a JSON API with a separate frontend — a different app and a different rule corpus
+rails new myapp --api --database=postgresql --template=rails-rocket-sheep/template.rb
 ```
 
 The template runs in fourteen phases and narrates each one. It finishes by bundling, installing Devise and PaperTrail, installing Tailwind, creating and migrating the database, and making an initial git commit.

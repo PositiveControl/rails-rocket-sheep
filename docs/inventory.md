@@ -142,6 +142,8 @@ flowchart LR
 
 **7. Seeds.** `db/seeds.rb` creates an admin user, idempotent, password from `SEED_ADMIN_PASSWORD` or generated and printed once, and refuses to run in production without `SEED_ALLOW_PRODUCTION=1`.
 
+**13. API mode.** `rails new --api` generates a JSON API with no view layer: seventeen rules for the boundary, the fifteen view-layer rules withheld, Doorkeeper and rack-cors added, base classes for `app/serializers`, `app/contracts` and `app/filters`, a `Cursor`, an RFC 9457 `problem` helper, an idempotency table, and `openapi.yaml` generated from the request tests with CI failing on drift. Mode is read from `config.api_only`, so both `template.rb` and `adopt.rb` pick the corpus without a flag. [ADR 0009](../.agents/adr/0009-api-mode-is-a-generation-flag.md).
+
 ### ✅ Shipped (continued)
 
 **3. PR and issue templates.** `PULL_REQUEST_TEMPLATE.md` is tier-neutral: it explains in a comment when to add `Closes #` rather than hardcoding it, because tier `beads` must not have one. Carries the test plan and a checklist covering the suite, lint/scan, and the no-Draft-placeholder rule.
@@ -196,7 +198,21 @@ GitHub validates issue-form schema server-side only. A malformed form silently f
 
 **V5. Run a MySQL app's suite against a live server.** *(~30m, needs MySQL 8)*
 
-Generation was verified for all five accepted `--database=` values, plus the SQLite abort, by reading the rendered `database.yml`, `application.rb`, `deploy.yml`, `.kamal/secrets`, `Dockerfile`, and `CLAUDE.md` in each. What has not been run is `bin/test` against a live MySQL server, so everything nobody rendered is unproven there: Solid Queue, Cache and Cable creating their tables on MySQL, Devise's unique email index, PaperTrail's `object_changes` column type, and the fixture generator override. PostgreSQL carries the same debt historically, but it has field use and MySQL has none.
+Generation was verified for all five accepted `--database=` values, plus the SQLite abort, by reading the rendered `database.yml`, `application.rb`, `deploy.yml`, `.kamal/secrets`, `Dockerfile`, and `CLAUDE.md` in each. What has not been run is `bin/test` against a live MySQL server, so everything nobody rendered is unproven there: Solid Queue, Cache and Cable creating their tables on MySQL, Devise's unique email index, PaperTrail's `object_changes` column type, and the fixture generator override.
+
+This is now the only family carrying that debt. A PostgreSQL app was generated, migrated, and run for the first time in this repo's history — see [first-generation findings](first-generation-findings.md) — which found nine defects, two of which had been silently affecting server-rendered apps.
+
+**V6. Run an API-mode app on MySQL.** *(~30m, needs MySQL 8)*
+
+The `--api` branch has been generated and run on PostgreSQL only. MySQL's half is the one thing in it that changes with the database: the Doorkeeper `resource_owner_id` patch is PostgreSQL-only by design (bigint is already correct on MySQL), and the idempotency table's `user_id` follows the primary-key type. Neither has been rendered against MySQL.
+
+**V7. Adopt the layer into an app that already serves JSON.** *(~30m)*
+
+`adopt.rb` reads `config.api_only` to choose the corpus, and that branch has only been exercised through generation — where `rails new --api` had already written the setting. Adoption into a real API-only app, where the app wrote it, is the case the mechanism exists for and the one nobody has run.
+
+**V8. Deploy an API-mode app with Kamal.** *(~1h, needs a VPS)*
+
+Kamal config is written identically in both modes, and an API app has no asset build, no Thruster-fronted static files, and a different health-check surface. None of that has been deployed.
 
 **V4. Run the update path across a real gap, not a synthetic one.** *(~30m, needs an app generated a while ago)*
 
@@ -248,6 +264,8 @@ Not gaps to fill — things to be honest about.
 **24 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 24 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
 
 **Template generation is version-coupled.** The template patches specific Rails files by matching their content. Rails 8.1 or 9 could break generation. Already-generated apps are unaffected, but the product needs re-verification against each Rails release, and that's ongoing maintenance nobody is scheduled to do.
+
+**Two modes means one rule can have two halves too.** Eight rules ship to both a server-rendered and an API app and state both flavours, the way the database rules state two databases. An agent that reads the wrong half writes a redirect into a JSON endpoint — quieter than a mismatched foreign key, since nothing raises. The mitigations are that `modes` withholds the fifteen rules that would be pure noise, and that the two corpora have separate routing indexes so a path row never names a rule the app does not have. Stated in [ADR 0009](../.agents/adr/0009-api-mode-is-a-generation-flag.md).
 
 **Two databases means one convention has two halves.** `docs/rules/database-conventions.md` and `safe-migrations.md` now route off the Tech Stack line in `CLAUDE.md` rather than stating one rule. An agent that reads the wrong half writes a foreign key that will not match — loudly, at migration time, which is the mitigation. The alternative was making those files ERB, which would have cost them their three-way update path. Stated in [ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md).
 

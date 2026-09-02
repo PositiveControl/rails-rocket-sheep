@@ -80,7 +80,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
 | [pattern-budget](pattern-budget.md) | 970 | Six directories, DRY triggers, ADR for a seventh |
-| [rejected-patterns](rejected-patterns.md) | 470 | Repository, CQRS, hexagonal, interactors, DI, decorators |
+| [rejected-patterns](rejected-patterns.md) | 510 | Repository, CQRS, hexagonal, interactors, DI, decorators |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 | [slim-gotchas](slim-gotchas.md) | 630 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
 | [tailwind-build](tailwind-build.md) | 340 | Interpolated classes are purged; no class strings in JS |
@@ -96,7 +96,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [accessibility](accessibility.md) | 300 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~20,650 tokens across 38 rules. Typical read: this index (~3000)
+**Total corpus:** ~20,690 tokens across 38 rules. Typical read: this index (~3000)
 plus one or two rules (210–1110). Reading the whole corpus is a bug, not thoroughness.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand —

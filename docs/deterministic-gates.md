@@ -108,8 +108,8 @@ Hard gates buildable today, ordered by false-positive risk (lowest first).
 
 | Rule / gate | Check | FP risk | Notes |
 |---|---|---|---|
-| [`rejected-patterns`](../templates/docs/rules/rejected-patterns.md) | grep for `accepts_nested_attributes_for`, `app/repositories/`, `app/interactors/`, `app/serializers/`, `SimpleDelegator`, `Dry::` | ~0 | The rule ships its own trigger list in frontmatter. A hit is unambiguous. |
-| [`pattern-budget`](../templates/docs/rules/pattern-budget.md) (no 7th `app/` dir) | `Dir.children("app")` vs the six-directory allowlist; a new dir needs a matching ADR | ~0 | Deliberately excludes judgment ("is this the right pattern") — only the directory count. |
+| [`rejected-patterns`](../templates/docs/rules/rejected-patterns.md) | grep for `accepts_nested_attributes_for`, `app/repositories/`, `app/interactors/`, `SimpleDelegator`, `Dry::` | ~0 | The rule ships its own trigger list in frontmatter. A hit is unambiguous. `app/serializers/` is **not** on this list: it is rejected in server-rendered mode and sanctioned in API mode, so the check has to read the mode first. |
+| [`pattern-budget`](../templates/docs/rules/pattern-budget.md) (no extra `app/` dir) | `Dir.children("app")` vs the mode's allowlist — six directories in server-rendered mode, seven in API mode; a new dir needs a matching ADR | ~0 | Deliberately excludes judgment ("is this the right pattern") — only the directory count. Mode comes from `config.api_only`. |
 | `.cursor/commands` drift ([inventory gap 9](inventory.md)) | `diff -r .claude/commands .cursor/commands` | ~0 | The two dirs are mirrored at generation; nothing stops post-hoc drift. |
 | Branch name / PR title format | regex: branch `prefix/n/slug`, PR title `PREFIX \| n \| description` | low | Tier-aware (`beads` uses bead IDs). Wizard already knows the prefixes. |
 | [`database-conventions`](../templates/docs/rules/database-conventions.md) (primary keys) | new `create_table` in `db/migrate/` lacking `id: :uuid` | low | PostgreSQL apps only — on MySQL the absence of `id: :uuid` is correct, so the gate has to read the adapter from `config/database.yml` first. Scope to new migrations; never re-scan existing schema. |
@@ -117,6 +117,8 @@ Hard gates buildable today, ordered by false-positive risk (lowest first).
 | [`scopes`](../templates/docs/rules/scopes.md) (no class methods returning relations) | `def self.*` in `app/models/**` whose body returns `where`/`all`/`joins` | medium | Static return-type inference is heuristic; risk of both misses and false hits. |
 | [`tailwind-build`](../templates/docs/rules/tailwind-build.md) (interpolated classes purged) | class-string interpolation in `app/javascript/**` | medium | Legitimate uses exist; needs care. |
 | [`audit-trail`](../templates/docs/rules/audit-trail.md) | `has_paper_trail` present without `only:` | medium | Enforces the scoping habit, not correctness. |
+| [`openapi-contract`](../templates/docs/rules/openapi-contract.md) (API mode) | `bin/rails api:contract:check` — regenerate from the request tests and diff against the committed `openapi.yaml` | ~0 | **Built, and the only gate here that is.** Exits 1 on drift. Ships as a generated workflow with a service container matching the database family. An endpoint with no request test records nothing, so it cannot be documented without one. |
+| [`error-envelope`](../templates/docs/rules/error-envelope.md) (API mode) | `assert_problem` in a request test: content type, `type`, `status` matching the status line, `title` present, and no `success` key | ~0 | Not a static check — it runs where the response actually exists. One line per assertion at the call site. |
 
 ### Bucket B — checkable only dynamically (test-time)
 

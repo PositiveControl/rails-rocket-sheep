@@ -83,7 +83,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [query-objects](query-objects.md) | 450 | Joins ≥2 models, always return a relation |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
 | [registries](registries.md) | 790 | `Data` objects, `fetch`, capabilities not identities |
-| [rejected-patterns](rejected-patterns.md) | 470 | Repository, CQRS, hexagonal, interactors, DI, decorators |
+| [rejected-patterns](rejected-patterns.md) | 510 | Repository, CQRS, hexagonal, interactors, DI, decorators |
 | [request-contracts](request-contracts.md) | 820 | Validate the body before a model sees it |
 | [safe-migrations](safe-migrations.md) | 380 | Concurrent indexes, two-deploy column removal |
 | [scopes](scopes.md) | 220 | Scopes, never class methods |
@@ -95,7 +95,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 
-**Total corpus:** ~25,820 tokens across 40 rules — but nobody reads it whole.
+**Total corpus:** ~25,860 tokens across 40 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a

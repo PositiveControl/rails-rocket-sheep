@@ -8,16 +8,21 @@ Every gem and file the template adds, and the reason it's there. Nothing here is
 
 Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster, so the template doesn't re-add them. It removes `sqlite3` (PostgreSQL or MySQL — SQLite is refused) and adds:
 
+Two gems are added only in `--api` mode, and five are skipped there — an API has no
+templates, no components, and no Pagy:
+
 | Gem | Group | Why |
 |---|---|---|
-| `tailwindcss-rails` | — | Styling, no bundler needed |
+| `doorkeeper` | — | **API mode.** OAuth 2 with server-side revocation |
+| `rack-cors` | — | **API mode.** The client is a separate origin |
+| `tailwindcss-rails` | — | Styling, no bundler needed. *Server-rendered only* |
 | `devise` | — | Authentication, pre-configured for Turbo |
 | `petergate` | — | Role-based authorization on top of Devise |
 | `discard` | — | Soft deletes for the tables that need them; not applied by default |
 | `paper_trail` | — | Audit trail, installed `--with-changes` |
-| `pagy` | — | Pagination; far lighter than Kaminari |
-| `slim-rails` | — | Terser templates, enforced indentation |
-| `view_component` | — | UI components with a real interface and unit tests |
+| `pagy` | — | Pagination; far lighter than Kaminari. *Server-rendered only — API mode paginates by cursor* |
+| `slim-rails` | — | Terser templates, enforced indentation. *Server-rendered only* |
+| `view_component` | — | UI components with a real interface and unit tests. *Server-rendered only* |
 | `resend` | — | Transactional email API client |
 | `letter_opener_web` | development | Preview mail at `/letter_opener` |
 | `pry`, `pry-rails` | dev, test | `binding.pry` debugging |
@@ -70,6 +75,28 @@ Rails 8 already ships Solid Queue, Solid Cache, Solid Cable, Kamal, and Thruster
 | `app/views/home/index.html.slim` | Placeholder home page |
 
 `app/controllers/application_controller.rb` gets `include Pagy::Method`, so pagination works without further wiring. The layout renders `FlashComponent`.
+
+Everything above is server-rendered mode. In `--api` mode the components, the form
+object, the Stimulus controllers, the SEO helper and the home page are not written at
+all, and these are:
+
+| File | Purpose |
+|---|---|
+| `app/controllers/api/v1/base_controller.rb` | `ActionController::API` plus the three things every endpoint shares: the RFC 9457 `problem` helper, one exception boundary, `current_user` from the token, and `per_page` clamped once |
+| `app/serializers/application_serializer.rb` | Explicit fields, `optional` and `includable` declarations, and `preload` so the caller cannot forget an association's preloads |
+| `app/contracts/application_contract.rb` | `ActiveModel` attributes plus `error_details` in the shape a problem document's `errors` extension wants |
+| `app/filters/application_filter.rb` | `filter` / `sortable` / `default_sort` as declarations, and a sort that always ends in a unique tiebreak |
+| `app/lib/cursor.rb` | Keyset pagination on `(sort column, id)`, because a UUID key has no order |
+| `app/models/idempotent_request.rb` | Replays a stored response for a repeated `Idempotency-Key`; unique index on `(user_id, key, endpoint)` |
+| `config/initializers/cors.rb` | Named origins from credentials, and the response headers a browser client has to be able to read |
+| `lib/tasks/api_contract.rake` | `api:contract` and `api:contract:check` |
+| `test/support/api_contract.rb` | Records what the request tests exercise; inert unless `OPENAPI_OUT` is set |
+| `test/support/api_helpers.rb` | `assert_problem` and a token-per-scope helper |
+| `.github/workflows/api-contract.yml` | Runs the drift check with a service container matching your database |
+
+Doorkeeper's install and migration run too, with its `resource_owner_id` typed to match
+your primary keys and `handle_auth_errors :raise` set so its own failures go through the
+app's problem envelope rather than answering in a second format.
 
 ### Deployment
 
