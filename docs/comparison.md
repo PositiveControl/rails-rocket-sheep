@@ -1,6 +1,6 @@
 # Comparison
 
-Honest positioning against the alternatives. Some of these are better purchases than Rocket Sheep depending on what you're building — that's said plainly below rather than discovered after you've paid.
+Honest positioning against the alternatives. Some of these are a better fit than Rocket Sheep depending on what you're building — that's said plainly below rather than discovered after you've generated.
 
 ---
 
@@ -8,7 +8,7 @@ Honest positioning against the alternatives. Some of these are better purchases 
 
 | | `rails new` | Rocket Sheep | Jumpstart Pro | Bullet Train |
 |---|---|---|---|---|
-| Cost | Free | One-time | ~$249 one-time | Free core / paid tiers |
+| Cost | Free | Free (MIT) | ~$249 one-time | Free core / paid tiers |
 | Rails 8 Solid Stack | Yes | Yes, multi-database | Yes | Yes |
 | Auth | No | Devise + Petergate | Devise + OmniAuth | Devise |
 | Billing | No | **No** | Stripe, Paddle, Braintree | Stripe |
@@ -41,9 +41,9 @@ Call it a day or two of setup, plus the specific knowledge of which defaults bit
 
 Jumpstart Pro is a **SaaS starter kit**. Rocket Sheep is an **application foundation**. Different products.
 
-**Jumpstart Pro is the better buy if** you're building a subscription SaaS and want billing, teams, an admin panel, OmniAuth providers, API keys, and a marketing site on day one. It's mature, actively maintained, and has a large user base. If your product needs Stripe subscriptions with plan management, buying Jumpstart is cheaper than building that yourself, and cheaper than buying Rocket Sheep and then building it.
+**Jumpstart Pro is the better choice if** you're building a subscription SaaS and want billing, teams, an admin panel, OmniAuth providers, API keys, and a marketing site on day one. It's mature, actively maintained, and has a large user base. If your product needs Stripe subscriptions with plan management, buying Jumpstart is cheaper than building that yourself on top of Rocket Sheep.
 
-**Rocket Sheep is the better buy if** you're not building a subscription SaaS — an internal tool, a client project, a content site, an API — and want a clean foundation without carrying billing and multi-tenancy code you'll never use. And if you're working with AI coding agents, where the conventions layer is the whole point.
+**Rocket Sheep is the better choice if** you're not building a subscription SaaS — an internal tool, a client project, a content site, an API — and want a clean foundation without carrying billing and multi-tenancy code you'll never use. And if you're working with AI coding agents, where the conventions layer is the whole point.
 
 **The honest trade:** Jumpstart Pro gives you vastly more code. That's an advantage when you need the code and a liability when you don't. Its upgrade path (merging from a git remote) means ongoing merge work on the whole app. Rocket Sheep is applied once and then it's just your app — nothing is left that isn't yours. Template fixes are still available when you want them: `bin/rocket-sheep-update` three-way merges the alignment layer only, on demand, and never the application code. Merge work when you ask for it, none when you don't.
 
@@ -55,7 +55,7 @@ Bullet Train is built around teams and roles as a first-class concept, with a su
 
 **Bullet Train is the better buy if** your app is fundamentally about teams with granular role-based permissions, and you want scaffolding to generate large amounts of consistent UI quickly.
 
-**Rocket Sheep is the better buy if** you want plain Rails you can read end to end. Bullet Train's power comes from framework gems — magic that saves enormous time when you're inside the paved path and costs real time when you step outside it. Rocket Sheep adds no gems of its own. Every file it writes is a file you can open, understand, and delete.
+**Rocket Sheep is the better choice if** you want plain Rails you can read end to end. Bullet Train's power comes from framework gems — magic that saves enormous time when you're inside the paved path and costs real time when you step outside it. Rocket Sheep adds no gems of its own. Every file it writes is a file you can open, understand, and delete.
 
 ---
 

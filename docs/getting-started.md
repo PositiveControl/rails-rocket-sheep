@@ -1,6 +1,6 @@
 # Getting Started
 
-From nothing to a running app in about three minutes, plus what to do in the ten minutes after that.
+From nothing to a running app in about three minutes, plus what to do in the ten minutes after that. Steps 1 and 3 apply to both modes; the [API mode](#in-api-mode) section covers what replaces the rest.
 
 ---
 
@@ -8,7 +8,7 @@ From nothing to a running app in about three minutes, plus what to do in the ten
 
 | Requirement | Version | Notes |
 |---|---|---|
-| Ruby | 3.2+ | Developed and tested on 3.4.7 |
+| Ruby | 3.3+ | Pagy 43 sets the floor. Last verified on 4.0.6 |
 | Rails | 8.0+ | `gem install rails` |
 | PostgreSQL | 13+ | If you choose it. Must be running before you generate; uses built-in `gen_random_uuid()`. |
 | MySQL or MariaDB | MySQL 8+ / MariaDB 10.5+ | The alternative. Must be running before you generate. |
@@ -87,6 +87,25 @@ The SEO integration tests in `test/integration/seo_test.rb` pass out of the box.
 ### 4. Check your mail
 
 Development mail goes to `letter_opener_web`, not to a real inbox. Anything your app sends shows up at http://localhost:3000/letter_opener.
+
+---
+
+## In API mode
+
+`--api` generates a JSON API with no view layer, for an app whose frontend is a
+separate repository. Step 1 above is the same. `bin/rails server` replaces `bin/dev`,
+there is no Tailwind and no sitemap. Mail preview at `/letter_opener` still works. Two things need
+doing before the API answers anything useful:
+
+1. Name the client origins CORS will allow: `bin/rails credentials:edit`, under
+   `api: allowed_origins:`.
+2. Add your first endpoint under `app/controllers/api/v1/`, write its request tests,
+   then run `bin/rails api:contract` to generate the `openapi.yaml` your client
+   consumes. CI fails when the committed copy drifts from the tests.
+
+Of the deploy placeholders below, `public/robots.txt` and the Lighthouse workflow do
+not exist in API mode. The rules an API app ships, and the base classes they name,
+are listed in [What's Included](whats-included.md).
 
 ---
 

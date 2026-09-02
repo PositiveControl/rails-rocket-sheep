@@ -100,7 +100,7 @@ Delete the file. Nothing reads it at runtime.
 No. `docs/rules/` is the single source — plain markdown with YAML frontmatter, no harness features — and every pointer routes to the same `docs/rules/INDEX.md`:
 
 - **Claude Code** — reads `CLAUDE.md` and `.claude/commands/`, plus one skill (`.claude/skills/rails-conventions/`) that points at the same index. The skill is the one harness-specific advantage: it can fire on its own when an agent starts editing Rails code without being told to look, which is the gap a pointer in `CLAUDE.md` cannot close.
-- **Cursor** — reads `.cursor/rules/conventions.mdc` and `.cursor/commands/`, both shipped. The commands are the same files, mirrored at generation time rather than forked.
+- **Cursor** — reads [`.cursor/rules/conventions.mdc`](../templates/.cursor/rules/conventions.mdc.tt) and `.cursor/commands/`, both shipped. The commands are the same files, mirrored at generation time rather than forked.
 - **Anything else** — `AGENTS.md` carries an orientation table and a commands table. Cursor and a growing number of tools read `AGENTS.md` natively.
 
 For a tool with no slash-command concept, the commands still work — they're markdown instruction files. Tell the agent to "follow `.claude/commands/pr_submit.md`".
@@ -113,22 +113,10 @@ Yes. This reduces divergence between sessions — it doesn't replace review. An 
 ## Licensing
 
 **What does the license permit?**
-See [LICENSE](../LICENSE) — it is authoritative over anything summarised here. In short: a perpetual, one-time-purchase commercial license, in a Single Application or Unlimited Applications tier. You may build personal, commercial, and client work with it.
-
-**What can't I do with it?**
-Resell, republish, or otherwise distribute the template itself, share your repo access outside your organisation, or use it to build a competing template or starter-kit product. The restrictions apply to the template, not to what you build with it.
-
-**Can I open-source an app I built with it?**
-Yes, under any license you choose — provided it's a genuine application rather than, in substance, a republication of the template. Publishing a freshly generated, substantially unmodified app is redistribution and isn't permitted. See LICENSE §5.
-
-**Can a contractor work on my app?**
-Yes. Someone working only on your generated application isn't a "Developer" under the license and needs no license of their own. A contractor who takes a copy of the *template* away with them needs their own. See LICENSE §3.3.
-
-**Is there a refund?**
-Within 30 days, where you haven't put a generated app into production. See LICENSE §8.
+The template is [MIT licensed](../LICENSE). Use it, modify it, redistribute it, build personal, commercial, and client work with it. Keep the copyright notice with any copy of the template itself.
 
 **Do I owe anything on apps I build with it?**
-No. Generated apps are yours. The template is applied once and leaves behind ordinary Rails files.
+No. Generated apps are yours, under any license you choose. The template is applied once and leaves behind ordinary Rails files.
 
 **Are there updates?**
 Fixes land on `main`, and a generated app pulls them when it asks — never on its own. The first lines of a generated `CLAUDE.md` stamp the template commit the app came from, and `bin/rocket-sheep-update` three-way merges the alignment layer between that commit and a newer one: rules, commands, `WORKFLOW.md`, the doc canon, the hooks. `Gemfile`, `app/` and `config/` are never touched.

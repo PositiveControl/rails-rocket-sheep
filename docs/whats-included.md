@@ -130,16 +130,16 @@ app's problem envelope rather than answering in a second format.
 
 | File | Purpose |
 |---|---|
-| `CLAUDE.md` | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
-| `docs/adr/` (13 files) | One decision per file, numbered — pre-seeded with the template's own thirteen. Five are API-only and five carry an **Applies to:** line naming the mode they hold in |
-| `docs/rules/` (38 files + `INDEX.md`) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
-| `docs/system/models.md` | Model documentation stub |
-| `docs/system/vocabulary.md` | What each workflow and doc term means, and the near-synonyms to avoid |
+| [`CLAUDE.md`](../templates/CLAUDE.md.tt) | Conventions, patterns, anti-patterns, Slim pitfalls — the file your AI agent reads |
+| [`docs/adr/`](../templates/docs/adr/) (13 files) | One decision per file, numbered — pre-seeded with the template's own thirteen. Five are API-only and five carry an **Applies to:** line naming the mode they hold in |
+| [`docs/rules/`](../templates/docs/rules/) (38 files + [`INDEX.md`](../templates/docs/rules/INDEX.md), or [`INDEX.api.md`](../templates/docs/rules/INDEX.api.md) in API mode) | One convention per file — controllers, services, forms, queries, policies, jobs, caching — routed by path, symptom, or id |
+| [`docs/system/models.md`](../templates/docs/system/models.md.tt) | Model documentation stub |
+| [`docs/system/vocabulary.md`](../templates/docs/system/vocabulary.md) | What each workflow and doc term means, and the near-synonyms to avoid |
 | `CLAUDE.md` (first lines) | The template commit and date this app was generated from |
-| `docs/sop/add-seo-to-a-page.md` | Adding SEO to a new page |
-| `docs/sop/find-slow-tests.md` | Reading the Slowpoke report and fixing what it flags |
-| `docs/sop/harden-a-kamal-server.md` | Server hardening after `kamal setup` |
-| `docs/sop/extract-database-and-storage.md` | Moving the database off the app server |
+| [`docs/sop/add-seo-to-a-page.md`](../templates/docs/sop/add-seo-to-a-page.md) | Adding SEO to a new page |
+| [`docs/sop/find-slow-tests.md`](../templates/docs/sop/find-slow-tests.md) | Reading the Slowpoke report and fixing what it flags |
+| [`docs/sop/harden-a-kamal-server.md`](../templates/docs/sop/harden-a-kamal-server.md) | Server hardening after `kamal setup` |
+| [`docs/sop/extract-database-and-storage.md`](../templates/docs/sop/extract-database-and-storage.md) | Moving the database off the app server |
 
 `docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `adr`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
 
@@ -147,15 +147,15 @@ app's problem envelope rather than answering in a second format.
 
 | File | Purpose |
 |---|---|
-| `.claude/commands/*.md` | 24 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
-| `.claude/skills/rails-conventions/SKILL.md` | One skill, and it is a pointer at `docs/rules/INDEX.md` — it makes the routing model-invocable, so an agent that starts editing a controller on its own initiative still passes through the index. Carries no rule content and no routing table, so there is nothing in it to fall out of step |
-| `WORKFLOW.md` | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
-| `.llm/README.md` | Index of committed docs, so agents find existing docs before writing duplicates |
-| `.llm/tasks/task_template.md` | Resumable task file format — the artifact that makes `/implement` idempotent |
+| [`.claude/commands/*.md`](../templates/.claude/commands/) | 24 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| [`.claude/skills/rails-conventions/SKILL.md`](../templates/.claude/skills/rails-conventions/SKILL.md) | One skill, and it is a pointer at `docs/rules/INDEX.md` — it makes the routing model-invocable, so an agent that starts editing a controller on its own initiative still passes through the index. Carries no rule content and no routing table, so there is nothing in it to fall out of step |
+| [`WORKFLOW.md`](../templates/WORKFLOW.md) | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
+| [`.llm/README.md`](../templates/.llm/README.md) | Index of committed docs, so agents find existing docs before writing duplicates |
+| [`.llm/tasks/task_template.md`](../templates/.llm/tasks/task_template.md) | Resumable task file format — the artifact that makes `/implement` idempotent |
 | `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
 | `bin/doc-tokens` | Regenerates the `tokens:` figure in each `docs/rules/*.md` and the four figures derived from it in the routers; `--check` fails on drift |
-| `.github/PULL_REQUEST_TEMPLATE.md` | Tier-neutral PR body + checklist, for PRs opened by hand |
-| `.github/ISSUE_TEMPLATE/` | Issue forms carrying the ≤5-acceptance-criteria sizing rule |
+| [`.github/PULL_REQUEST_TEMPLATE.md`](../templates/.github/PULL_REQUEST_TEMPLATE.md) | Tier-neutral PR body + checklist, for PRs opened by hand |
+| [`.github/ISSUE_TEMPLATE/`](../templates/.github/ISSUE_TEMPLATE/) | Issue forms carrying the ≤5-acceptance-criteria sizing rule |
 
 Stack tokens (test, lint, scan commands, default branch, CI job names) arrive pre-filled. Run `/workflow_setup` once to fill in GitHub org, repo, and board IDs. See [The Agent Workflow](workflow.md).
 
