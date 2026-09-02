@@ -4,6 +4,7 @@ title: Every index paginates (Pagy)
 applies_to: ["app/controllers/**/*.rb", "app/views/**/index.html.slim"]
 triggers: ["index action", "pagy", "pagination", "series_nav", "unbounded query", "all records", "list page"]
 see_also: ["controllers", "query-objects", "n-plus-one"]
+modes: [ web ]
 tokens: 360
 current_state: matches
 ---

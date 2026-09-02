@@ -4,6 +4,7 @@ title: Pagination — cursor by default, offset by exception, never unbounded
 applies_to: ["app/controllers/api/**/*.rb", "app/filters/**/*.rb"]
 triggers: ["pagination", "cursor", "page", "per_page", "offset", "next page", "has_more", "unbounded", "index action", "all records"]
 see_also: ["filtering-sorting", "serialization", "n-plus-one", "database-conventions"]
+modes: [ api ]
 tokens: 860
 current_state: matches
 ---

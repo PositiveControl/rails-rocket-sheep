@@ -4,6 +4,7 @@ title: API authentication — Doorkeeper, coarse scopes, server-side revocation
 applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb", "config/routes.rb"]
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
+modes: [ api ]
 tokens: 720
 current_state: matches
 ---

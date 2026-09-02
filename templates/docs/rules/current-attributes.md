@@ -4,6 +4,7 @@ title: CurrentAttributes is a trap — two acceptable uses
 applies_to: ["app/models/current.rb", "app/models/**/*.rb", "app/controllers/**/*.rb", "app/jobs/**/*.rb"]
 triggers: ["Current.user", "CurrentAttributes", "ActiveSupport::CurrentAttributes", "ambient state", "thread local", "global user", "tests pass in isolation"]
 see_also: ["audit-trail", "service-objects"]
+modes: [ web, api ]
 tokens: 230
 current_state: matches
 ---

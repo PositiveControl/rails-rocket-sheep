@@ -4,6 +4,7 @@ title: Idempotency — a key on every write that costs money
 applies_to: ["app/controllers/api/**/*.rb", "app/models/idempotent_request.rb"]
 triggers: ["idempotency", "Idempotency-Key", "double charge", "retry", "duplicate request", "replay", "exactly once"]
 see_also: ["status-codes", "error-envelope", "async-202", "bulk-endpoints"]
+modes: [ api ]
 tokens: 740
 current_state: matches
 ---

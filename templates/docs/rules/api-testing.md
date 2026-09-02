@@ -4,6 +4,7 @@ title: Tests — request tests are the layer that matters, and they are the cont
 applies_to: ["test/**/*.rb"]
 triggers: ["what should I test", "request test", "integration test", "system test", "test the API", "assert_response", "contract test", "VCR", "factory"]
 see_also: ["openapi-contract", "status-codes", "error-envelope", "api-auth", "testing"]
+modes: [ api ]
 tokens: 750
 current_state: matches
 ---

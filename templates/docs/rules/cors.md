@@ -4,6 +4,7 @@ title: CORS — named origins, and never a wildcard with credentials
 applies_to: ["config/initializers/cors.rb", "config/routes.rb"]
 triggers: ["CORS", "cross-origin", "preflight", "OPTIONS", "Access-Control-Allow-Origin", "browser blocked", "credentials"]
 see_also: ["api-auth", "client-contract", "rate-limiting"]
+modes: [ api ]
 tokens: 580
 current_state: matches
 ---

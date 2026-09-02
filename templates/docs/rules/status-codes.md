@@ -4,6 +4,7 @@ title: Status codes — the ones you need, and the outcome that is neither succe
 applies_to: ["app/controllers/**/*.rb", "test/integration/**/*.rb"]
 triggers: ["status code", "201", "202", "204", "409", "422", "400 vs 422", "401 vs 403", "which status", "head :no_content", "needs confirmation"]
 see_also: ["error-envelope", "async-202", "request-contracts", "service-objects"]
+modes: [ api ]
 tokens: 890
 current_state: matches
 ---

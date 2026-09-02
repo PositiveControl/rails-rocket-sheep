@@ -187,7 +187,7 @@ Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` 
 
 The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
 
-Each generated app also ships: `docs/rules/` (38 rules + a routing index), `docs/adr/` (eight decisions, one file each), `docs/system/models.md`, `docs/system/vocabulary.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+Each generated app also ships: `docs/rules/` (38 rules in web mode, 40 in API mode, + a two-tier routing index), `docs/adr/` (eight decisions, one file each), `docs/system/models.md`, `docs/system/vocabulary.md`, and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
 
 ---
 

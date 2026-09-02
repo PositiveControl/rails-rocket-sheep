@@ -4,6 +4,7 @@ title: Sparse fieldsets and includes — bounded, allowlisted, one level deep
 applies_to: ["app/serializers/**/*.rb", "app/controllers/api/**/*.rb"]
 triggers: ["fields param", "include param", "sparse fieldset", "embed", "sideload", "nested resource", "over-fetching", "graph"]
 see_also: ["serialization", "n-plus-one", "cursor-pagination", "openapi-contract"]
+modes: [ api ]
 tokens: 700
 current_state: matches
 ---

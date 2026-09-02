@@ -1,7 +1,9 @@
 # API mode is a generation flag, and it forks the rule corpus
 
-**Status: draft.** Decided; not implemented. `template.rb` has no `--api` branch yet
-and none of the rules named below exist.
+**Status: partly implemented.** The seventeen rules exist, every rule declares its
+`modes`, each mode has its own router pair, and `adopt.rb` installs the corpus for the
+mode it detects. `template.rb` still has no `--api` branch for the gems and base
+classes those rules name.
 
 ## Context
 
@@ -111,9 +113,21 @@ Accepted:
   and `0006-viewcomponent-for-ui-units` describe a layer that is not there. They
   keep their numbers and gain a mode line, rather than being renumbered or
   dropped — the number is the identity ([ADR 0008](0008-decisions-are-one-file-each.md)).
-- **`INDEX.md` is generated, not copied.** It is the one doc whose content is a
-  function of the mode. `bin/lint-docs` checks the index against the rule files it
-  routes to, so it has to learn about modes at the same time.
+- **The routers are the one pair of files whose name changes on the way in.** Each
+  mode has its own committed pair, `INDEX.md`/`SYMPTOMS.md` and
+  `INDEX.api.md`/`SYMPTOMS.api.md`, and the mode's pair installs under the shared
+  names because every other file links to those. Two static readers of `adopt.rb` had
+  to learn it: `bin/lint-docs` checks each index against only its own mode's rules,
+  and `bin/rocket-sheep-update` maps a router to the app's index only when it belongs
+  to the app's mode. Without the second, a change to the web index would have merged
+  into an API app's `INDEX.md` — the same filename holding different routing.
+- **The mode is read, not asked.** `rails new --api` writes `config.api_only`, and an
+  app adopting the layer already knows what it is, so both entry points detect it from
+  `config/application.rb` rather than carrying a flag. A generated app that later
+  changes its mind has to re-run adoption; nothing detects a mode that changed.
+- **`modes` is the manifest.** A rule added later ships to the right apps without an
+  edit to `adopt.rb`, which is what keeps the glob honest. The cost is that a rule with
+  no `modes` line ships nowhere, so the key is required rather than defaulted.
 - **Doorkeeper is the heaviest dependency this template has taken.** OAuth 2 for
   a first-party client is more machinery than opaque tokens, and the migration set
   and grant-flow configuration are real. It is chosen for what it does not have to

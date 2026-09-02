@@ -4,6 +4,7 @@ title: Serialization — one plain object per resource, never a hash in the acti
 applies_to: ["app/serializers/**/*.rb", "app/controllers/**/*.rb"]
 triggers: ["serializer", "as_json", "to_json", "response shape", "JSON keys", "render json", "ApplicationSerializer", "response fields"]
 see_also: ["pattern-budget", "sparse-fieldsets-includes", "n-plus-one", "api-versioning"]
+modes: [ api ]
 tokens: 680
 current_state: matches
 ---

@@ -4,6 +4,7 @@ title: Rejected patterns — deliberately excluded, ADR required
 applies_to: ["app/**"]
 triggers: ["repository pattern", "CQRS", "event sourcing", "hexagonal", "ports and adapters", "interactor", "organizer", "dry-rb", "DI container", "dependency injection", "serializer", "decorator", "SimpleDelegator", "accepts_nested_attributes_for"]
 see_also: ["pattern-budget", "form-objects"]
+modes: [ web, api ]
 tokens: 470
 current_state: matches
 ---

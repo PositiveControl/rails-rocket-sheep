@@ -4,6 +4,7 @@ title: Bulk endpoints — capped, per-item results, never the first answer
 applies_to: ["app/controllers/api/**/*.rb", "config/routes.rb"]
 triggers: ["bulk", "batch", "multiple records", "array of items", "mass update", "import", "N requests"]
 see_also: ["idempotency", "status-codes", "error-envelope", "async-202"]
+modes: [ api ]
 tokens: 690
 current_state: matches
 ---

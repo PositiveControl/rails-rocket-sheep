@@ -4,6 +4,7 @@ title: Request contracts — validate the body before it reaches a model
 applies_to: ["app/contracts/**/*.rb", "app/controllers/api/**/*.rb"]
 triggers: ["strong params", "permit", "request validation", "params object", "contract", "invalid body", "422", "unknown field", "type coercion"]
 see_also: ["error-envelope", "status-codes", "filtering-sorting", "pattern-budget", "service-objects"]
+modes: [ api ]
 tokens: 820
 current_state: matches
 ---

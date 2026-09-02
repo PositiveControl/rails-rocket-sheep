@@ -4,6 +4,7 @@ title: Stimulus — targets, values, classes; never reach outside the element
 applies_to: ["app/javascript/controllers/**/*.js", "app/components/**/*.js", "app/views/**/*.slim"]
 triggers: ["Stimulus", "data-controller", "static targets", "static values", "static classes", "querySelector", "connect()", "disconnect()", "data-action", "toggle_controller", "modal_controller", "localStorage"]
 see_also: ["tailwind-build", "turbo-frames", "components"]
+modes: [ web ]
 tokens: 620
 current_state: matches
 ---

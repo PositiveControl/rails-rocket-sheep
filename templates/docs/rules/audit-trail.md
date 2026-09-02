@@ -4,6 +4,7 @@ title: Audit trail — PaperTrail, scoped to models where history has value
 applies_to: ["app/models/**/*.rb", "app/controllers/application_controller.rb"]
 triggers: ["PaperTrail", "has_paper_trail", "audit", "versions", "changeset", "whodunnit", "history", "who changed"]
 see_also: ["deletes", "current-attributes"]
+modes: [ web, api ]
 tokens: 300
 current_state: matches
 ---

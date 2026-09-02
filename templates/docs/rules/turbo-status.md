@@ -4,6 +4,7 @@ title: The Turbo status contract — render failures with 422
 applies_to: ["app/controllers/**/*.rb", "test/controllers/**/*.rb", "test/integration/**/*.rb"]
 triggers: ["form frozen", "form does nothing", "422", "unprocessable", "unprocessable_entity", "unprocessable_content", "render :new", "validation failure", "turbo discards", "resubmit"]
 see_also: ["controllers", "form-objects"]
+modes: [ web ]
 tokens: 440
 current_state: matches
 ---

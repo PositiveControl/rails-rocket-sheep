@@ -4,6 +4,7 @@ title: Deprecation — a header, a date, and proof nobody is still calling it
 applies_to: ["app/controllers/api/**/*.rb", "config/routes.rb", "app/serializers/**/*.rb"]
 triggers: ["deprecate", "sunset", "remove an endpoint", "remove a field", "breaking change", "Deprecation header", "Sunset header", "retire"]
 see_also: ["api-versioning", "openapi-contract", "client-contract"]
+modes: [ api ]
 tokens: 630
 current_state: matches
 ---

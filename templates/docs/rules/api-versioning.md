@@ -4,6 +4,7 @@ title: Versioning — one number in the path, additive within it
 applies_to: ["config/routes.rb", "app/controllers/api/**/*.rb", "app/serializers/**/*.rb"]
 triggers: ["version", "v1", "v2", "breaking change", "deprecate a field", "API version", "namespace", "remove a field"]
 see_also: ["deprecation-policy", "serialization", "openapi-contract", "client-contract"]
+modes: [ api ]
 tokens: 610
 current_state: matches
 ---

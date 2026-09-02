@@ -4,6 +4,7 @@ title: The contract is generated from the request tests, and CI fails on drift
 applies_to: ["test/integration/**/*.rb", "openapi.yaml", ".github/workflows/**"]
 triggers: ["OpenAPI", "swagger", "API docs", "contract", "spec drift", "schema", "client generation", "documentation"]
 see_also: ["api-testing", "serialization", "filtering-sorting", "client-contract", "api-versioning"]
+modes: [ api ]
 tokens: 700
 current_state: matches
 ---

@@ -134,11 +134,40 @@ copy_template_file "docs/sop/update-from-the-template.md"
 # trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
 # agent can use it — no harness-specific loading. An agent reads the index and
 # then only the rules that match the file it is editing.
+#
+# Which rules ship depends on the mode (ADR 0009). An API-only app has no view
+# layer, so the twelve rules describing one would be advice for an app it is not;
+# it gets the JSON boundary rules instead. The mode is read from the app rather
+# than asked for: `rails new --api` writes `config.api_only`, and an app adopting
+# this layer already knows what it is. Each rule's `modes` is the manifest, so a
+# rule added later ships without an edit here.
+APP_MODE = if File.exist?("config/application.rb") &&
+              File.read("config/application.rb").match?(/^\s*config\.api_only\s*=\s*true/)
+  "api"
+else
+  "web"
+end
+
 RULE_FILES = Dir.glob(File.join(TEMPLATE_ROOT, "templates/docs/rules/*.md"))
+                .reject { |path| File.basename(path).upcase.start_with?("INDEX", "SYMPTOMS") }
+                .select { |path| File.read(path).match?(/^modes:.*\b#{APP_MODE}\b/) }
                 .map { |path| "docs/rules/#{File.basename(path)}" }.freeze
+
+say "Conventions: #{APP_MODE} mode, #{RULE_FILES.size} rules", :green
 
 empty_directory "docs/rules"
 RULE_FILES.each { |rule| copy_template_file rule }
+
+# The mode's router pair installs under the names every other file links to.
+# Written as literal paths, because bin/rocket-sheep-update and bin/lint-docs both
+# read this file as a manifest by scanning for them.
+if APP_MODE == "api"
+  copy_template_file "docs/rules/INDEX.api.md", "docs/rules/INDEX.md"
+  copy_template_file "docs/rules/SYMPTOMS.api.md", "docs/rules/SYMPTOMS.md"
+else
+  copy_template_file "docs/rules/INDEX.md"
+  copy_template_file "docs/rules/SYMPTOMS.md"
+end
 
 # =============================================================================
 # Agent Workflow

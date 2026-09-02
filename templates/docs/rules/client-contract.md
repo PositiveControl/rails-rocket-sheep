@@ -4,6 +4,7 @@ title: What the client repo may rely on, and what it must not
 applies_to: ["openapi.yaml", "app/serializers/**/*.rb", "app/controllers/api/**/*.rb"]
 triggers: ["client", "frontend", "JS client", "SPA", "what can the client assume", "breaking the client", "consumer"]
 see_also: ["openapi-contract", "api-versioning", "error-envelope", "cursor-pagination", "deprecation-policy"]
+modes: [ api ]
 tokens: 740
 current_state: matches
 ---

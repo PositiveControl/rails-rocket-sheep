@@ -4,6 +4,7 @@ title: Filtering and sorting — an allowlist that is data, not control flow
 applies_to: ["app/filters/**/*.rb", "app/controllers/api/**/*.rb"]
 triggers: ["filter", "sort", "order", "query string", "params filter", "where params", "sort column", "allowlist", "search params"]
 see_also: ["cursor-pagination", "request-contracts", "query-objects", "openapi-contract", "n-plus-one"]
+modes: [ api ]
 tokens: 730
 current_state: matches
 ---

@@ -24,10 +24,12 @@ TEMPLATES = File.join(ROOT, "templates")
 RULES_DIR = File.join(TEMPLATES, "docs/rules")
 COMMANDS_DIR = File.join(TEMPLATES, ".claude/commands")
 INDEX_PATH = File.join(RULES_DIR, "INDEX.md")
-SYMPTOMS_PATH = File.join(RULES_DIR, "SYMPTOMS.md")
-ROUTERS = [ "INDEX.md", "SYMPTOMS.md" ].freeze
+# One mode, one pair of routers (ADR 0009). A rule's `modes` decides which pair
+# has to route it, and template.rb copies the pair the generated app asked for.
+MODES = { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }.freeze
+ROUTERS = MODES.values.flatten.freeze
 IGNORE = "lint-docs:ignore"
-REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also tokens current_state].freeze
+REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also modes tokens current_state].freeze
 CURRENT_STATE_VALUES = %w[matches diverges].freeze
 DIVERGENCE_HEADING = "## Where this app is"
 # Shared with bin/doc-tokens, which generates the per-rule figures. One estimator,
@@ -39,8 +41,6 @@ LONG_FORM_LINES = 60 # over this, a command carries the Instructions/Reference f
 findings = []
 def rel(path) = path.sub("#{ROOT}/", "")
 
-index = File.read(INDEX_PATH)
-symptoms = File.read(SYMPTOMS_PATH)
 rule_paths = Dir.glob(File.join(RULES_DIR, "*.md")).reject { |p| ROUTERS.include?(File.basename(p)) }.sort
 command_paths = Dir.glob(File.join(COMMANDS_DIR, "*.md")).sort
 
@@ -48,6 +48,7 @@ command_paths = Dir.glob(File.join(COMMANDS_DIR, "*.md")).sort
 # Six keys, and `id` matching the filename, because every other file references
 # a rule by id.
 declared_tokens = {}
+rule_modes = {}
 rule_paths.each do |path|
   id = File.basename(path, ".md")
   body = File.read(path)
@@ -66,6 +67,15 @@ rule_paths.each do |path|
   findings << "#{rel(path)}: id is #{fm['id'].inspect}, filename says #{id.inspect}" if fm["id"] != id
   declared_tokens[id] = fm["tokens"]
 
+  declared_modes = Array(fm["modes"])
+  unknown = declared_modes - MODES.keys
+  if declared_modes.empty?
+    findings << "#{rel(path)}: modes is empty, so this rule ships nowhere"
+  elsif unknown.any?
+    findings << "#{rel(path)}: modes has #{unknown.join(', ')}, expected only #{MODES.keys.join(', ')}"
+  end
+  rule_modes[id] = declared_modes
+
   # A rule the code no longer obeys says so, in a section, where a reader lands.
   # Checked both ways: the claim cannot go missing, and it cannot outlive the
   # divergence it describes.
@@ -80,70 +90,78 @@ rule_paths.each do |path|
   end
 end
 
-# --- 2. Index routing --------------------------------------------------------
-# INDEX.md's own maintenance rule: a new rule gets a row in all three tables.
-# Routing is two-tier (ADR 0012): INDEX.md is the entry point and carries the path
-# table plus the conditional tables, SYMPTOMS.md is the fallback and carries the
-# symptom table and the full list. A rule has to be reachable from both tiers.
+# --- 2. Index routing and 3. read costs, per mode ---------------------------
+# Routing is two-tier (ADR 0012): the index is the entry point and carries the
+# path table plus the conditional tables, SYMPTOMS is the fallback and carries the
+# symptom table and the full list. A rule has to be reachable from both tiers of
+# every mode it declares — and from neither tier of a mode it does not, because a
+# rule leaking into the wrong index routes an app to advice for an app it is not.
+#
+# The read-cost figures are the only ones in the repo and an agent budgets from
+# them, so each mode's are checked against that mode's own corpus.
 def sections_of(doc)
   doc.split(/^## /).each_with_object({}) do |chunk, acc|
     acc[chunk.lines.first.to_s.strip] = chunk
   end
 end
 
-symptom_sections = sections_of(symptoms)
-symptom_table = symptom_sections["Route by symptom"].to_s
-full_list = symptom_sections["Full list"].to_s
+MODES.each do |mode, (index_name, symptoms_name)|
+  index = File.read(File.join(RULES_DIR, index_name))
+  symptoms = File.read(File.join(RULES_DIR, symptoms_name))
+  sections = sections_of(symptoms)
+  symptom_table = sections["Route by symptom"].to_s
+  full_list = sections["Full list"].to_s
+  mode_ids = rule_modes.select { |_, modes| modes.include?(mode) }.keys.sort
 
-rule_paths.each do |path|
-  id = File.basename(path, ".md")
-  link = "(#{id}.md)"
-  # Anywhere in the index: the path table for rules that always apply, a
-  # conditional table for the rest. Which tier is a judgement; being absent is not.
-  findings << "INDEX.md: #{id} is not routed from anywhere in the index" unless index.include?(link)
-  findings << "SYMPTOMS.md: #{id} missing from 'Route by symptom'" unless symptom_table.include?(link)
+  mode_ids.each do |id|
+    link = "(#{id}.md)"
+    # Anywhere in the index: the path table for rules that always apply, a
+    # conditional table for the rest. Which tier is a judgement; being absent is not.
+    findings << "#{index_name}: #{id} is not routed from anywhere in the index" unless index.include?(link)
+    findings << "#{symptoms_name}: #{id} missing from 'Route by symptom'" unless symptom_table.include?(link)
 
-  row = full_list[/^\|\s*\[#{Regexp.escape(id)}\]\(#{Regexp.escape(id)}\.md\)\s*\|\s*(\d+)\s*\|/, 1]
-  if row.nil?
-    findings << "SYMPTOMS.md: #{id} missing from 'Full list'"
-  elsif row.to_i != declared_tokens[id]
-    findings << "SYMPTOMS.md: #{id} row says #{row} tokens, the file declares #{declared_tokens[id]}"
+    row = full_list[/^\|\s*\[#{Regexp.escape(id)}\]\(#{Regexp.escape(id)}\.md\)\s*\|\s*(\d+)\s*\|/, 1]
+    if row.nil?
+      findings << "#{symptoms_name}: #{id} missing from 'Full list'"
+    elsif row.to_i != declared_tokens[id]
+      findings << "#{symptoms_name}: #{id} row says #{row} tokens, the file declares #{declared_tokens[id]}"
+    end
   end
-end
 
-orphans = full_list.scan(/^\|\s*\[([a-z0-9-]+)\]\(\1\.md\)/).flatten - rule_paths.map { |p| File.basename(p, ".md") }
-orphans.each { |id| findings << "SYMPTOMS.md: 'Full list' has a row for #{id}, which has no rule file" }
+  listed = full_list.scan(/^\|\s*\[([a-z0-9-]+)\]\(\1\.md\)/).flatten
+  (listed - mode_ids).each do |id|
+    why = rule_modes.key?(id) ? "which does not ship to #{mode}" : "which has no rule file"
+    findings << "#{symptoms_name}: 'Full list' has a row for #{id}, #{why}"
+  end
 
-# --- 3. Read-cost figures ----------------------------------------------------
-# These are the only read-cost numbers in the repo, and the architecture asks an
-# agent to budget from them, so they have to be true.
-sum = declared_tokens.values.compact.sum
-claimed_sum = symptoms[/\*\*Total corpus:\*\* ~([\d,]+) tokens across (\d+) rules/, 1]&.delete(",")&.to_i
-claimed_count = symptoms[/\*\*Total corpus:\*\* ~[\d,]+ tokens across (\d+) rules/, 1].to_i
-if claimed_sum.nil?
-  findings << "SYMPTOMS.md: no 'Total corpus' line to check"
-else
-  findings << "SYMPTOMS.md: corpus claims ~#{claimed_sum} tokens, rules declare #{sum}" if (claimed_sum - sum).abs > 100
-  findings << "SYMPTOMS.md: corpus claims #{claimed_count} rules, there are #{rule_paths.size}" if claimed_count != rule_paths.size
-end
+  sum = mode_ids.sum { |id| declared_tokens[id].to_i }
+  claimed_sum = symptoms[/\*\*Total corpus:\*\* ~([\d,]+) tokens across (\d+) rules/, 1]&.delete(",")&.to_i
+  claimed_count = symptoms[/\*\*Total corpus:\*\* ~[\d,]+ tokens across (\d+) rules/, 1].to_i
+  if claimed_sum.nil?
+    findings << "#{symptoms_name}: no 'Total corpus' line to check"
+  else
+    findings << "#{symptoms_name}: corpus claims ~#{claimed_sum} tokens, rules declare #{sum}" if (claimed_sum - sum).abs > 100
+    findings << "#{symptoms_name}: corpus claims #{claimed_count} rules, #{mode} has #{mode_ids.size}" if claimed_count != mode_ids.size
+  end
 
-lo, hi = declared_tokens.values.compact.minmax
-claimed_lo = index[/plus one or two rules \((\d+)[–-](\d+)\)/, 1]&.to_i
-claimed_hi = index[/plus one or two rules \((\d+)[–-](\d+)\)/, 2]&.to_i
-if claimed_lo && (claimed_lo != lo || claimed_hi != hi)
-  findings << "INDEX.md: per-rule range claims #{claimed_lo}-#{claimed_hi}, actual #{lo}-#{hi}"
-end
+  lo, hi = mode_ids.map { |id| declared_tokens[id] }.compact.minmax
+  claimed_lo = index[/plus one or two rules \((\d+)[–-](\d+)\)/, 1]&.to_i
+  claimed_hi = index[/plus one or two rules \((\d+)[–-](\d+)\)/, 2]&.to_i
+  if claimed_lo && (claimed_lo != lo || claimed_hi != hi)
+    findings << "#{index_name}: per-rule range claims #{claimed_lo}-#{claimed_hi}, actual #{lo}-#{hi}"
+  end
 
-claimed_index = index[/this index \(~([\d,]+)\)/, 1]&.delete(",")&.to_i
-estimated_index = (index.length / CHARS_PER_TOKEN).round(-2)
-if claimed_index && (claimed_index - estimated_index).abs > estimated_index * 0.2
-  findings << "INDEX.md: claims ~#{claimed_index} tokens for itself, estimate is ~#{estimated_index}"
-end
+  claimed_index = index[/this index \(~([\d,]+)\)/, 1]&.delete(",")&.to_i
+  estimated_index = (index.length / CHARS_PER_TOKEN).round(-2)
+  if claimed_index && (claimed_index - estimated_index).abs > estimated_index * 0.2
+    findings << "#{index_name}: claims ~#{claimed_index} tokens for itself, estimate is ~#{estimated_index}"
+  end
 
-claimed_symptoms = index[/\(SYMPTOMS\.md\) \(~([\d,]+)\)/, 1]&.delete(",")&.to_i
-estimated_symptoms = (symptoms.length / CHARS_PER_TOKEN).round(-2)
-if claimed_symptoms && (claimed_symptoms - estimated_symptoms).abs > estimated_symptoms * 0.2
-  findings << "INDEX.md: claims ~#{claimed_symptoms} tokens for SYMPTOMS.md, estimate is ~#{estimated_symptoms}"
+  claimed_symptoms = index[/\(SYMPTOMS\.md\) \(~([\d,]+)\)/, 1]&.delete(",")&.to_i
+  estimated_symptoms = (symptoms.length / CHARS_PER_TOKEN).round(-2)
+  if claimed_symptoms && (claimed_symptoms - estimated_symptoms).abs > estimated_symptoms * 0.2
+    findings << "#{index_name}: claims ~#{claimed_symptoms} tokens for #{symptoms_name}, estimate is ~#{estimated_symptoms}"
+  end
 end
 
 # --- 4. Wizard token coverage ------------------------------------------------
@@ -259,6 +277,10 @@ COUNT_PATTERNS = [
 ].freeze
 
 actual = { rules: rule_paths.size, commands: command_paths.size }
+# A mode's router names that mode's corpus, not the whole directory. Everything
+# else names the directory, so it has one right answer and gets checked against it.
+MODE_OF_ROUTER = MODES.flat_map { |mode, files| files.map { |file| [ file, mode ] } }.to_h
+mode_rule_counts = MODES.keys.to_h { |mode| [ mode, rule_modes.count { |_, ms| ms.include?(mode) } ] }
 Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}")).reject { |p| p.include?("/.git/") }.sort.each do |path|
   File.readlines(path).each_with_index do |line, i|
     next if line.include?(IGNORE)
@@ -267,7 +289,17 @@ Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}")).reject { |p| p.include?("/.git/") }
       claimed = line[pattern, 1]&.to_i
       next if claimed.nil? || claimed == actual[kind]
 
-      findings << "#{rel(path)}:#{i + 1}: claims #{claimed} #{kind}, there are #{actual[kind]}"
+      # A count is allowed to be a mode's rather than the directory's, but only
+      # when the reader can tell which: the file is that mode's router, or the
+      # line says "web mode" / "api mode" in as many words.
+      modes_named = [ MODE_OF_ROUTER[File.basename(path)] ]
+      modes_named += MODES.keys.select { |m| line.match?(/\b#{m} mode\b/i) }
+      allowed = modes_named.compact.uniq.map { |m| mode_rule_counts[m] }
+      next if kind == :rules && allowed.include?(claimed)
+
+      expected = actual[kind]
+      expected = "#{allowed.join(' or ')} for the mode named" if kind == :rules && allowed.any?
+      findings << "#{rel(path)}:#{i + 1}: claims #{claimed} #{kind}, there are #{expected}"
     end
   end
 end

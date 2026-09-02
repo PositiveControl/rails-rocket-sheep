@@ -4,6 +4,7 @@ title: Long work answers 202 with somewhere to look
 applies_to: ["app/controllers/api/**/*.rb", "app/jobs/**/*.rb"]
 triggers: ["202", "accepted", "long running", "timeout", "background", "polling", "job status", "async endpoint"]
 see_also: ["status-codes", "jobs", "idempotency", "serialization"]
+modes: [ api ]
 tokens: 600
 current_state: matches
 ---
