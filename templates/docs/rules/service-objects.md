@@ -5,7 +5,7 @@ applies_to: ["app/services/**/*.rb", "test/services/**/*.rb"]
 triggers: ["service object", "ApplicationService", "business logic", "Result", "success?", "failure?", "transaction", "multi-step write", "coordination"]
 see_also: ["controllers", "form-objects", "jobs", "policy-objects"]
 modes: [ web, api ]
-tokens: 880
+tokens: 910
 current_state: matches
 ---
 
@@ -76,7 +76,9 @@ rescue ActiveRecord::RecordInvalid => e
 end
 ```
 
-A service never knows a [form object](form-objects.md) exists; a form may call a service.
+A service never knows what called it: a form object in server-rendered mode, a
+request contract and an action in API mode. The caller may call a service; the
+service never reaches back.
 
 ## In API mode
 

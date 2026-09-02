@@ -5,7 +5,7 @@ applies_to: ["app/queries/**/*.rb", "app/models/**/*.rb", "test/queries/**/*.rb"
 triggers: ["query object", "joins", "left_joins", "complex query", "to_a", "select in Ruby", "scope too long", "app/queries"]
 see_also: ["scopes", "pagination", "n-plus-one"]
 modes: [ web, api ]
-tokens: 450
+tokens: 530
 current_state: matches
 ---
 
@@ -32,8 +32,11 @@ class StaleOrdersQuery
   end
 end
 
-# Usage — still a relation, so it chains and paginates
+# Usage — still a relation, so it chains and paginates.
+# Server-rendered mode:
 @pagy, @orders = pagy(StaleOrdersQuery.new.call(older_than: 60.days.ago))
+# API mode:
+page = Cursor.page(StaleOrdersQuery.new.call(older_than: 60.days.ago), after: params[:cursor], limit: per_page)
 ```
 
 | Where it goes | Rule |
@@ -42,8 +45,10 @@ end
 | Scope composition | Single model, several named scopes chained at the call site |
 | Query object | Joins ≥2 models, or >3 clauses, or takes arguments that change its shape |
 
-**Always return a relation, never an array.** `.to_a` kills chaining, kills
-[pagination](pagination.md), and forces the whole result set into memory.
+**Always return a relation, never an array.** `.to_a` kills chaining, forces the
+whole result set into memory, and kills pagination — `pagination` in server-rendered
+mode, `cursor-pagination` in API mode, and in that mode a pager handed an array
+quietly slices it in Ruby rather than failing.
 
 **Never `to_a` early to filter in Ruby:**
 

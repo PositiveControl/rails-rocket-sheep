@@ -5,7 +5,7 @@ applies_to: ["app/models/**/*.rb", "db/migrate/**/*.rb"]
 triggers: ["soft delete", "Discard", "discarded_at", "kept", "undiscard", "destroy", "default_scope", "restore a record", "reify"]
 see_also: ["audit-trail", "safe-migrations"]
 modes: [ web, api ]
-tokens: 500
+tokens: 610
 current_state: matches
 ---
 
@@ -47,5 +47,11 @@ post.save!
 That covers "an admin deleted the wrong thing" without taxing every query. It does
 *not* restore associations or keep foreign keys valid in the meantime — when those
 matter, use Discard.
+
+**The cost is measured.** An audited app with no rule here hand-rolled the whole
+thing: nine `deleted_at` columns, no `discarded_at` and no Discard, and four models
+carrying `default_scope { where(deleted_at: nil) }` — the one line this rule says
+never to write. A default scope is not a shortcut past the cost of remembering
+`.kept`; it relocates the cost to every place that has to escape it.
 
 Rationale and consequences: [ADR 0004](../adr/0004-real-deletes-by-default-discard-opt-in.md).

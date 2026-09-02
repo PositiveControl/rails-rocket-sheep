@@ -12,6 +12,11 @@
 # the routing budget in docs/rules/INDEX.md stops meaning anything. Every rewrite
 # of a rule body should be followed by a run of this.
 #
+# Four more figures are derived from those and live in the routers: each rule's row
+# in SYMPTOMS' full list, the corpus total and rule count, the per-rule range, and
+# each router's estimate of itself. bin/lint-docs checks all of them; this fixes
+# them, so the pair is fix-and-check rather than check-and-hand-edit.
+#
 # Estimate is chars/3.8, which tracks a BPE tokenizer closely enough for budgeting
 # English markdown with fenced code. It is deliberately not exact — it is a budget,
 # not a bill — but it is consistent, which is what makes the numbers comparable.
@@ -53,6 +58,59 @@ if stale.any?
   warn "Stale `tokens:` figures in docs/rules — run bin/doc-tokens to fix:"
   warn stale.join("\n")
   exit 1
+end
+
+# --- the figures derived from those -----------------------------------------
+#
+# Both router pairs exist in the template repo, so a rule's `modes` decides which
+# pair it counts toward. A generated app has one mode and one pair under the shared
+# names, so every rule present belongs to it — asking `modes` there would select
+# nothing in an API app.
+declared = {}
+Dir.glob("#{RULES}/*.md").sort.each do |path|
+  name = File.basename(path)
+  next unless name == name.downcase
+
+  body = File.read(path)
+  id = body[/^id: (\S+)$/, 1]
+  declared[id] = [ body[/^tokens: (\d+)$/, 1].to_i, body[/^modes: \[(.*)\]$/, 1].to_s ] if id
+end
+
+pairs = if File.exist?(File.join(RULES, "INDEX.api.md"))
+  { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }
+else
+  { nil => %w[INDEX.md SYMPTOMS.md] }
+end
+
+pairs.each do |mode, (index_name, symptoms_name)|
+  index_path = File.join(RULES, index_name)
+  symptoms_path = File.join(RULES, symptoms_name)
+  next unless File.exist?(index_path) && File.exist?(symptoms_path)
+
+  ids = declared.select { |_, (_, modes)| mode.nil? || modes.include?(mode) }
+  sum = ids.sum { |_, (tokens, _)| tokens }
+  lo, hi = ids.map { |_, (tokens, _)| tokens }.minmax
+
+  # SYMPTOMS first, then the index, since the index quotes SYMPTOMS' own length.
+  symptoms = File.read(symptoms_path)
+  ids.each do |id, (tokens, _)|
+    symptoms = symptoms.gsub(/^(\|\s*\[#{Regexp.escape(id)}\]\(#{Regexp.escape(id)}\.md\)\s*\|\s*)\d+(\s*\|)/) { "#{$1}#{tokens}#{$2}" }
+  end
+  # Formatted first: a `scan` inside the block would reset $~ and blank out $2.
+  grouped = sum.to_s.reverse.scan(/\d{1,3}/).join(",").reverse
+  symptoms = symptoms.sub(/(\*\*Total corpus:\*\* ~)[\d,]+( tokens across )\d+/) { "#{$1}#{grouped}#{$2}#{ids.size}" }
+  # SYMPTOMS carries its own copy of the range the index quotes.
+  symptoms = symptoms.sub(/(plus one or two rules \()\d+([–-])\d+(\))/) { "#{$1}#{lo}#{$2}#{hi}#{$3}" }
+  File.write(symptoms_path, symptoms) unless check || symptoms == File.read(symptoms_path)
+
+  index = File.read(index_path)
+  index = index.sub(/(plus one or two rules \()\d+([–-])\d+(\))/) { "#{$1}#{lo}#{$2}#{hi}#{$3}" }
+  # An index always links its partner by the installed name, SYMPTOMS.md, even when
+  # the committed copy is SYMPTOMS.api.md — so match that and measure the real file.
+  index = index.sub(/(\(SYMPTOMS\.md\) \(~)[\d,]+/) { "#{$1}#{(File.size(symptoms_path) / CHARS_PER_TOKEN).round(-2)}" }
+  # This one measures the file being rewritten, so it settles on the second pass.
+  2.times { index = index.sub(/(this index \(~)[\d,]+/) { "#{$1}#{(index.length / CHARS_PER_TOKEN).round(-2)}" } }
+  File.write(index_path, index) unless check || index == File.read(index_path)
 end
 
 puts check ? "docs/rules token figures are current" : "docs/rules token figures rewritten"
