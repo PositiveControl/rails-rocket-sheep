@@ -1,287 +1,134 @@
 # Rails Rocket Sheep 🚀🐑
 
-**A Rails 8 template built for working with AI coding agents.**
+**A Rails 8 application template built for working with AI coding agents.**
 
-`rails new` gives you a framework. Rocket Sheep gives you a codebase an agent can be productive in on the first prompt — because the patterns are already there, already documented, and already written down in a `CLAUDE.md` the agent reads before it touches anything.
+`rails new` gives you a framework. Rocket Sheep gives you a codebase an agent can be
+productive in on the first prompt: the patterns are already there, the conventions
+are written down one rule per file, and a generated `CLAUDE.md` routes the agent to
+the right rule before it touches anything. The result is that the tenth feature
+looks like the first one.
+
+It is applied once and leaves behind ordinary Rails files you own. There is no gem,
+no runtime dependency, and nothing to upgrade. MIT licensed.
+
+---
+
+## What it adds to `rails new`
+
+- **Conventions an agent reads.** `CLAUDE.md`, `AGENTS.md`, and `docs/rules/` in
+  the generated app, one convention per file with the right and wrong version
+  side by side, and a two-tier index that routes a file path or a symptom to the
+  rule that governs it.
+- **Patterns before the agent arrives.** `ApplicationService` with a Result type,
+  `ApplicationForm`, `ApplicationComponent`, `Data`-based registries, and a fixed
+  budget of directories under `app/` so the catalogue names its own limit.
+- **A workflow, not just advice.** 24 slash commands from "what should I do next"
+  to a merged PR, with gates, mirrored to Claude Code and Cursor, plus hooks that
+  enforce the rules that can be enforced mechanically.
+- **The Rails 8 stack, configured.** Solid Queue, Cache, and Cable on their own
+  databases, Devise, Petergate, PaperTrail, Discard, Bullet, RuboCop, Brakeman,
+  WebMock and VCR, and a Kamal 2 deploy with a database accessory that follows
+  your `--database=` choice.
+- **Two modes.** Server-rendered HTML with Tailwind, Slim, ViewComponent, Hotwire,
+  and a tested SEO foundation. Or `--api`, a JSON API with RFC 9457 errors, cursor
+  pagination, Doorkeeper, and an OpenAPI contract generated from the request tests.
+  Each mode ships the rule corpus written for it.
+- **A way to stay current.** A generated app records the template commit it came
+  from, and `bin/rocket-sheep-update` three-way merges newer conventions into it on
+  demand. An app that never came from the template can adopt the same layer.
+
+PostgreSQL, MySQL, and MariaDB are supported. SQLite is refused.
+
+---
+
+## Getting started
+
+You need Ruby 3.3+, Rails 8.0+, `git`, and a running PostgreSQL or MySQL server.
+
+**Server-rendered app:**
 
 ```bash
 rails new myapp \
   --database=postgresql \
   --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
+
+cd myapp
+rails g devise User && rails db:migrate
+bin/dev                # http://localhost:3000
+bin/test
 ```
 
-Add `--api` for a JSON API with a separate frontend, and you get a different app and a
-different rule corpus — see [API mode](#api-mode) below.
-
-Swap in `--database=mysql` (or `trilogy`, `mariadb-mysql`, `mariadb-trilogy`) and everything follows it. SQLite is refused.
-
-Roughly three minutes later you have a running, deployable, linted, tested Rails 8 app with authentication, background jobs, SEO, and a Kamal deploy config — plus the conventions doc that keeps an agent from inventing its own.
-
----
-
-## The problem this solves
-
-Point an AI agent at a fresh `rails new` app and it will make reasonable choices. The trouble is it makes *different* reasonable choices every session. One feature gets a service object, the next gets a fat controller. One model uses soft deletes, the next uses `destroy`. Business logic lands wherever the context window happened to be pointing.
-
-You end up as a full-time code reviewer for an codebase with no opinions.
-
-Rocket Sheep front-loads the opinions:
-
-- **Patterns exist before the agent arrives.** `ApplicationService` with a Result struct, `ApplicationForm` for multi-model forms, `ApplicationComponent` for UI units, `Data`-based registries for fixed variant sets, PaperTrail for audit trails, Discard for the tables that genuinely need soft deletes. The agent extends existing patterns instead of inventing new ones.
-- **The conventions are written down.** A generated `CLAUDE.md` states the rules — Slim not ERB, service objects for business logic, scopes over class methods, the primary-key convention your database gets — with worked examples of both the right and wrong version.
-- **Anti-patterns are named explicitly.** `CLAUDE.md` and the `docs/rules/` files name what not to do — N+1 iteration, premature `.to_a`, hardcoded entity knowledge, `accepts_nested_attributes_for`, model broadcasts for single-user updates — with the correct form beside each one. Agents follow negative examples well when you actually give them some.
-- **The pattern budget is fixed.** Six sanctioned directories under `app/`: `services`, `forms`, `queries`, `policies`, `lib`, `components`. A seventh requires an ADR. Sprawl is the failure mode of a pattern catalogue, so the catalogue names its own limit.
-- **Docs have a home.** `docs/adr/` for decisions, one file each, `docs/sop/` for procedures, `docs/plans/` for feature plans. The agent has somewhere to put what it learns, so the next session starts informed.
-
-The result is that the tenth feature looks like the first one.
-
----
-
-## What you get
-
-### Rails 8 Solid Stack, configured
-
-Solid Queue, Solid Cache, and Solid Cable, each on its own database, with `queue.yml` / `cache.yml` / `cable.yml` and the multi-database `database.yml` already written. No Redis anywhere in the stack.
-
-### Authentication and authorization
-
-Devise, pre-configured for Turbo (`navigational_formats` set correctly — the fix everyone hits on day one). Petergate for role-based access.
-
-### Data patterns
-
-- **Your choice of database.** `--database=postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` — `config/database.yml`, the Kamal accessory, and the Dockerfile all follow it. Primary keys follow too: UUIDs on PostgreSQL (wired through the generators, so `rails g model` does the right thing automatically), Rails' default bigint on MySQL, which has no native uuid type
-- **Discard** available for soft deletes, opt-in per table — `destroy` is the default, and PaperTrail can reify a destroyed record
-- **PaperTrail** with `--with-changes` for a full audit trail
-- **Pagy** for pagination, wired into `ApplicationController` so `pagy(scope)` works out of the box
-
-### Service objects with a Result type
-
-```ruby
-class CreateOrderService < ApplicationService
-  def initialize(user:, items:)
-    @user, @items = user, items
-  end
-
-  def call
-    order = Order.new(user: @user, items: @items)
-    order.save ? success(order) : failure(order.errors.full_messages)
-  end
-end
-
-result = CreateOrderService.call(user: current_user, items: cart_items)
-result.success? ? redirect_to(result.value) : render(:new)
-```
-
-`Result` is a `Struct` with `success?`, `failure?`, `value`, `errors`, and a `record` alias. Services get `log_error` and `log_info` helpers that tag output with the class name.
-
-### Form objects
-
-`ApplicationForm` — `ActiveModel::Model` plus attributes — for the submit that writes two models, or carries fields that aren't columns:
-
-```ruby
-class SignupForm < ApplicationForm
-  attribute :email, :string
-  attribute :company_name, :string
-  validates :email, :company_name, presence: true
-
-  def save
-    return false if invalid?
-    ApplicationRecord.transaction { ... }
-    true
-  end
-end
-```
-
-The controller treats it exactly like a model. No `accepts_nested_attributes_for`, no error keys shaped like `items.attributes.0.quantity`.
-
-### UI components
-
-ViewComponent, configured for Slim sidecar directories, with `ApplicationComponent` and four working components — `AlertComponent`, `FlashComponent` (already wired into the layout), `ErrorSummaryComponent`, `EmptyStateComponent` — each with a unit test that runs without a request.
+**JSON API:**
 
 ```bash
-bin/rails generate component Badge label
-# app/components/badge_component.rb
-# app/components/badge_component/badge_component.html.slim
-# test/components/badge_component_test.rb
+rails new myapi --api \
+  --database=postgresql \
+  --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
+
+cd myapi
+rails g devise User && rails db:migrate
+bin/rails server
+bin/test
 ```
 
-### Registries for fixed variant sets
-
-Plans, tiers, product types — anything with a fixed set of variants and per-variant attributes:
-
-```ruby
-module PlanRegistry
-  Plan = Data.define(:key, :name, :price_cents, :features) do
-    def free?                 = price_cents.zero?
-    def has_feature?(feature) = features.include?(feature.to_sym)
-  end
-
-  ITEMS = {
-    free: Plan.new(key: :free, name: "Free", price_cents: 0,     features: %i[basic_access]),
-    pro:  Plan.new(key: :pro,  name: "Pro",  price_cents: 2_900, features: %i[basic_access api_access])
-  }.freeze
-
-  class << self
-    def [](key) = ITEMS.fetch(key.to_sym)   # unknown key raises
-    def all     = ITEMS.values
-    def paid    = all.reject(&:free?)
-  end
-end
-
-PlanRegistry[user.plan].has_feature?(:api_access)
-```
-
-No base class to learn. A mistyped attribute raises `NoMethodError` instead of returning `nil`; an unknown key raises `KeyError`; and `Data.define` requires every member, so an attribute can't be added to one variant and forgotten on the others. `app/lib/plan_registry.rb` ships as the canonical shape — copy it.
-
-### SEO foundation
-
-Server-rendered mode. Not a checkbox — an actual working setup:
-
-- `public/robots.txt` with sane crawl rules
-- Dynamic `/sitemap.xml` from `HomeController#sitemap`
-- `<meta name="description">` and `<link rel="canonical">` in the layout, with per-page `content_for` overrides
-- `StructuredDataHelper#jsonld_tag` plus a `WebSite` JSON-LD block on every page
-- **Integration tests** in `test/integration/seo_test.rb` that assert the tags are actually there
-- Lighthouse CI workflow with a performance budget
-
-### Deployment
-
-Kamal 2 with a database accessory matching your choice, a tuned multi-stage `Dockerfile`, a `docker-entrypoint` that runs migrations, and a `.kamal/secrets` scaffold. `kamal setup && kamal deploy` from a clean server.
-
-### Testing guardrails
-
-An agent writes tests on every task, so testing is where drift compounds fastest: one session writes fixtures, the next adds FactoryBot; one session stubs an HTTP call, the next lets it hit the network in CI. Rocket Sheep pins the answers and then makes them impossible to miss.
-
-**The conventions are a routed rule, not advice.** `docs/rules/testing.md` states one framework (Minitest and fixtures — no RSpec, no factories), which layer tests what, the fixture rules, and cassette naming. It carries `applies_to: ["test/**"]`, and `docs/rules/INDEX.md` routes `test/**` to it — an agent about to touch a test file lands on it before writing a line, the same way editing a migration lands it on `safe-migrations`.
-
-**The suite runs before anything is claimed to work.** "Tests first" is the first non-negotiable in the generated `CLAUDE.md`. `/implement` writes tests per logical unit and won't move on red. `/pr_submit` runs the full unit suite plus the system tests it selects from the branch diff. `/rails_code_review` reviews the diff against the rule and flags missing coverage at the severity of the code it would have covered. `/test_fix` exists for the run that comes back red.
-
-**Three guardrails you meet without reading anything.** They are the ones that fire on their own:
-
-- **Fixtures that don't collide.** Stock Rails writes two identical placeholder records into every new fixture file, and the second one violates the first unique index it meets — usually Devise's `email`, on your first `bin/test`. A generator override ships an empty fixture file with the reason and a worked example in the comment, so `rails g model` produces something that passes.
-- **No live network in tests.** WebMock blocks it; VCR records it. `vcr_cassette("stripe/create_customer") { ... }` is available in every test case, and `test/support/vcr.rb` already filters `API_KEY` and the Resend credential out of recordings before they reach the repo.
-- **Slow tests are reported, every run.** Slowpoke prints any test over 500ms and nothing at all when the suite is clean, so it never becomes noise you learn to scroll past. `SLOWPOKE_THRESHOLD`, `SLOWPOKE_MAX_RESULTS`, `SLOWPOKE_HISTORY`, and `SLOWPOKE_CI` tune it per run; `SLOWPOKE_CI=true` fails the build on a slow test once the suite is under the line. The usual cause — records built in `setup` that no assertion reads — is a rule, and `docs/sop/find-slow-tests.md` is the procedure.
-
-Working examples ship with the app rather than being left as an exercise: four ViewComponent tests that run without a request or a route, and SEO integration tests that assert the meta tags are really in the response.
-
-Around them: `bin/test` wraps `rails test` and forces a single worker on macOS, where forked workers crash for reasons that have nothing to do with your code. Bullet flags N+1s in development, RuboCop (Rails Omakase) and Brakeman run in the same CI workflow as the suite, and `letter_opener_web` previews mail at `/letter_opener`.
-
-### Frontend
-
-Server-rendered mode. Tailwind CSS, Slim templates, ViewComponent, and generic `toggle_controller.js` / `modal_controller.js` Stimulus controllers that cover most of what you'd otherwise write twice. The Turbo status contract, strict locals for partials, and the Stimulus target/value/class rules each get their own rule file in `docs/rules/` — the failures they prevent are silent ones.
-
-<a id="api-mode"></a>
-### API mode
-
-`rails new myapp --api --template=...` generates a JSON API with no view layer, for an
-app whose frontend is a separate repository. It is not the same app with the templates
-deleted: twelve rules describing a view layer do not ship, seventeen describing a JSON
-boundary do, and the mode is read from `config.api_only` rather than carried as a flag.
-
-**The conventions came first, and they are the point.** An API needs its own answer to
-things the HTML corpus already answered differently — an error envelope instead of a
-redirect, a 404 with a body, cursor pagination instead of Pagy — and shipping
-scaffolding without them puts a second architecture in the app with nothing describing
-it. So the seventeen rules were written before any base class existed:
-
-| | |
-|---|---|
-| Errors | [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem documents, one helper, a machine-readable `type` a client can branch on |
-| Serialization | Plain Ruby objects in `app/serializers/`, explicit fields, `optional` and `includable` with their own preloads |
-| Requests | `app/contracts/` validates an untrusted body before a model sees it; `app/filters/` turns a query string into a relation |
-| Pagination | Cursor first on `(sort column, id)`, offset as a named per-endpoint exception |
-| Auth | OAuth 2 via Doorkeeper — coarse scopes, server-side revocation, and its own failures routed through the same problem envelope |
-| Versioning | One number in the path, additive within it, and a sunset date before anything is removed |
-| The contract | `openapi.yaml` generated from the request tests, with CI failing on drift |
-
-Plus rules for idempotency keys, `202` and a status resource, sparse fieldsets,
-bulk endpoints, CORS, deprecation headers, what to test at which layer, and what the
-client repository may rely on. Forty rules in API mode against thirty-eight in
-server-rendered mode, each with its own two-tier routing index.
-
-**The contract is a build output, not a document someone maintains.** A recorder writes
-a line per API request while the request tests run; `bin/rails api:contract` folds that
-into an OpenAPI 3.1 document; `api:contract:check` exits 1 when the committed copy
-disagrees, and ships as a workflow with a service container matching your database. An
-endpoint with no request test records nothing — which is the property this buys, and
-the reason it is generated from tests rather than from routes.
-
-**It has been generated and run.** One app, one endpoint built from the rules alone,
-eleven request tests, and a JavaScript client holding the server to the committed
-contract: 17 checks covering snake_case keys, money as minor units, opaque cursors and
-non-overlapping pages, `401` distinguished from `403`, and CORS refusing an unnamed
-origin. That run found nine defects, which are fixed and written down in
-[`docs/first-generation-findings.md`](docs/first-generation-findings.md) — including
-one that had been silently affecting server-rendered apps all along.
+Swap in `--database=mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` and
+everything follows it. The full walkthrough, including what to configure before
+deploying, is in [Getting Started](docs/getting-started.md).
 
 ---
 
 ## Documentation
 
+**Using the template**
+
 | Guide | What's in it |
 |---|---|
-| [Getting Started](docs/getting-started.md) | Prerequisites, first run, what to do in the first ten minutes |
+| [Getting Started](docs/getting-started.md) | Prerequisites, first run, the first ten minutes in both modes |
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
-| [The Agent Workflow](docs/workflow.md) | The 24 slash commands, the four gates, sizing rules, setup |
-| [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks — enforcement, not just conventions |
-| [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, for when you edit or add one |
-| [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the workflow into an app that isn't one |
-| [Inventory & Gaps](docs/inventory.md) | What's included, what isn't, and what's next |
+| [The Agent Workflow](docs/workflow.md) | The 24 slash commands, the gates, sizing rules, setup |
+| [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks: enforcement, not just conventions |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
-| [Comparison](docs/comparison.md) | Honest comparison against plain `rails new`, Jumpstart Pro, and Bullet Train |
-| [FAQ](docs/faq.md) | Ruby/Rails versions, removing pieces, upgrades, licensing |
+| [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the layer into an app that isn't one |
+| [Comparison](docs/comparison.md) | Against plain `rails new`, Jumpstart Pro, and Bullet Train |
+| [FAQ](docs/faq.md) | Versions, removing pieces, upgrades, licensing |
 
-The patterns themselves — service objects, registries, form objects, components, soft deletes, audit trails, with worked examples of the right and wrong version — are documented inside every generated app as `docs/rules/`, one convention per file.
+The conventions themselves ship inside every generated app as `docs/rules/`. The
+source is [templates/docs/rules/](templates/docs/rules/INDEX.md), and the lifecycle
+they sit in is [templates/WORKFLOW.md](templates/WORKFLOW.md).
 
-Each generated app also ships: `docs/rules/` (38 rules in web mode, 40 in API mode, + a two-tier routing index), `docs/adr/` (13 decisions, one file each — five of them API-only), `docs/system/models.md`, `docs/system/vocabulary.md`, one skill (`.claude/skills/rails-conventions/`, a model-invocable pointer at the index so a rule can reach an agent that never asked for one), and how-to guides for SEO, Kamal hardening, and extracting the database to a separate host.
+**Working on the template**
 
----
+| Doc | What's in it |
+|---|---|
+| [CLAUDE.md](CLAUDE.md) | How this repository is built, tested, and edited |
+| [Writing a Command](docs/writing-commands.md) | The shape of a workflow command, and its Done-when |
+| [Inventory & Gaps](docs/inventory.md) | What's shipped, what isn't, verification debt, what's next |
+| [Architecture decisions](.agents/adr/) | Why this generator is built the way it is, one file each |
+| [Out of scope](.agents/out-of-scope/README.md) | Requests already declined, with the reasoning |
 
-## Requirements
+**Evidence and design notes**
 
-- Ruby 3.3+ (Pagy 43 sets the floor; developed and tested on 4.0)
-- Rails 8.0+
-- PostgreSQL 13+ (uses built-in `gen_random_uuid()`, no pgcrypto extension needed), **or** MySQL 8+ / MariaDB 10.5+
-- Node.js — only if you swap Tailwind for a bundler-based frontend. Not needed at all in `--api` mode
-
----
-
-## After generation
-
-```bash
-cd myapp
-rails g devise User    # create your User model
-bin/dev                # http://localhost:3000
-bin/test               # run the suite
-```
-
-Then edit `config/deploy.yml`, fill in `.kamal/secrets`, and update the sitemap URL in `public/robots.txt`.
-
-In `--api` mode, `bin/rails server` replaces `bin/dev`, there is no sitemap, and two
-things need doing before the API answers anything useful: name the client origins CORS
-will allow (`bin/rails credentials:edit`, under `api: allowed_origins:`), and add your
-first endpoint under `app/controllers/api/v1/` — then `bin/rails api:contract` to
-generate the document your client consumes.
-
-See [Getting Started](docs/getting-started.md) for the full walkthrough.
+| Doc | What's in it |
+|---|---|
+| [First generation findings](docs/first-generation-findings.md) | What generating and running an API app for the first time found |
+| [Adoption drift findings](docs/adoption-drift-findings.md) | What happened to the rule corpus when a real app adopted it |
+| [JSON boundary audit](docs/json-boundary-audit.md) | A Rails app's JSON surface with no rules governing it |
+| [Layer boundary traces](docs/layer-boundary-traces.md) | Three requests traced end to end through a real app |
+| [Deterministic gates](docs/deterministic-gates.md) | Draft: which rules can be enforced mechanically, and where |
 
 ---
 
 ## What this is not
 
-Honest scope, so nobody buys the wrong thing:
-
-- **Not a SaaS starter kit.** No billing, no subscriptions, no teams, no admin panel. If you want Stripe and multi-tenancy pre-built, Jumpstart Pro is the better purchase. Rocket Sheep is a *foundation*, not an application.
-- **Not a component library.** ViewComponent is set up and four utility components ship (alert, flash, error summary, empty state). Buttons, tables, navs, and everything else are yours to write.
-- **Not a framework.** Everything it adds is a plain Rails file you own and can delete. There is no gem to depend on, no upgrade treadmill, and nothing that breaks when Rails 8.1 ships. When the template's conventions improve, `bin/rocket-sheep-update` three-way merges the changes into your copies on demand — your edits win, overlaps become conflict markers you resolve. Pull, never push.
+- **Not a SaaS starter kit.** No billing, teams, or admin panel. Each is a
+  [recorded ruling](.agents/out-of-scope/README.md), not an omission.
+- **Not a component library.** ViewComponent is set up with four utility
+  components. The rest is yours to write.
+- **Not a framework.** Everything it adds is a plain Rails file you can delete.
 
 ---
 
 ## License
 
-Commercial license — see [LICENSE](LICENSE) for the full terms.
-
-Two tiers: **Single Application** and **Unlimited Applications**. Both are perpetual one-time purchases, not subscriptions.
-
-Apps you generate are entirely yours — no royalties, no attribution, and you may open-source them. The template is applied once and leaves behind ordinary Rails files with no runtime dependency on it. What the license restricts is redistributing the *template*, not anything you build with it.
+[MIT](LICENSE).
