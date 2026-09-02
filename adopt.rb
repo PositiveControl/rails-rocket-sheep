@@ -243,8 +243,6 @@ copy_template_file ".github/ISSUE_TEMPLATE/bug.yml"
 copy_template_file ".github/ISSUE_TEMPLATE/config.yml"
 
 # Stacked-PR footer generator, called by /pr_submit
-copy_template_file "bin/pr-stack"
-chmod "bin/pr-stack", 0755
 
 # Keeps the `tokens:` figure in each rule's frontmatter honest. The routing budget
 # in docs/rules/INDEX.md is only worth something if those figures track the files,

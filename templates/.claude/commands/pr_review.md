@@ -1,11 +1,11 @@
 ---
-description: "Reviewer side: full-context review of someone else's PR"
+description: "Full-context PR review — someone else's, or your own slice from a fresh session"
 argument-hint: "<PR number>"
 ---
 
 # PR Code Review
 
-Review another contributor's pull request, post feedback. Pass PR number as argument: `/pr_review 42`
+Review a pull request and post feedback — another contributor's, or your own slice PR from a session that did not write it (see *Self-review of a slice*). Pass PR number as argument: `/pr_review 42`
 
 ## Instructions
 
@@ -19,15 +19,9 @@ gh pr view $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json number,title,
 
 Show brief summary: PR title, author, base ← head, lines changed, file count.
 
-Base ref is not `main` → the PR sits in a stack, so check its footer list is current:
+Author is you and the base is a feature branch → this is a **self-review pass**. Read *Self-review of a slice* below before Step 2; the steps are the same, the ending differs.
 
-```bash
-bin/pr-stack --check $ARGUMENTS
-```
-
-Exit 1 means one or more members' bodies still show a stale order — something landed on top since they were written. Don't rewrite the author's PR bodies mid-review: note it under **Nitpicks** ("stack footer stale — run `bin/pr-stack`") and trust the chain the script prints over anything the bodies claim. Prints `not stacked` and exits 0 for a `main`-based PR.
-
-The printed chain also tells you what's below this PR — review the diff against its **own base**, not `main`, or you'll flag code that a lower PR in the stack already introduced.
+Base ref is not `main` → the PR is a slice of a feature branch (see `WORKFLOW.md`, *Feature branches*). Review the diff against its **own base**, not `main`, or you'll flag code an earlier slice already landed. The base is `baseRefName` from the query above; every `main` below means that base.
 
 ### Step 2: Fetch the diff
 
@@ -60,7 +54,7 @@ Read priority:
 
 Skip full context for trivial changes (whitespace, comment-only, auto-generated files like `schema.rb`).
 
-**Important:** Read file context from PR's base branch (usually `main`), not current working branch. Use `git show main:<path>` to read files as on main. Current branch may have unmerged changes absent from PR base — wrong review findings result.
+**Important:** Read file context from the PR's base branch, not current working branch. Use `git show origin/<base>:<path>` to read files as they are on the base. Current branch may have unmerged changes absent from PR base — wrong review findings result.
 
 ### Step 4: Review existing feedback
 
@@ -114,8 +108,9 @@ requested. A PR can follow every convention in `docs/rules/` and still not do th
 job, and that finding never comes out of reading the diff alone.
 
 1. Find the originating issue — `Closes #n` in the PR body, the `<issue>` segment
-   of the branch name, or the `{{PR_TITLE_PREFIX}} | <issue> | …` title. None of
-   the three present → that is itself a finding: nothing ties this work to a
+   of the branch name, or the `{{PR_TITLE_PREFIX}} | <issue> | …` title. A slice PR
+   into a feature branch carries no `Closes` by design, so use the other two. None
+   of the three present → that is itself a finding: nothing ties this work to a
    request.
 2. Read its acceptance criteria, and the design doc in `docs/plans/` if it links
    one.
@@ -124,7 +119,7 @@ job, and that finding never comes out of reading the diff alone.
    met.
 4. Then the other direction: work in the diff that no criterion asked for. Small
    and adjacent is fine — say so and move on. A second feature riding along is a
-   **suggestion to split**, and past the 600-added-line guidance in `WORKFLOW.md`
+   **suggestion to split**, and past the 1,500-added-line guidance in `WORKFLOW.md`
    it is blocking.
 5. A design doc whose rejected alternatives are being re-litigated in this diff is
    a blocking finding. The decision was made; reopening it belongs in a comment
@@ -200,7 +195,7 @@ Ask the user:
 1. Whether to post the review as-is
 2. Whether to adjust severity on any items (e.g., downgrade a blocker to a suggestion)
 3. Whether to add or remove any comments
-4. What review action to take: APPROVE, REQUEST_CHANGES, or COMMENT
+4. What review action to take: APPROVE, REQUEST_CHANGES, or COMMENT — always COMMENT on your own PR (*Self-review of a slice*)
 
 ### Step 10: Post the review to GitHub
 
@@ -259,6 +254,29 @@ After posting, display:
   URL: <review URL>
 ```
 
+Then name what runs next. Someone else's PR → nothing; the author picks it up. A self-review pass with blocking findings → `/pr_comment_resolver <PR_NUMBER>` in the authoring session, then another pass from a new session. A self-review pass with none → land the slice, below.
+
+## Self-review of a slice
+
+A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed by its own author running this command from a **new session with no memory of writing the code**, once per pass. The context that wrote a diff shares its blind spots; a fresh one does not. Why the slice merges on this review and the feature on a human's is `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
+
+- **Pass loop.** Run this command. The authoring session addresses what it posts with `/pr_comment_resolver`. Run it again from another new session — Step 4 reads the earlier passes, so each one builds on the last instead of repeating it. Stop when a pass reports **no blocking findings**. Stop at **five passes** regardless and hand the diff to a human to read: five rounds without convergence is a design problem, not a review problem.
+- **Post as COMMENT.** GitHub refuses APPROVE and REQUEST_CHANGES on your own PR. Open the review body with `Self-review pass <N>` so the feature-PR reviewer can count them.
+- **Land it from this session.** A clean pass is what merges a slice — you run it, on the strength of the review rather than your own reading:
+
+  ```bash
+  gh pr merge <PR_NUMBER> --squash --delete-branch
+  ```
+
+  Then edit the feature PR body (`gh pr list --head feature/<slug>`, then `gh pr edit <FEATURE_PR> --body-file`): tick this slice under **Slices** and add `Closes #<issue>` beneath the list — not under tier `beads`, which has no GitHub issue. Then bring the feature branch up to date so the final merge stays small:
+
+  ```bash
+  git checkout feature/<slug> && git pull && git merge origin/main && git push
+  ```
+
+  Conflicts → `/resolve_conflicts`.
+- **Last slice landed** → resolve every remaining `Status: Draft` placeholder on the feature branch, `gh pr ready <FEATURE_PR>`, and hand it to a human. That review is an acceptance-criteria walk over the design doc's slice list, reading the posted passes and spot-checking where they disagree or fall silent — not a re-read of the whole diff.
+
 ## Review principles
 
 - **Be constructive.** Frame feedback as suggestions when possible, not demands. Use "Consider..." or "What do you think about..." for non-blocking items.
@@ -275,4 +293,4 @@ After posting, display:
 - Diff position vs line number: prefer `line` + `side` over `position` for accuracy
 - Review events: APPROVE, REQUEST_CHANGES, COMMENT
 - PR title convention: `{{PR_TITLE_PREFIX}} | <issue_number> | <description>`
-- Stacked PRs: `bin/pr-stack --check <PR>` prints the chain and flags a stale footer (exit 1); review against the PR's own base, not `main`
+- Base for the diff: the PR's `baseRefName` — `main`, or a feature branch for a slice

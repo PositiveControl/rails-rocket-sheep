@@ -7,7 +7,7 @@ body:
       value: |
         Sizing is decided here, not at review time. An issue fits when its
         acceptance criteria fit in **5 testable bullets or fewer** and the work
-        lands in roughly **100–600 added lines**.
+        lands in roughly **200–1,500 added lines**.
 
         More than that is an epic — open it as one and let `/feature_plan`
         decompose it into slices.
@@ -51,11 +51,11 @@ body:
       label: Size forecast
       description: Estimated added lines. L and XL should usually be split first.
       options:
-        - "XS — under 100"
-        - "S — 100–300 (ideal)"
-        - "M — 300–600"
-        - "L — 600–1,200 (split if possible)"
-        - "XL — 1,200+ (must split)"
+        - "XS — under 200"
+        - "S — 200–600 (ideal)"
+        - "M — 600–1,000"
+        - "L — 1,000–1,500 (upper bound)"
+        - "XL — 1,500+ (must split)"
     validations:
       required: false
 

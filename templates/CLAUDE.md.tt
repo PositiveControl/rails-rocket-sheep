@@ -139,8 +139,13 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
 
 - `/pick` is the entry door for every session — it surfaces ready work and routes it
 - Four gates: design approved (G1), plan approved (G2), suite green (G3), comments resolved (G4)
-- Sizing: 100–600 added lines per PR; issue acceptance criteria ≤5 bullets. Forecast
-  passes 600 lines mid-implementation → stop, split, land the current slice
+- Sizing: 200–1,500 added lines and ≤25 files per PR; issue acceptance criteria ≤5
+  bullets. Forecast passes 1,500 lines mid-implementation → stop, split, land the
+  current slice
+- Multi-slice features land on `feature/<slug>`. A slice is reviewed by `/pr_review`
+  run from a fresh session until a pass is clean, and merged there on that review;
+  the feature PR gets the human review. Spec: `WORKFLOW.md`, *Feature branches*;
+  why: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`
 - `/segue` is the escape valve — isolate a tangent, merge findings back without
   polluting the workstream
 - You invoke the chain. Four of the nineteen (`/run_lint`, `/test_fix`,
@@ -273,6 +278,5 @@ docs/                       # names are load-bearing
 .llm/
 ├── tasks/                  # Task files — local scratch, gitignored
 └── threads/                # Segue threads — local scratch, gitignored
-bin/pr-stack                # Stacked-PR footer generator (used by /pr_submit)
 WORKFLOW.md                 # Lifecycle spec + diagrams
 ```

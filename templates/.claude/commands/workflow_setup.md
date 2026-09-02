@@ -125,15 +125,13 @@ Must return nothing. Leftovers → fill them.
 
 Write the record to `.claude/workflow.config.md` — a table of every token and its value, plus the date. Re-running this wizard reads that file as the starting defaults. <!-- lint-docs:ignore -->
 
-`bin/pr-stack` has no tokens (it reads repo and default branch from `gh`) and the template already set its executable bit. Confirm with `bin/pr-stack --check`.
-
 ### Step 6: Conventions file
 
 `CLAUDE.md` already exists — it ships with this app. **Append** a `## Workflow` section; do not rewrite the rest.
 
 The section must include:
 - Chain: `/pick` (entry) → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → human merge + automation
-- Sizing: PR target 100–600 added lines / 5–15 files; issue acceptance criteria ≤5 bullets; scope-escape rule
+- Sizing: PR target 200–1,500 added lines / ≤25 files; issue acceptance criteria ≤5 bullets; scope-escape rule
 - Docs: `docs/rules` (conventions, one per file + `INDEX.md`) + canon (`docs/plans`, `docs/adr`, `docs/system`, `docs/sop`, `docs/qa`)
 - Single-source rule: conventions live in `docs/rules/`, one per file; CLAUDE.md and task files reference them rather than restating
 
