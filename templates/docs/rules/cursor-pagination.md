@@ -19,7 +19,7 @@ Cursor is the default:
 ```ruby
 def index
   filter = ItemFilter.new(current_user.items, params)
-  scope  = filter.apply.preload(*ItemSerializer.preloads_for(params[:include]))
+  scope  = ItemSerializer.preload(filter.apply, include: params[:include])
   page   = Cursor.page(scope, after: params[:cursor], limit: per_page, key: filter.sort_key)
 
   render json: ItemSerializer.collection(

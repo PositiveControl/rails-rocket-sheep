@@ -54,7 +54,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [api-auth](api-auth.md) | 750 | Doorkeeper, coarse scopes, server-side revocation |
+| [api-auth](api-auth.md) | 830 | Doorkeeper, coarse scopes, server-side revocation |
 | [api-testing](api-testing.md) | 750 | Request tests are the layer that matters |
 | [api-versioning](api-versioning.md) | 610 | One number in the path, additive within it |
 | [async-202](async-202.md) | 610 | 202, a `Location`, and a real status resource |
@@ -88,14 +88,14 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [safe-migrations](safe-migrations.md) | 380 | Concurrent indexes, two-deploy column removal |
 | [scopes](scopes.md) | 220 | Scopes, never class methods |
 | [seeds](seeds.md) | 420 | Idempotent seeds, kept in step with models and processes |
-| [serialization](serialization.md) | 700 | One plain object per resource, explicit fields, nothing else |
+| [serialization](serialization.md) | 770 | One plain object per resource, explicit fields, nothing else |
 | [service-objects](service-objects.md) | 860 | `ApplicationService`, Result, transactions |
 | [sparse-fieldsets-includes](sparse-fieldsets-includes.md) | 700 | `fields` and `include`, allowlisted, one level deep |
 | [status-codes](status-codes.md) | 920 | Which status, and the outcome that is neither success nor failure |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 590 | Layer order end to end |
 
-**Total corpus:** ~25,670 tokens across 40 rules — but nobody reads it whole.
+**Total corpus:** ~25,820 tokens across 40 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a

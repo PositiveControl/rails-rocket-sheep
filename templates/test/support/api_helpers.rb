@@ -24,9 +24,21 @@ module ApiHelpers
 
   # A token for a scope, so the negative cases are as cheap to write as the
   # positive one — docs/rules/api-auth.md.
+  #
+  # Doorkeeper's migration makes `application_id` NOT NULL, so a token needs a
+  # client. One per suite is enough; the tests care about the scope, not the app.
   def api_headers(user, scopes: "read write")
-    token = Doorkeeper::AccessToken.create!(resource_owner_id: user.id, scopes: scopes)
+    token = Doorkeeper::AccessToken.create!(application: api_test_client,
+                                            resource_owner_id: user.id,
+                                            scopes: scopes)
     { "Authorization" => "Bearer #{token.token}" }
+  end
+
+  def api_test_client
+    Doorkeeper::Application.find_or_create_by!(name: "test client") do |application|
+      application.redirect_uri = "urn:ietf:wg:oauth:2.0:oob"
+      application.scopes = "read write"
+    end
   end
 end
 

@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb",
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
 modes: [ api ]
-tokens: 750
+tokens: 830
 current_state: matches
 ---
 
@@ -46,6 +46,11 @@ in access logs, browser history, and referrer headers.
 **Failures use the standard shapes.** No credentials or bad credentials is `401`;
 valid credentials with insufficient scope is `403`; both carry a problem document —
 [status-codes](status-codes.md), [error-envelope](error-envelope.md).
+
+That is not Doorkeeper's default. `handle_auth_errors :raise` in the initializer is
+what sends its failures through this app's boundary; left as `:render`, Doorkeeper
+answers in its own shape and the app has two error formats — one of them
+undocumented, and both reaching the same client.
 
 **Authentication endpoints are rate-limited by identifier, not only by IP** —
 [rate-limiting](rate-limiting.md).

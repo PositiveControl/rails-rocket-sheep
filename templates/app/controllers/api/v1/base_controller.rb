@@ -19,6 +19,14 @@ module Api
       rescue_from ActionController::ParameterMissing, with: :malformed
       rescue_from Cursor::InvalidCursor, with: :malformed
 
+      # Doorkeeper renders its own 401 and 403 by default, in its own shape, which
+      # would be the second error format in an app whose whole point is having one.
+      # `handle_auth_errors :raise` in the initializer sends them here instead.
+      # TokenForbidden descends from InvalidToken, so it is declared second: a
+      # later handler wins the lookup.
+      rescue_from Doorkeeper::Errors::InvalidToken, with: :unauthenticated
+      rescue_from Doorkeeper::Errors::TokenForbidden, with: :insufficient_scope
+
       private
 
       # docs/rules/api-auth.md — the token's resource owner, not a session.
@@ -54,6 +62,16 @@ module Api
       def not_found
         problem type: "not-found", title: "Not found", status: :not_found,
                 detail: "No such resource, or not one you may see"
+      end
+
+      def unauthenticated
+        problem type: "unauthenticated", title: "Not authenticated",
+                status: :unauthorized, detail: "Present a valid bearer token"
+      end
+
+      def insufficient_scope
+        problem type: "insufficient-scope", title: "Insufficient scope",
+                status: :forbidden, detail: "This token's scopes do not cover this request"
       end
 
       def malformed(exception)

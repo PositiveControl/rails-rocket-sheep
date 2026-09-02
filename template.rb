@@ -250,18 +250,27 @@ inject_into_file "config/application.rb", after: "class Application < Rails::App
     RUBY
   end
 
+  # ViewComponent is not installed in API mode, and a setting for a gem that is
+  # absent raises on boot rather than being ignored.
+  components = if API
+    ""
+  else
+    <<~RUBY.strip
+      # ViewComponent: generate a sidecar directory so a component's class,
+      # template, and any component-scoped Stimulus controller sit together.
+      # Template engine follows config.generators.template_engine, which
+      # slim-rails sets to :slim.
+      config.view_component.generate.sidecar = true
+    RUBY
+  end
+
   <<~RUBY.indent(4)
     #{generators.strip}
 
-    # Autoload app/lib for registries and game config
+    # Autoload app/lib for registries and, in API mode, the cursor
     config.autoload_paths << Rails.root.join("app/lib")
 
-    # ViewComponent: generate a sidecar directory so a component's class,
-    # template, and any component-scoped Stimulus controller sit together.
-    # Template engine follows config.generators.template_engine, which
-    # slim-rails sets to :slim.
-    config.view_component.generate.sidecar = true
-
+    #{components}
   RUBY
 end
 
@@ -525,8 +534,14 @@ copy_template_file "lib/templates/test_unit/model/fixtures.yml"
 # the empty db/seeds.rb Rails ships, so a fresh app has something to log in as.
 copy_template_file "db/seeds.rb", nil, force: true
 
-# Update test_helper to require VCR
-inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/ do
+# Update test_helper to require VCR.
+#
+# Anchored on the `rails/test_help` require, not on the TestCase declaration:
+# Rails 8.1 generates `module ActiveSupport` with a nested `class TestCase`, and an
+# anchor on `class ActiveSupport::TestCase` matches nothing. inject_into_file then
+# prints "File unchanged!" and generation continues, so the support files shipped
+# and were never loaded — VCR configured nothing and WebMock blocked nothing.
+inject_into_file "test/test_helper.rb", after: %(require "rails/test_help"\n) do
   <<~RUBY
   # VCR for HTTP request recording
   require_relative "support/vcr"
@@ -538,7 +553,7 @@ inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/
 end
 
 if API
-  inject_into_file "test/test_helper.rb", before: /^class ActiveSupport::TestCase/ do
+  inject_into_file "test/test_helper.rb", after: %(require "rails/test_help"\n) do
     <<~RUBY
     # assert_problem, api_headers
     require_relative "support/api_helpers"
@@ -814,22 +829,44 @@ after_bundle do
         default_scopes  :read
         optional_scopes :write
 
+        # Raise instead of rendering, so an auth failure goes through the app's own
+        # problem-document boundary rather than Doorkeeper's HTML response. Flipping
+        # this back gives the app a second error format.
+        handle_auth_errors :raise
+
       RUBY
     end
 
-    # Doorkeeper ships an authenticator that raises until it is wired up. Point it
-    # at Devise; the body only runs at request time, so it is safe before
-    # `rails g devise User`.
+    # Doorkeeper ships an authenticator whose body raises until it is wired up.
+    # Replace the raise, not the block: Doorkeeper puts explanatory comments
+    # between it and the `end`, and a regex that assumed otherwise left the raise
+    # in place and said nothing. The body only runs at request time, so this is
+    # safe before `rails g devise User`.
     gsub_file "config/initializers/doorkeeper.rb",
-              /resource_owner_authenticator do\n\s+raise[^\n]*\n\s*end/m,
-              <<~RUBY.strip
-                resource_owner_authenticator do
-                  current_user || warden.authenticate!(scope: :user)
-                end
-              RUBY
+              /^\s*raise "Please configure doorkeeper resource_owner_authenticator.*$/,
+              "    current_user || warden.authenticate!(scope: :user)"
+
+    # Doorkeeper's migration writes `t.references :resource_owner` with no type,
+    # which emits a bigint. On PostgreSQL this app's keys are uuid, so a uuid
+    # resource owner id casts to a meaningless integer, `User.find_by` returns
+    # nil, and authorization appears to succeed with no current user. This is the
+    # failure docs/rules/database-conventions.md warns about, committed by a
+    # generator this template does not own.
+    if POSTGRESQL
+      Dir["db/migrate/*_create_doorkeeper_tables.rb"].each do |migration|
+        gsub_file migration, "t.references :resource_owner,", "t.references :resource_owner, type: :uuid,"
+      end
+    end
 
     say "Adding the idempotency table...", :yellow
-    create_file "db/migrate/#{(Time.now.utc + 1).strftime('%Y%m%d%H%M%S')}_create_idempotent_requests.rb", <<~RUBY
+
+    # Doorkeeper's generator just wrote migrations, and a hand-rolled timestamp
+    # collides with them whenever both land in the same second — which is most of
+    # the time. Take one past the highest version present instead.
+    latest = Dir["db/migrate/*.rb"].map { |file| File.basename(file)[/\A\d+/].to_i }.max.to_i
+    version = [ latest + 1, Time.now.utc.strftime("%Y%m%d%H%M%S").to_i ].max
+
+    create_file "db/migrate/#{version}_create_idempotent_requests.rb", <<~RUBY
       class CreateIdempotentRequests < ActiveRecord::Migration[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]
         def change
           create_table :idempotent_requests#{POSTGRESQL ? ", id: :uuid" : ""} do |t|

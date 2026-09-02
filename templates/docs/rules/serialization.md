@@ -5,7 +5,7 @@ applies_to: ["app/serializers/**/*.rb", "app/controllers/**/*.rb"]
 triggers: ["serializer", "as_json", "to_json", "response shape", "JSON keys", "render json", "ApplicationSerializer", "response fields"]
 see_also: ["pattern-budget", "sparse-fieldsets-includes", "n-plus-one", "api-versioning"]
 modes: [ api ]
-tokens: 700
+tokens: 770
 current_state: matches
 ---
 
@@ -48,12 +48,18 @@ different amounts of the same resource, that is
 [sparse-fieldsets-includes](sparse-fieldsets-includes.md), not a second serializer —
 two serializers for one resource drift, and the second one is always the stale one.
 
+**`optional` is the whole declaration.** An optional field stays out of `#fields`;
+its value comes from a method of that name if the serializer defines one, and from
+the record otherwise. Listing it in `#fields` as well is what produces a field that
+is always `nil`.
+
 **Keys are `snake_case`, times are ISO 8601 strings, money is minor units with its
 currency.** Never a float for money, never a bare epoch integer for a time, never a
 `Date` relying on `to_json`.
 
 **Every includable declares its own preload, and the controller applies them** with
-`ItemSerializer.preloads_for(params[:include])`, on the scope before it is paginated.
+`ItemSerializer.preload(scope, include: params[:include])`, before the scope is
+paginated.
 A serializer that reaches for an unpreloaded association turns one response into one
 query per row, and the place it happens is a response builder nobody profiles —
 [n-plus-one](n-plus-one.md).

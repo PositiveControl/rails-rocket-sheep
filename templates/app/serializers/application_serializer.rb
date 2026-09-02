@@ -38,8 +38,17 @@ class ApplicationSerializer
       @includables ||= inherited_from(:includables, {})
     end
 
-    # Preloads for a request's `include` list. Apply these to the relation before
-    # it is paginated, never after — docs/rules/n-plus-one.md.
+    # Applies the preloads a request's `include` list needs, to the relation,
+    # before it is paginated — docs/rules/n-plus-one.md.
+    #
+    # The guard lives here because `relation.preload(*[])` raises, and a caller
+    # writing that splat by hand gets an endpoint that works with `?include=` and
+    # blows up without it.
+    def preload(relation, include: nil)
+      names = preloads_for(include)
+      names.any? ? relation.preload(*names) : relation
+    end
+
     def preloads_for(include)
       includables.values_at(*parse_includes(include)).compact
     end
@@ -79,7 +88,8 @@ class ApplicationSerializer
   end
 
   def as_json(*)
-    body = fields.except(*omitted_optionals)
+    body = fields
+    requested_optionals.each { |name| body[name] = optional_value(name) }
     body = body.slice(*(@requested | ALWAYS)) if @requested.any?
     @includes.each { |name| body[name] = public_send(name) }
     body
@@ -97,8 +107,16 @@ class ApplicationSerializer
 
   private
 
-  # An optional field is absent unless asked for by name.
-  def omitted_optionals
-    self.class.optional_fields - @requested
+  # An optional field is absent unless asked for by name, and #fields does not
+  # carry it. Declaring it optional is the whole declaration: the value comes from
+  # a method of that name if the serializer defines one, and from the record
+  # otherwise. Requiring #fields to list it too meant forgetting one of the two
+  # produced a silent nil.
+  def requested_optionals
+    self.class.optional_fields & @requested
+  end
+
+  def optional_value(name)
+    respond_to?(name) ? public_send(name) : record.public_send(name)
   end
 end
