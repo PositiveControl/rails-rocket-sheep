@@ -44,7 +44,7 @@ bin/rocket-sheep-update --check
 template.rb              The generator. Phased, top to bottom, with `say` banners.
 adopt.rb                 The alignment layer, and the definition of it. Two callers.
 preamble.rb              The three copy helpers and the origin stamp, shared by both.
-bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
+templates/bin/lint-docs            Checks the docs still agree with the tree. Run on every doc edit.
 docs/writing-commands.md The shape a workflow command has to have, and its Done-when.
 .agents/adr/             Why this repo is built the way it is. Read before re-opening one.
 .agents/out-of-scope/    Requests already declined, with the reasoning. Check before building one.
@@ -160,10 +160,10 @@ ROCKET_SHEEP_TEMPLATE=/path/to/a/checkout bin/rocket-sheep-update --from SHA --r
 Run adoption twice: the second run must report every file identical and must not
 append to `.gitignore` again.
 
-The docs *are* checked, by `bin/lint-docs`:
+The docs *are* checked, by `templates/bin/lint-docs`:
 
 ```bash
-bin/lint-docs            # exits 0 clean, 1 with a list of findings
+templates/bin/lint-docs            # exits 0 clean, 1 with a list of findings
 ```
 
 It asserts what an agent in a generated app is asked to trust: every rule has
@@ -192,7 +192,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   Duplicated conventions drift, and drift is the failure mode this product exists
   to prevent.
 - **A fact about the tree gets checked, not asserted.** Counts, index rows, token
-  budgets, and paths are all things `bin/lint-docs` can verify, so prose that
+  budgets, and paths are all things `templates/bin/lint-docs` can verify, so prose that
   states one has to pass it. Run it before you commit a doc change; a doc that
   disagrees with the tree is worse than no doc, because the agent cannot tell.
 - **Rules go in `templates/docs/rules/`, one per file**, with complete frontmatter
@@ -200,7 +200,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   must match the filename. Routing is two-tier: add a row to `INDEX.md` — the path
   table for a rule that applies to any edit in that path, a conditional table
   otherwise — and rows to *route by symptom* and *full list* in `SYMPTOMS.md`.
-  `bin/lint-docs` checks all three, and a rule declaring `current_state: diverges`
+  `templates/bin/lint-docs` checks all three, and a rule declaring `current_state: diverges`
   must carry a `## Where this app is` section.
 - **Rules say what to do. ADRs say why it was chosen.** There are two ADR homes,
   because there are two products: decisions about a *generated app* go in
@@ -264,7 +264,7 @@ creates at runtime, carries a `lint-docs:ignore` marker.
 - **Commands follow [docs/writing-commands.md](docs/writing-commands.md).** The
   frame (`# Title`, job line, `## Instructions` with `### Step N`, `## Reference`),
   the frontmatter, the conventions, and a Done-when checklist split into what
-  `bin/lint-docs` checks and what only reading can. A short single-action command
+  `templates/bin/lint-docs` checks and what only reading can. A short single-action command
   keeps the job in a numbered list instead; the spec says which is which.
 - **Every command declares a `description`, and an `argument-hint` if it takes an
   argument.** Quote both values: a description containing a colon parses as a map,

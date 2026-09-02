@@ -252,6 +252,14 @@ chmod "bin/pr-stack", 0755
 copy_template_file "bin/doc-tokens"
 chmod "bin/doc-tokens", 0755
 
+# The same checks this repo runs on its own docs, pointed at the app's. A generated
+# app carries the same corpus, the same commands and the same index, so it inherits
+# the same drift risk; before this it inherited none of the checking. One file, two
+# homes — it reads its own directory name to know which it is in, and the four
+# checks that compare templates/ to the generators are skipped where there are none.
+copy_template_file "bin/lint-docs"
+chmod "bin/lint-docs", 0755
+
 # Reconciles this layer with a newer template, three-way, from the stamp in
 # CLAUDE.md. It is inside the layer it updates, so it updates itself.
 copy_template_file "bin/rocket-sheep-update"

@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
-# bin/lint-docs — checks that this repo's docs still agree with this repo.
+# bin/lint-docs — checks that the docs still agree with the tree.
 #
 # The alignment layer asks an agent to trust what the docs say: that a rule
 # exists, that the index routes to it, that a read costs what it claims, that a
@@ -9,24 +9,49 @@
 # checkable. Prose that disagrees with the tree is worse than no prose, because
 # the agent has no way to tell.
 #
-# Run it on every edit to templates/docs/rules/, templates/.claude/commands/,
-# or any doc that quotes a count:
+# Two homes, one file. In the template repo the docs it checks live under
+# templates/; in a generated app they are the app's own, at the root. Four checks
+# compare the templates/ tree to the generators, or read the template's own prose,
+# and mean nothing in an app — they are skipped there. Everything an agent is
+# asked to trust is checked in both.
 #
-#   bin/lint-docs
+# Run it on every edit to docs/rules/, .claude/commands/, or any doc quoting a
+# count:
+#
+#   bin/lint-docs                  # in a generated app
+#   templates/bin/lint-docs        # in the template repo
 #
 # Exits 0 when clean, 1 with a list of findings otherwise. Add the marker
 # `lint-docs:ignore` to a line that legitimately names a different count.
 
 require "yaml"
 
-ROOT = File.expand_path("..", __dir__)
-TEMPLATES = File.join(ROOT, "templates")
-RULES_DIR = File.join(TEMPLATES, "docs/rules")
-COMMANDS_DIR = File.join(TEMPLATES, ".claude/commands")
+# `templates/bin` in the template repo, `<app>/bin` in a generated app. An app
+# generated inside the repo would fool a test that only looked for template.rb
+# somewhere above, so the directory name is what decides.
+IN_TEMPLATE_REPO = File.basename(File.expand_path("..", __dir__)) == "templates" &&
+                   File.exist?(File.expand_path("../../template.rb", __dir__))
+ROOT = File.expand_path(IN_TEMPLATE_REPO ? "../.." : "..", __dir__)
+# Where the docs under check live: templates/ here, the app root there.
+DOCS_ROOT = IN_TEMPLATE_REPO ? File.join(ROOT, "templates") : ROOT
+TEMPLATES = DOCS_ROOT
+RULES_DIR = File.join(DOCS_ROOT, "docs/rules")
+COMMANDS_DIR = File.join(DOCS_ROOT, ".claude/commands")
 INDEX_PATH = File.join(RULES_DIR, "INDEX.md")
+
 # One mode, one pair of routers (ADR 0009). A rule's `modes` decides which pair
-# has to route it, and template.rb copies the pair the generated app asked for.
-MODES = { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }.freeze
+# has to route it. The repo holds both committed pairs; an app holds exactly one,
+# installed under the shared names, so there the mode is read off the app the same
+# way adopt.rb and bin/rocket-sheep-update read it.
+ALL_MODES = { "web" => %w[INDEX.md SYMPTOMS.md], "api" => %w[INDEX.api.md SYMPTOMS.api.md] }.freeze
+APP_MODE =
+  if File.exist?(File.join(ROOT, "config/application.rb")) &&
+     File.read(File.join(ROOT, "config/application.rb")).match?(/^\s*config\.api_only\s*=\s*true/)
+    "api"
+  else
+    "web"
+  end
+MODES = IN_TEMPLATE_REPO ? ALL_MODES : { APP_MODE => %w[INDEX.md SYMPTOMS.md] }.freeze
 ROUTERS = MODES.values.flatten.freeze
 IGNORE = "lint-docs:ignore"
 REQUIRED_RULE_KEYS = %w[id title applies_to triggers see_also modes tokens current_state].freeze
@@ -34,7 +59,7 @@ CURRENT_STATE_VALUES = %w[matches diverges].freeze
 DIVERGENCE_HEADING = "## Where this app is"
 # Shared with bin/doc-tokens, which generates the per-rule figures. One estimator,
 # or the generator and the check disagree and every regenerated figure trips a finding.
-load File.expand_path("../templates/bin/doc-tokens", __dir__)
+load File.expand_path("doc-tokens", __dir__)
 MAX_DESCRIPTION = 80 # a picker line, not a paragraph
 LONG_FORM_LINES = 60 # over this, a command carries the Instructions/Reference frame
 
@@ -68,11 +93,11 @@ rule_paths.each do |path|
   declared_tokens[id] = fm["tokens"]
 
   declared_modes = Array(fm["modes"])
-  unknown = declared_modes - MODES.keys
+  unknown = declared_modes - ALL_MODES.keys
   if declared_modes.empty?
     findings << "#{rel(path)}: modes is empty, so this rule ships nowhere"
   elsif unknown.any?
-    findings << "#{rel(path)}: modes has #{unknown.join(', ')}, expected only #{MODES.keys.join(', ')}"
+    findings << "#{rel(path)}: modes has #{unknown.join(', ')}, expected only #{ALL_MODES.keys.join(', ')}"
   end
   rule_modes[id] = declared_modes
 
@@ -107,7 +132,7 @@ rule_paths.each do |path|
   Array(fm["see_also"]).each do |target|
     next findings << "#{rel(path)}: see_also names #{target}, which has no rule file" unless rule_modes.key?(target)
 
-    missing = Array(rule_modes[id]) - Array(rule_modes[target])
+    missing = (Array(rule_modes[id]) & MODES.keys) - Array(rule_modes[target])
     findings << "#{rel(path)}: see_also names #{target}, which does not ship to #{missing.join(', ')}" if missing.any?
   end
 end
@@ -125,11 +150,17 @@ rule_paths.each do |path|
 
   body.enum_for(:scan, /\]\((?!\.\.\/|https?:)([a-z0-9-]+)\.md\)/).each do
     target = Regexp.last_match(1)
-    at = Regexp.last_match.begin(0)
-    next findings << "#{rel(path)}: links #{target}.md, which has no rule file" unless rule_modes.key?(target)
+    in_api_section = !guarded_from.nil? && Regexp.last_match.begin(0) > guarded_from
 
-    in_api_section = !guarded_from.nil? && at > guarded_from
-    needs = in_api_section ? [ "api" ] : Array(rule_modes[id])
+    unless rule_modes.key?(target)
+      # The repo holds every rule, so a target with no file is a typo. An app holds
+      # one mode's, so the other mode's rules are absent by design — which is only a
+      # problem when the link is somewhere this app's reader will actually go.
+      findings << "#{rel(path)}: links #{target}.md, which has no rule file" if IN_TEMPLATE_REPO || !in_api_section
+      next
+    end
+
+    needs = (in_api_section ? [ "api" ] : Array(rule_modes[id])) & MODES.keys
     missing = needs - Array(rule_modes[target])
     next if missing.empty?
 
@@ -241,16 +272,18 @@ end
 
 # --- 6. Command routers ------------------------------------------------------
 # A router that omits a command is a router that lies.
-# AGENTS.md is a template: its short list names the mode's patterns (ADR 0009),
-# so it is read here as source rather than as rendered output.
-agents_md = File.read(File.join(TEMPLATES, "AGENTS.md.tt"))
-workflow_md = File.read(File.join(TEMPLATES, "WORKFLOW.md"))
+# In the repo AGENTS.md is a template — its short list names the mode's patterns
+# (ADR 0009) — so it is read as source there and as rendered output in an app.
+agents_path = File.join(DOCS_ROOT, IN_TEMPLATE_REPO ? "AGENTS.md.tt" : "AGENTS.md")
+workflow_path = File.join(DOCS_ROOT, "WORKFLOW.md")
+agents_md = File.read(agents_path)
+workflow_md = File.read(workflow_path)
 invocation_table = workflow_md[/^## Who invokes what$.*?^## /m].to_s
 command_paths.each do |path|
   name = File.basename(path, ".md")
-  findings << "templates/AGENTS.md.tt: no entry for /#{name}" unless agents_md.include?(name)
-  findings << "templates/WORKFLOW.md: 'Command inventory' has no entry for /#{name}" unless workflow_md.include?(name)
-  findings << "templates/WORKFLOW.md: 'Who invokes what' does not say who invokes /#{name}" unless invocation_table.include?("`/#{name}`")
+  findings << "#{rel(agents_path)}: no entry for /#{name}" unless agents_md.include?(name)
+  findings << "#{rel(workflow_path)}: 'Command inventory' has no entry for /#{name}" unless workflow_md.include?(name)
+  findings << "#{rel(workflow_path)}: 'Who invokes what' does not say who invokes /#{name}" unless invocation_table.include?("`/#{name}`")
 end
 
 # --- 7. Command frontmatter -------------------------------------------------
@@ -328,7 +361,16 @@ actual = { rules: rule_paths.size, commands: command_paths.size }
 # else names the directory, so it has one right answer and gets checked against it.
 MODE_OF_ROUTER = MODES.flat_map { |mode, files| files.map { |file| [ file, mode ] } }.to_h
 mode_rule_counts = MODES.keys.to_h { |mode| [ mode, rule_modes.count { |_, ms| ms.include?(mode) } ] }
-Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}")).reject { |p| p.include?("/.git/") }.sort.each do |path|
+count_scan =
+  if IN_TEMPLATE_REPO
+    Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}"))
+  else
+    # The doc canon plus the root-level markdown, and nothing else: a comment in
+    # this app's own code that happens to say "3 rules" is not this check's business.
+    Dir.glob(File.join(ROOT, "*.md")) +
+      Dir.glob(File.join(ROOT, "{docs,.llm,.claude,.cursor}/**/*.{md,mdc}"))
+  end
+count_scan.reject { |p| p.include?("/.git/") }.sort.each do |path|
   File.readlines(path).each_with_index do |line, i|
     next if line.include?(IGNORE)
 
@@ -351,55 +393,61 @@ Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}")).reject { |p| p.include?("/.git/") }
   end
 end
 
-# --- 9. Everything under templates/ actually ships --------------------------
-# A file added to templates/ that no `copy_template_file` names, and no glob
-# covers, is a file that silently never reaches a generated app. Both entry
-# points count: template.rb generates, adopt.rb installs the alignment layer
-# into an app that already exists, and template.rb evaluates adopt.rb.
-generator = ["template.rb", "adopt.rb"].map { |f| File.read(File.join(ROOT, f)) }.join("\n")
-literal_copies = generator.scan(/(?:copy_template_file|template_file)\s+"([^"]+)"/).flatten
-glob_dirs = generator.scan(%r{Dir\.glob\(File\.join\(TEMPLATE_ROOT,\s*"templates/([^"*]+)/\*}).flatten
+# Checks 9, 10 and 11 compare the templates/ tree to the generators that copy it,
+# and the stamp regex to the file that writes it. A generated app has neither, so
+# there is nothing there for them to be true or false about.
+if IN_TEMPLATE_REPO
+  # --- 9. Everything under templates/ actually ships --------------------------
+  # A file added to templates/ that no `copy_template_file` names, and no glob
+  # covers, is a file that silently never reaches a generated app. Both entry
+  # points count: template.rb generates, adopt.rb installs the alignment layer
+  # into an app that already exists, and template.rb evaluates adopt.rb.
+  generator = ["template.rb", "adopt.rb"].map { |f| File.read(File.join(ROOT, f)) }.join("\n")
+  literal_copies = generator.scan(/(?:copy_template_file|template_file)\s+"([^"]+)"/).flatten
+  glob_dirs = generator.scan(%r{Dir\.glob\(File\.join\(TEMPLATE_ROOT,\s*"templates/([^"*]+)/\*}).flatten
 
-DOC_TREES = ["docs", ".llm", ".claude", ".cursor"].freeze
-Dir.glob(File.join(TEMPLATES, "**/*.{md,tt,mdc,json}"), File::FNM_DOTMATCH).sort.each do |path|
-  ref = path.sub("#{TEMPLATES}/", "")
-  next unless DOC_TREES.any? { |tree| ref.start_with?("#{tree}/") }
-  next if literal_copies.include?(ref) || literal_copies.include?(ref.sub(/\.tt\z/, ""))
-  next if glob_dirs.any? { |dir| File.dirname(ref) == dir.chomp("/") }
+  DOC_TREES = ["docs", ".llm", ".claude", ".cursor"].freeze
+  Dir.glob(File.join(TEMPLATES, "**/*.{md,tt,mdc,json}"), File::FNM_DOTMATCH).sort.each do |path|
+    ref = path.sub("#{TEMPLATES}/", "")
+    next unless DOC_TREES.any? { |tree| ref.start_with?("#{tree}/") }
+    next if literal_copies.include?(ref) || literal_copies.include?(ref.sub(/\.tt\z/, ""))
+    next if glob_dirs.any? { |dir| File.dirname(ref) == dir.chomp("/") }
 
-  findings << "template.rb never copies #{ref}, so it does not ship"
-end
-
-# --- 10. The stamp the updater reads is the stamp the template writes -------
-# bin/rocket-sheep-update finds the commit to merge from by matching a regex
-# against the generated CLAUDE.md. Rewording that line silently costs every
-# future app its upgrade path, and nothing else would notice.
-updater_path = File.join(TEMPLATES, "bin/rocket-sheep-update")
-stamp_source = File.read(updater_path)[%r{^STAMP = (?:%r)?/(.+)/$}, 1]
-if stamp_source.nil?
-  findings << "templates/bin/rocket-sheep-update: no STAMP regex found, so the stamp contract is unchecked"
-else
-  stamped = File.read(File.join(TEMPLATES, "CLAUDE.md.tt"))
-                .gsub("<%= TEMPLATE_SHA %>", "abc1234")
-                .gsub("<%= TEMPLATE_GENERATED_ON %>", "2026-01-01")
-  unless stamped.match?(Regexp.new(stamp_source))
-    findings << "templates/CLAUDE.md.tt: the origin stamp no longer matches STAMP in " \
-                "bin/rocket-sheep-update, so an update would have no commit to merge from"
+    findings << "template.rb never copies #{ref}, so it does not ship"
   end
-end
 
-# --- 11. The filename railties re-renders after bundling ---------------------
-# Rails' own generator runs `template "kamal-secrets.tt", ".kamal/secrets"` after
-# bundling (Rails::Generators::AppBase#run_kamal), resolved through our
-# source_paths. A rename or a delete makes every bundling generation die there,
-# and `--skip-bundle` never reaches the call, so the probe most people run stays
-# green. Cheap to assert, expensive to discover.
-RAILTIES_RENDERED = ["kamal-secrets.tt"].freeze
-RAILTIES_RENDERED.each do |name|
-  next if File.exist?(File.join(TEMPLATES, name))
+  # --- 10. The stamp the updater reads is the stamp the template writes -------
+  # bin/rocket-sheep-update finds the commit to merge from by matching a regex
+  # against the generated CLAUDE.md. Rewording that line silently costs every
+  # future app its upgrade path, and nothing else would notice.
+  updater_path = File.join(TEMPLATES, "bin/rocket-sheep-update")
+  stamp_source = File.read(updater_path)[%r{^STAMP = (?:%r)?/(.+)/$}, 1]
+  if stamp_source.nil?
+    findings << "templates/bin/rocket-sheep-update: no STAMP regex found, so the stamp contract is unchecked"
+  else
+    stamped = File.read(File.join(TEMPLATES, "CLAUDE.md.tt"))
+                  .gsub("<%= TEMPLATE_SHA %>", "abc1234")
+                  .gsub("<%= TEMPLATE_GENERATED_ON %>", "2026-01-01")
+    unless stamped.match?(Regexp.new(stamp_source))
+      findings << "templates/CLAUDE.md.tt: the origin stamp no longer matches STAMP in " \
+                  "bin/rocket-sheep-update, so an update would have no commit to merge from"
+    end
+  end
 
-  findings << "templates/#{name} is missing, and Rails' own generator renders it " \
-              "after bundling — generation would die at the kamal step"
+  # --- 11. The filename railties re-renders after bundling ---------------------
+  # Rails' own generator runs `template "kamal-secrets.tt", ".kamal/secrets"` after
+  # bundling (Rails::Generators::AppBase#run_kamal), resolved through our
+  # source_paths. A rename or a delete makes every bundling generation die there,
+  # and `--skip-bundle` never reaches the call, so the probe most people run stays
+  # green. Cheap to assert, expensive to discover.
+  RAILTIES_RENDERED = ["kamal-secrets.tt"].freeze
+  RAILTIES_RENDERED.each do |name|
+    next if File.exist?(File.join(TEMPLATES, name))
+
+    findings << "templates/#{name} is missing, and Rails' own generator renders it " \
+                "after bundling — generation would die at the kamal step"
+  end
+
 end
 
 # --- 12. Real infrastructure in a public repo -------------------------------
@@ -440,7 +488,14 @@ SSH_TARGET = /\b(?:ssh|scp)\b[^\n]*?\b([a-z][\w.-]*)@([\w.-]+\.[a-z]{2,})/i
 # whole line would let `ssh root@<ip> to restart postgres` past the check.
 VERSION_CUE = /\b(?:ruby|rails|pagy|node|bun|version|v)\s+\z/i
 
-Dir.glob(File.join(ROOT, "**/*.{md,tt,rb,yml,mdc}")).reject { |p| p.include?("/.git/") }.sort.each do |path|
+host_scan =
+  if IN_TEMPLATE_REPO
+    Dir.glob(File.join(ROOT, "**/*.{md,tt,rb,yml,mdc}"))
+  else
+    Dir.glob(File.join(ROOT, "*.md")) +
+      Dir.glob(File.join(ROOT, "{docs,.llm,.claude,.cursor,.kamal,config}/**/*.{md,mdc,yml}"))
+  end
+host_scan.reject { |p| p.include?("/.git/") }.sort.each do |path|
   File.readlines(path).each_with_index do |line, i|
     next if line.include?(IGNORE)
 

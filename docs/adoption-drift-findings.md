@@ -143,7 +143,7 @@ and a symptom file, not one index.
 Three things to settle before the first API rule is written:
 
 1. Where the current-state block lives — prose convention, or a frontmatter field
-   that `bin/lint-docs` can check for presence in mechanism rules.
+   that `templates/bin/lint-docs` can check for presence in mechanism rules.
 2. Whether two-tier routing lands for both modes or only the new one. Both is one
    change to `INDEX.md`; only the new mode is two indexes to maintain.
 3. Whether a superseded decision is deleted or annotated. ADR 0009 says a decision
