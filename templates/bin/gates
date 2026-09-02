@@ -95,6 +95,53 @@ def command_mirror
   output.lines.map(&:strip)
 end
 
+# --- unindexed foreign keys --------------------------------------------------
+# Every column an add_foreign_key names must lead some index on its table, or
+# the join the constraint exists for scans. Read from db/schema.rb, so no
+# database is needed; an app on structure.sql is skipped. When add_foreign_key
+# gives no column: the name is derived from the target table, and a derivation
+# that names no column the table has is skipped rather than reported — a miss
+# over a false positive.
+
+def unindexed_foreign_keys
+  return [] unless File.exist?("db/schema.rb")
+
+  columns = Hash.new { |h, k| h[k] = [] }
+  leading = Hash.new { |h, k| h[k] = [] }
+  foreign_keys = []
+  table = nil
+
+  File.foreach("db/schema.rb") do |line|
+    case line
+    when /^\s*create_table "([^"]+)"/ then table = Regexp.last_match(1)
+    when /^\s*end/ then table = nil
+    when /^\s*t\.index \["([^"]+)"/ then leading[table] << Regexp.last_match(1) if table
+    when /^\s*t\.\w+ "([^"]+)"/ then columns[table] << Regexp.last_match(1) if table
+    when /^\s*add_index "([^"]+)", \["([^"]+)"/ then leading[Regexp.last_match(1)] << Regexp.last_match(2)
+    when /^\s*add_foreign_key "([^"]+)", "([^"]+)"(.*)$/
+      from, to, rest = Regexp.last_match.captures
+      column = rest[/column: "([^"]+)"/, 1] || "#{singular(to)}_id"
+      foreign_keys << [from, column]
+    end
+  end
+
+  foreign_keys.filter_map do |from, column|
+    next unless columns[from].include?(column)
+    next if leading[from].include?(column)
+
+    "#{from}.#{column} has a foreign key but leads no index"
+  end
+end
+
+def singular(word)
+  case word
+  when /ies\z/ then word.sub(/ies\z/, "y")
+  when /(ss|us|is)es\z/ then word.sub(/es\z/, "")
+  when /(x|ch|sh|z)es\z/ then word.sub(/es\z/, "")
+  else word.sub(/s\z/, "")
+  end
+end
+
 # --- runner ------------------------------------------------------------------
 
 CHECKS = [
@@ -103,7 +150,9 @@ CHECKS = [
   ["Pattern budget", :pattern_budget, "docs/rules/pattern-budget.md",
    "Move the files into a budgeted directory, or write the ADR that names the new one."],
   ["Command mirror", :command_mirror, "AGENTS.md",
-   "Copy the newer file over the older one; the two directories are one set of commands."]
+   "Copy the newer file over the older one; the two directories are one set of commands."],
+  ["Unindexed foreign keys", :unindexed_foreign_keys, "docs/rules/database-conventions.md",
+   "Add an index led by the column, in a migration that follows docs/rules/safe-migrations.md."]
 ].freeze
 
 failed = false
