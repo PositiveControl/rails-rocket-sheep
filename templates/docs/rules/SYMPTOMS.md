@@ -57,12 +57,12 @@ once. Routing by path is cheaper and lands in the same place; start there.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [controllers](controllers.md) | 950 | Seven actions, new verb = new resource, thin actions |
+| [controllers](controllers.md) | 940 | Seven actions, new verb = new resource, thin actions |
 | [turbo-status](turbo-status.md) | 440 | 422 on validation failure, the frozen-form bug |
 | [pagination](pagination.md) | 360 | Pagy, every index paginates |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
-| [exception-boundary](exception-boundary.md) | 610 | `rescue_from` once, scoped lookups |
-| [service-objects](service-objects.md) | 910 | `ApplicationService`, Result, transactions |
+| [exception-boundary](exception-boundary.md) | 600 | `rescue_from` once, scoped lookups |
+| [service-objects](service-objects.md) | 900 | `ApplicationService`, Result, transactions |
 | [form-objects](form-objects.md) | 690 | `ApplicationForm`, never nested attributes |
 | [query-objects](query-objects.md) | 530 | Joins ≥2 models, always return a relation |
 | [policy-objects](policy-objects.md) | 750 | Record-level auth vs Petergate roles |
@@ -73,15 +73,15 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [deletes](deletes.md) | 610 | `destroy` by default, Discard opt-in, the `.kept` tax |
 | [audit-trail](audit-trail.md) | 560 | PaperTrail, scoped with `only:` |
 | [jobs](jobs.md) | 600 | Thin wrapper, IDs not records, idempotent, after commit |
-| [caching](caching.md) | 1090 | Solid Cache, russian-doll, always key by user |
+| [caching](caching.md) | 1080 | Solid Cache, russian-doll, always key by user |
 | [safe-migrations](safe-migrations.md) | 500 | Concurrent indexes, two-deploy column removal |
 | [database-conventions](database-conventions.md) | 560 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
 | [seeds](seeds.md) | 480 | Idempotent seeds, kept in step with models and processes |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
-| [pattern-budget](pattern-budget.md) | 1000 | Six directories, DRY triggers, ADR for a seventh |
-| [rejected-patterns](rejected-patterns.md) | 520 | Repository, CQRS, hexagonal, interactors, DI, decorators |
-| [write-path](write-path.md) | 590 | Layer order end to end |
+| [pattern-budget](pattern-budget.md) | 990 | Six directories, DRY triggers, ADR for a seventh |
+| [rejected-patterns](rejected-patterns.md) | 540 | Repository, CQRS, hexagonal, interactors, DI, decorators |
+| [write-path](write-path.md) | 580 | Layer order end to end |
 | [slim-gotchas](slim-gotchas.md) | 630 | Brackets, pipes, `ruby:` blocks, strict-locals syntax |
 | [tailwind-build](tailwind-build.md) | 340 | Interpolated classes are purged; no class strings in JS |
 | [view-code-placement](view-code-placement.md) | 440 | Component vs partial vs helper vs inline |
@@ -96,7 +96,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [accessibility](accessibility.md) | 300 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~22,150 tokens across 38 rules. Typical read: this index (~3000)
+**Total corpus:** ~22,110 tokens across 38 rules. Typical read: this index (~3000)
 plus one or two rules (240–1150). Reading the whole corpus is a bug, not thoroughness.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand —

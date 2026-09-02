@@ -97,6 +97,47 @@ end
 # every mode it declares — and from neither tier of a mode it does not, because a
 # rule leaking into the wrong index routes an app to advice for an app it is not.
 #
+# `see_also` is a pointer an agent follows, and it has no guard section to sit
+# behind — one list serves both halves of a dual-mode file. So a shared rule's
+# see_also names only shared rules; a mode-specific cross-reference belongs in the
+# prose, where `## In API mode` can guard it.
+rule_paths.each do |path|
+  id = File.basename(path, ".md")
+  fm = YAML.safe_load(File.read(path)[/\A---\n(.*?)\n---\n/m, 1]) || {}
+  Array(fm["see_also"]).each do |target|
+    next findings << "#{rel(path)}: see_also names #{target}, which has no rule file" unless rule_modes.key?(target)
+
+    missing = Array(rule_modes[id]) - Array(rule_modes[target])
+    findings << "#{rel(path)}: see_also names #{target}, which does not ship to #{missing.join(', ')}" if missing.any?
+  end
+end
+
+# A rule may only link a rule its own readers have. Both halves of a dual-mode rule
+# live in one file (ADR 0009), so a shared rule naming an API-only file leaves a web
+# reader following a link to nothing — and the reverse. The exception is a link
+# inside the `## In API mode` section, which a web reader skips: that section is the
+# guard, and it is the only one.
+API_SECTION = "## In API mode"
+rule_paths.each do |path|
+  id = File.basename(path, ".md")
+  body = File.read(path)
+  guarded_from = body.index(API_SECTION)
+
+  body.enum_for(:scan, /\]\((?!\.\.\/|https?:)([a-z0-9-]+)\.md\)/).each do
+    target = Regexp.last_match(1)
+    at = Regexp.last_match.begin(0)
+    next findings << "#{rel(path)}: links #{target}.md, which has no rule file" unless rule_modes.key?(target)
+
+    in_api_section = !guarded_from.nil? && at > guarded_from
+    needs = in_api_section ? [ "api" ] : Array(rule_modes[id])
+    missing = needs - Array(rule_modes[target])
+    next if missing.empty?
+
+    where = in_api_section ? "its API-mode section" : "shared prose"
+    findings << "#{rel(path)}: #{where} links #{target}, which does not ship to #{missing.join(', ')}"
+  end
+end
+
 # The read-cost figures are the only ones in the repo and an agent budgets from
 # them, so each mode's are checked against that mode's own corpus.
 def sections_of(doc)

@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [ main ]
+
+jobs:
+  # The two gates that already exist and were, until now, run by hand. Between
+  # them they check rule frontmatter, both routers, every token figure, cross-mode
+  # links, path resolution, command frontmatter, and every count quoted in prose.
+  docs:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      # Plain Ruby, no gems: these run against the tree, not against an app.
+      - name: Entry scripts parse
+        run: |
+          for f in template.rb adopt.rb preamble.rb bin/lint-docs \
+                   templates/bin/doc-tokens templates/bin/rocket-sheep-update; do
+            ruby -c "$f" > /dev/null || exit 1
+          done
+
+      - name: Token figures are current
+        run: ruby templates/bin/doc-tokens --check
+
+      - name: Docs lint
+        run: bin/lint-docs
+
+  # What only a generated app can answer: whether the ERB rendered, whether the
+  # mode branched, and whether the thing boots. Needs a real bundle, because
+  # after_bundle installs PaperTrail and Doorkeeper through their generators, and
+  # a live database, because generation runs db:create and db:migrate.
+  generate:
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        mode: [ web, api ]
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_USER: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
+          --health-timeout 5s --health-retries 5
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      - name: Install Rails
+        run: gem install rails --version "~> 8.1" --no-document
+
+      # libvips for Active Storage variants, which the generated Gemfile expects.
+      - name: System packages
+        run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libvips
+
+      # The template makes an initial commit, and a runner has no git identity by
+      # default. Set one, so CI exercises the commit rather than the skip path.
+      - name: Git identity
+        run: |
+          git config --global user.name  "rocket-sheep-ci"
+          git config --global user.email "ci@example.invalid"
+
+      - name: Generate and assert
+        run: bin/smoke-generate ${{ matrix.mode }}

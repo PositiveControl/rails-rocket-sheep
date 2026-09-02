@@ -891,15 +891,37 @@ after_bundle do
     RUBY
   end
 
-  # Create and migrate database
+  # Create and migrate database.
+  #
+  # abort_on_failure, because the default is worse than it looks: Thor's
+  # rails_command swallows a non-zero exit, so a migration that aborts leaves the
+  # app with no db/schema.rb and every later `bin/rails` refusing to run — and
+  # generation still prints "template applied successfully" and commits. Better to
+  # stop here, where the reason is on screen, than to hand over an app that says
+  # it is fine.
   say "Setting up database...", :yellow
-  rails_command "db:create"
-  rails_command "db:migrate"
+  rails_command "db:create", abort_on_failure: true
+  rails_command "db:migrate", abort_on_failure: true
 
-  # Initialize git repository
+  # Initialize git repository.
+  #
+  # The commit is the last thing generation does, and until now it could sink all
+  # of it: a machine with no `user.email` — a fresh container, a CI runner — fails
+  # with `empty ident name`, `rails new` exits non-zero, and everything that
+  # succeeded looks like it did not. The repo and the staged tree are the parts
+  # that matter; the commit is a convenience, so it is skipped with a note rather
+  # than taken as fatal.
   git :init
   git add: "."
-  git commit: %Q{ -m "Initial commit from Rails Rocket Sheep template" }
+
+  # `git :init` above ran here without a path, so this does too.
+  identity = `git config user.email`.strip
+  if identity.empty?
+    say "Skipping the initial commit: git has no user.email on this machine.", :yellow
+    say "Everything is staged — set one and `git commit` when you are ready.", :yellow
+  else
+    git commit: %Q{ -m "Initial commit from Rails Rocket Sheep template" }
+  end
 
   say ""
   say "=" * 60, :green

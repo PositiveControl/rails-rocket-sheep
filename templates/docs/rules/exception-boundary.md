@@ -3,9 +3,9 @@ id: exception-boundary
 title: One exception boundary, scoped lookups
 applies_to: ["app/controllers/**/*.rb"]
 triggers: ["rescue_from", "RecordNotFound", "404", "403", "forbidden", "rescue", "not found", "leaks existence", "authorization redirect"]
-see_also: ["controllers", "policy-objects", "turbo-status"]
+see_also: ["controllers", "policy-objects"]
 modes: [ web, api ]
-tokens: 610
+tokens: 600
 current_state: matches
 ---
 
