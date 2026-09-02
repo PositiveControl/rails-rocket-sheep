@@ -95,6 +95,13 @@ else
   check "deploy.yml sets asset_path"    "$(has config/deploy.yml '^asset_path:')"
 fi
 
+# Generation initialises a repo and stages everything. Whether it also commits
+# depends on the machine having a git identity, which a fresh runner does not — so
+# what is asserted is the part that holds either way: nothing generation wrote is
+# outside git. An untracked file here is a file written after `git add`.
+check "nothing generation wrote is untracked" "$(
+  [[ -z "$(git status --porcelain 2>/dev/null | grep '^??')" ]] && echo 0 || echo 1)"
+
 # It has to boot. Fixtures ship empty, so a green suite here proves the app loads,
 # the database is reachable and the initializers do not raise.
 if bin/rails test > test.log 2>&1; then

@@ -54,7 +54,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready --health-interval 10s
+          --health-cmd "pg_isready -U postgres" --health-interval 10s
           --health-timeout 5s --health-retries 5
 
     env:
@@ -75,6 +75,13 @@ jobs:
       # libvips for Active Storage variants, which the generated Gemfile expects.
       - name: System packages
         run: sudo apt-get update -qq && sudo apt-get install -y --no-install-recommends libvips
+
+      # The template makes an initial commit, and a runner has no git identity by
+      # default. Set one, so CI exercises the commit rather than the skip path.
+      - name: Git identity
+        run: |
+          git config --global user.name  "rocket-sheep-ci"
+          git config --global user.email "ci@example.invalid"
 
       - name: Generate and assert
         run: bin/smoke-generate ${{ matrix.mode }}
