@@ -71,33 +71,34 @@ flowchart TB
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
 | Template update path | ✅ | `bin/rocket-sheep-update` — three-way merges the alignment layer from the commit stamped in `CLAUDE.md`. Pull-only, `--check` mode, conflicts left as markers, ERB-rendered files reported not guessed ([ADR 0005](../.agents/adr/0005-updates-are-a-three-way-merge-from-the-stamp.md)) |
 | Adoption into an existing app | ✅ | `adopt.rb` via `bin/rails app:template`. Alignment layer only — never `Gemfile`, `app/`, `config/`, `db/`. Same file defines the layer for generation and for updates, so there is one list ([ADR 0006](../.agents/adr/0006-adoption-installs-the-alignment-layer-only.md)) |
-| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose, and no routable IP or real ssh host in any doc. Not shipped into generated apps yet |
+| Doc drift checks | ✅ | `bin/lint-docs` in this repo: rule frontmatter, index rows, token budgets, cross-mode links and `see_also`, `{{TOKEN}}` coverage, path resolution, command frontmatter and self-naming, router completeness, every count quoted in prose, and no routable IP or real ssh host in any doc. Not shipped into generated apps yet — see gap 9 |
 | MCP config | ❌ | No `.mcp.json` |
+| CI for this repo | ✅ | `.github/workflows/ci.yml`: the two doc gates plus `bin/smoke-generate`, which generates a real app in each mode and asserts the mode branched, the ERB rendered, and the app boots |
 
 ### Application
 
 | Item | Status | Notes |
 |---|---|---|
 | Service objects | ✅ | `ApplicationService` + `Result` struct, log helpers |
-| Form objects | ✅ | `ApplicationForm` — `ActiveModel`, `save`/`save!`, `promote_errors` |
-| UI components | ✅ | ViewComponent + `ApplicationComponent`, four components with tests |
+| Form objects | ✅ | `ApplicationForm` — `ActiveModel`, `save`/`save!`, `promote_errors`. *Server-rendered mode; API mode gets `ApplicationContract` instead* |
+| UI components | ✅ | ViewComponent + `ApplicationComponent`, four components with tests. *Server-rendered mode only* |
 | Registry pattern | ✅ | `Data`-based, no base class — `PlanRegistry` is the canonical file |
 | UUID primary keys | ⚠️ | PostgreSQL only, wired through the generators. MySQL apps get Rails' default bigint — MySQL has no native uuid type, and the rule file carries both halves |
 | Soft deletes | ✅ | Discard installed, opt-in per table; `destroy` is the default |
 | Audit trail | ✅ | PaperTrail `--with-changes` |
-| Pagination | ✅ | Pagy, `Pagy::Method` included in `ApplicationController` |
+| Pagination | ✅ | Pagy, `Pagy::Method` included in `ApplicationController`. *Server-rendered mode; API mode paginates by cursor through `app/lib/cursor.rb`* |
 | Query objects | ➖ | Documented pattern, no base class — `app/queries/` on first use |
 | Policy objects | ➖ | Documented pattern, no base class — `app/policies/` on first use |
 | Auth | ✅ | Devise (Turbo-configured) + Petergate |
-| Frontend | ✅ | Slim, Tailwind, ViewComponent, 2 generic Stimulus controllers |
-| SEO | ✅ | robots, sitemap, meta, canonical, JSON-LD, integration tests, Lighthouse CI |
+| Frontend | ✅ | Slim, Tailwind, ViewComponent, 2 generic Stimulus controllers. *Server-rendered mode only — an API app ships no view layer and no asset pipeline* |
+| SEO | ✅ | robots, sitemap, meta, canonical, JSON-LD, integration tests, Lighthouse CI. *Server-rendered mode only — an API serves no pages; the client repo owns it* |
 | Fixture generator override | ✅ | Prevents the unique-index collision on first test run |
 | Slow-test reporting | ✅ | Slowpoke, on by default, silent when the suite is clean |
 | Billing | ❌ | Deliberate — see [comparison](comparison.md) |
 | Teams / multi-tenancy | ❌ | Deliberate |
 | Admin panel | ❌ | Deliberate |
 | Component library | ❌ | Deliberate |
-| API scaffolding | ❌ | Deliberate |
+| API scaffolding | ✅ | `--api` generates the whole JSON boundary — see gap 13. The [out-of-scope ruling](../.agents/out-of-scope/api-scaffolding.md) that declined it was reversed on its own stated terms |
 | Seeds / demo data | ✅ | Idempotent admin user, generated password, production-guarded |
 
 ### Infrastructure
@@ -107,7 +108,7 @@ flowchart TB
 | Database choice | ✅ | `--database=` is read, not re-asked: `postgresql`, `mysql`, `trilogy`, `mariadb-mysql`, `mariadb-trilogy`. `database.yml`, the Kamal accessory, the Dockerfile, and the primary-key convention all follow it; SQLite aborts before a file is written ([ADR 0007](../.agents/adr/0007-database-family-is-chosen-at-generation.md)) |
 | Solid Stack | ✅ | Queue, Cache, Cable — separate databases, all environments |
 | Kamal 2 | ✅ | Postgres accessory bound to localhost, entrypoint migrates |
-| CI | ✅ | Rails 8 default: `scan_ruby`, `scan_js`, `lint`, `test` |
+| CI | ✅ | Rails 8 default: `scan_ruby`, `scan_js`, `lint`, `test`. API mode drops `scan_js` (no importmap) and adds `api-contract.yml`, which fails on `openapi.yaml` drift |
 | Dependabot | ✅ | Rails 8 default |
 | Lint / security | ✅ | RuboCop Omakase, Brakeman — clean on a fresh app |
 | Job worker in deploy | ⚠️ | Documented in [deployment](deployment.md), not pre-configured — see gap 6 |
@@ -197,11 +198,9 @@ Individual `bd` commands were verified against a live DB. The *composition* was 
 
 GitHub validates issue-form schema server-side only. A malformed form silently falls back to a blank issue rather than erroring, so local YAML validation doesn't prove it works.
 
-**V5. Run a MySQL app's suite against a live server.** *(~30m, needs MySQL 8)*
+~~**V5. Run a MySQL app's suite against a live server.**~~ **Discharged.** A server-rendered app was generated on MySQL 8.4, migrated, and run. All five unproven things came out right: Solid Queue built its thirteen tables, Cache its `solid_cache_entries`, Cable its `solid_cable_messages`; Devise's `index_users_on_email` is unique; PaperTrail's `object` and `object_changes` are `longtext` with `item_type` as `varchar(191)`, the index-length-safe form; and the fixture generator override held, so `rails g devise User` produced empty fixtures and the suite went green at 19 runs rather than raising on the unique index. No defects.
 
-Generation was verified for all five accepted `--database=` values, plus the SQLite abort, by reading the rendered `database.yml`, `application.rb`, `deploy.yml`, `.kamal/secrets`, `Dockerfile`, and `CLAUDE.md` in each. What has not been run is `bin/test` against a live MySQL server, so everything nobody rendered is unproven there: Solid Queue, Cache and Cable creating their tables on MySQL, Devise's unique email index, PaperTrail's `object_changes` column type, and the fixture generator override.
-
-This is now the only family carrying that debt. A PostgreSQL app was generated, migrated, and run for the first time in this repo's history — see [first-generation findings](first-generation-findings.md) — which found nine defects, two of which had been silently affecting server-rendered apps.
+Neither database family carries this debt now. The PostgreSQL side was cleared by the [first-generation findings](first-generation-findings.md), which found nine defects, two of which had been silently affecting server-rendered apps; both families are now covered on every push by `bin/smoke-generate` in this repo's CI.
 
 ~~**V6. Run an API-mode app on MySQL.**~~ **Discharged.** Generated, bundled, migrated and exercised on MySQL 8.4: `resource_owner_id` came out `bigint` with the uuid patch correctly skipped, `idempotent_requests.user_id` followed the key type, the unique index and the `json` column built, eleven request tests passed, `api:contract` generated and its drift gate was clean. Cursor pagination was walked across three pages of rows sharing one `created_at` — the tiebreak case the rule warns about — with no row duplicated or skipped. No defects in the database half.
 
@@ -238,7 +237,7 @@ checking. The obstacle is scope, not difficulty: the checks that read
 `templates/` need a path shim, and the count checks need to run against the app's
 own docs. It would also give `/update_docs` something deterministic to end with.
 
-**9. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
+**14. `.cursor/commands/` drift guard — ~20m.** The two command directories are mirrored at generation time and `/workflow_setup` fills both, but nothing stops them diverging afterwards. A CI step running `diff -r .claude/commands .cursor/commands` would catch it. Low urgency, near-zero cost.
 
 #### Maintenance, ongoing
 
