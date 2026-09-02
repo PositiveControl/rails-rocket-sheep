@@ -210,9 +210,14 @@ It also surfaced the worst defect in this pass: `CLAUDE.md` and `AGENTS.md` were
 
 ~~**V8. Deploy an API-mode app with Kamal.**~~ **Partly discharged, and it was blocking.** No VPS here, so the deploy itself is still unrun — but the image build never needed one. The Dockerfile ran `bin/rails assets:precompile` unconditionally, and in an API app that task does not exist: `rails new --api` installs no asset pipeline, so `kamal deploy` of any generated API app failed at build. The asset steps and `asset_path` are now gated on the mode; `kamal init` and `.kamal/secrets` were verified clean in a full bundling run. What remains is a real deploy: the health-check surface and Thruster fronting an app with no static files.
 
-**V4. Run the update path across a real gap, not a synthetic one.** *(~30m, needs an app generated a while ago)*
+~~**V4. Run the update path across a real gap, not a synthetic one.**~~ **Discharged, and it found two defects.** A server-rendered app was generated from `b82a27d`, the oldest commit that can update itself, then given the edits a real buyer makes — a rule the template later rewrote, a rule it did not touch, a local section in `CLAUDE.md`, a step added to a command, a rule file of the team's own, and a rule deleted on purpose. The gap to `main` was 26 commits and 101 template files, containing two renames, one deletion, five new commands and twenty new rules.
 
-`bin/rocket-sheep-update` was verified against a two-commit range built for the purpose, and adoption against a `rails new --minimal` app: merge, conflict, add, upstream delete, rename, and the ERB hand-merge report all behave. What has not been exercised is the case it exists for — an app generated months ago, with real local edits, across a range containing rule renames and a command rewrite. Expect the failure mode to be conflict *volume*, not correctness, and if it clusters in one file that file is badly factored.
+The prediction was wrong in the good direction: **one conflict in 73 files**, in the rule whose tail both sides had edited, with markers where they belong. The team's own rule file was untouched, the local `CLAUDE.md` section survived because the ERB files are named for hand-merge rather than overwritten, and the stamp advanced.
+
+Two defects, both fixed:
+
+- **The mode filter did not reach rules.** `adopt.rb` selects rules by `modes` inside a `Dir.glob` block, and the updater reads `adopt.rb` as a static manifest, so it saw the glob and not the filter. Updating a server-rendered app added the entire JSON boundary to it — seventeen rules for an app with no endpoints — and an API app would have taken twelve view-layer rules the same way. The earlier fix for this covered only the four router files. Added: 37 before, 18 after.
+- **The updater upgrades itself, so the first run across any gap uses the older logic.** That is how the API rules got in even though the router fix was already released: the copy on disk when the run started predated it. It cannot be fixed retroactively for an app that already has an old copy, so the run now says so and tells you to re-run — and a re-run does not remove what the old logic installed, which is worth knowing before the first one.
 
 #### Feature gaps
 

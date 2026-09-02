@@ -202,14 +202,31 @@ end
 # the shared name when it belongs to this app's mode and nowhere at all when it
 # does not. A command under .claude/ is mirrored to .cursor/ at install time —
 # merge both copies, or the mirror rots.
+#
+# A rule installs nowhere unless its `modes` names this app's mode. adopt.rb
+# filters the same way, on the same key, and this file cannot inherit that filter
+# by reading the manifest: adopt.rb globs the directory and selects inside the
+# block, and a static scan sees only the glob. Without the check here, updating a
+# server-rendered app adds the whole JSON boundary to it — seventeen rules for an
+# app with no endpoints — and updating an API app adds twelve view-layer rules.
+rule_modes_at_target = lambda do |path|
+  body = blob(root, to_sha, path)
+  body && body[/^modes: \[(.*)\]$/, 1].to_s.split(",").map(&:strip)
+end
+
 destinations = lambda do |path|
   dest = path.sub(%r{\Atemplates/}, "")
   base = File.basename(dest)
 
-  if File.dirname(dest) == "docs/rules" && ROUTERS.include?(base)
-    next [] unless ROUTER_SOURCES.fetch(APP_MODE).include?(base)
+  if File.dirname(dest) == "docs/rules"
+    if ROUTERS.include?(base)
+      next [] unless ROUTER_SOURCES.fetch(APP_MODE).include?(base)
 
-    next [ "docs/rules/#{base.sub(/\.api\.md\z/, '.md')}" ]
+      next [ "docs/rules/#{base.sub(/\.api\.md\z/, '.md')}" ]
+    end
+
+    modes = rule_modes_at_target.call(path)
+    next [] if modes && !modes.include?(APP_MODE)
   end
 
   mirror = dest.sub(%r{\A\.claude/}, ".cursor/")
@@ -311,6 +328,17 @@ section("Added", added)
 section("Hand-merge: rendered at install time, so no diff applies", by_hand.map { |rel, dest| "#{dest}  (template #{rel})" })
 section("Removed upstream — delete only if you agree", removed_upstream)
 section("Added upstream but already present here — diff by hand", absent)
+
+# This script is inside the layer it updates, so a run that changes it ran under
+# the *older* logic — the copy on disk when it started. Any rule this version
+# would have filtered out, the old one may have installed. Say so, rather than
+# leaving the second run to look like a no-op that was not.
+if (merged + added).include?("bin/rocket-sheep-update")
+  puts "bin/rocket-sheep-update is itself among the changes, so this run used the"
+  puts "version this app already had. Re-run it once the merge lands: a newer"
+  puts "updater can know things about the layer that the older one did not."
+  puts
+end
 
 pending = merged.size + conflicted.size + added.size + by_hand.size
 
