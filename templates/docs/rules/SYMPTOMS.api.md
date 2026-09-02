@@ -78,7 +78,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [n-plus-one](n-plus-one.md) | 370 | `includes`, `counter_cache`, aggregate in SQL |
 | [openapi-contract](openapi-contract.md) | 730 | Generated from the request tests; CI fails on drift |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
-| [pattern-budget](pattern-budget.md) | 990 | Six directories, DRY triggers, ADR for a seventh |
+| [pattern-budget](pattern-budget.md) | 990 | Seven directories, DRY triggers, ADR for an eighth |
 | [policy-objects](policy-objects.md) | 750 | Record-level auth vs Petergate roles |
 | [query-objects](query-objects.md) | 450 | Joins ≥2 models, always return a relation |
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
