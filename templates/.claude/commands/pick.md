@@ -22,11 +22,11 @@ bd list --label lifecycle:up_for_review --json
 ```
 For each result, take its `external_ref` (`gh-<n>`, written by `/pr_submit`) and check whether that PR merged:
 ```bash
-gh pr list --state merged --search "<n>" --json number,title --limit 5
+gh pr list --state merged --base main --search "<n>" --json number,title --limit 5
 ```
-Merged → `bd close <id>`. Report what was reconciled in one line; say nothing when there is nothing to close.
+`--base main` matters: a slice PR merged into a feature branch is not done — Done means in `main` (`WORKFLOW.md`, *Feature branches*). Merged to `main` → `bd close <id>`. Report what was reconciled in one line; say nothing when there is nothing to close.
 
-**`labels`:** same shape, using `gh issue list --label "status:up-for-review"` and closing merged ones with `gh issue close <n>`.
+**`labels`:** same shape, using `gh issue list --label "status:up-for-review"` and closing the ones whose PR merged to `main` with `gh issue close <n>`.
 
 ### Step 1: Fetch my open issues
 

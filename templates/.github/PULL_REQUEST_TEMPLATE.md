@@ -24,6 +24,11 @@ CLOSING LINE — depends on your tracker tier (see WORKFLOW.md §2):
                              happens to share the number. /pick reconciles the
                              bead once this PR merges.
 
+  slice of a feature branch  Omit it on every tier. GitHub closes issues only on
+                             a merge to the default branch; the feature PR carries
+                             one line per landed slice (WORKFLOW.md, Feature
+                             branches). Write "Slice of feature/<slug>" instead.
+
 /pr_submit handles this automatically. This note is for PRs opened by hand.
 -->
 
@@ -36,5 +41,5 @@ CLOSING LINE — depends on your tracker tier (see WORKFLOW.md §2):
 
 - [ ] `bin/test` passes locally
 - [ ] `bin/rubocop` and `bin/brakeman` are clean
-- [ ] Docs updated, or no doc change needed — **no `Status: Draft` placeholder left behind**
-- [ ] Added lines are within the 100–600 target, or the split is explained above
+- [ ] Docs updated, or no doc change needed — **no `Status: Draft` placeholder left behind** (a slice PR leaves the feature's placeholders for the feature PR)
+- [ ] Added lines are within the 200–1,500 target, or the split is explained above

@@ -8,6 +8,10 @@
 # placeholders and /pr_submit is supposed to complete-or-delete them, but a
 # session that ends in between leaves them silently.
 #
+# On a slice branch (`<prefix>/<id>/<slug>`) only placeholders created for that
+# id count: the rest belong to the feature and are resolved at the feature PR
+# (WORKFLOW.md, Feature branches). Anywhere else every draft counts.
+#
 # Stays quiet unless there is something to say. Exits 2 with feedback when a
 # draft placeholder exists, 0 otherwise. A broken hook must never block work,
 # so any unexpected failure exits 0.
@@ -15,14 +19,21 @@
 # Disable by removing the Stop entry from .claude/settings.json.
 
 DOC_DIRS = %w[docs/plans docs/system docs/sop docs/qa].freeze
+DRAFT = /^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i
 
 drafts =
   begin
+    branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
+    slice_id = branch[%r{\A[^/]+/([^/]+)/}, 1]
+
     DOC_DIRS.flat_map do |dir|
       next [] unless Dir.exist?(dir)
 
       Dir.glob("#{dir}/**/*.md").select do |file|
-        File.foreach(file).any? { |line| line.match?(/^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i) }
+        text = File.read(file)
+        next false unless text.match?(DRAFT)
+
+        slice_id.nil? || text.include?("##{slice_id}")
       end
     end
   rescue StandardError

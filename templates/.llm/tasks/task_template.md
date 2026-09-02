@@ -2,6 +2,7 @@
 
 # Task: [Short Task Name]
 **Issue:** #[NUMBER]
+**Base:** [main | feature/<slug> — the branch this slice's PR targets]
 **Start Date:** [YYYY-MM-DD]
 **Owner:** [Name]
 **Status:** [Not Started | In Progress | Blocked | Complete]

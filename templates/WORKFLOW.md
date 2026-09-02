@@ -16,7 +16,7 @@ Every command ends by naming the next one — the workflow self-navigates. `/pic
 
 ## 1. Lifecycle master map
 
-The filled node at top is the entry: every session starts at `/pick`. `/feature_plan` feeds new sub-issues back to it. `/segue` is the escape valve off planning and implementation — an isolated discussion thread whose findings merge back without polluting the workstream. `/grill` and `/diagnose` are the other two off-chain valves: one sharpens a design before a gate, the other hunts a bug behind a loop that goes red.
+The filled node at top is the entry: every session starts at `/pick`. `/feature_plan` feeds new sub-issues back to it. `/segue` is the escape valve off planning and implementation — an isolated discussion thread whose findings merge back without polluting the workstream. `/grill` and `/diagnose` are the other two off-chain valves: one sharpens a design before a gate, the other hunts a bug behind a loop that goes red. On a multi-slice feature the bottom row runs once per slice into the feature branch, with `/pr_review` from a fresh session standing in for a second reader, and once more for the feature PR into `main`, where the reader is a person (*Feature branches*).
 
 ```mermaid
 flowchart TB
@@ -61,7 +61,7 @@ flowchart TB
   PK -. "In Progress: resume" .-> IM
   TP -. blocked on a decision .-> SG1 -. findings merge .-> TP
   IM -. rabbit hole .-> SG2 -. findings merge .-> IM
-  IM -. "scope escape: forecast &gt;600 lines" .-> FP
+  IM -. "scope escape: forecast &gt;1,500 lines" .-> FP
   FP -. "assumption unsettled" .-> GR -. "decisions settled" .-> FP
   TP -. "assumption unsettled" .-> GR
   IM -. "bug with no failing test" .-> DG -. "cause found" .-> IM
@@ -127,7 +127,7 @@ stateDiagram-v2
 
 ## 3. Swimlanes and gates
 
-Human touches are few and high-leverage: two approvals, one review, one merge click. Everything crossing into the human lane is a gate.
+Human touches are few and high-leverage: two approvals, one review, one merge click per PR. On a slice the review is `/pr_review` run by you from a fresh session — the reading is the agent's, the click is still yours. Everything crossing into the human lane is a gate.
 
 ```mermaid
 flowchart TB
@@ -183,6 +183,7 @@ flowchart LR
   BD["board item — status = lifecycle state"]
   DOC["doc placeholders — docs/sop · docs/system"]
   DD["design doc — docs/plans/ (via parent)"]
+  FB["feature branch — feature/&lt;slug&gt; (via design doc, multi-slice only)"]
 
   ID --> TF
   ID --> BR
@@ -191,6 +192,7 @@ flowchart LR
   ID --> BD
   ID --> DOC
   ID --> DD
+  ID --> FB
 
   style ID fill:#0F7480,stroke:#0B3A40,color:#FFFFFF
 ```
@@ -229,7 +231,7 @@ Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexer
 | G1 | Design doc approved | `/feature_plan` | Human | Issue creation — issues are commitment, the doc is a proposal |
 | G2 | Implementation plan approved | `/task_plan` | Human | Any code |
 | G3 | Local suite green | `/pr_submit` | Automated | Push / PR creation |
-| G4 | Review comments resolved | `/pr_submit` + review | Human | Merge |
+| G4 | Review comments resolved | `/pr_submit` + review | Human | Merge — on a slice the comments are a fresh session's `/pr_review`, on the feature PR a person's |
 
 Soft vs hard: gates are prompt-enforced unless backed by repo settings. Branch protection with required CI turns G3/G4 hard.
 
@@ -261,7 +263,7 @@ exists to create.
 | `/task_plan` | You | Ends at G2, and G2 is the approval that lets code start |
 | `/implement` | You | Starts from an approved plan; the approval is the entry condition |
 | `/pr_submit` | You | Opens a PR, moves the board, and carries G3 and G4 |
-| `/pr_review` | You | Posts review comments on someone else's work |
+| `/pr_review` | You | Posts review comments — on someone else's PR, or on your own slice from a fresh session. Either way you chose the moment |
 | `/pr_comment_resolver` | You | Replies to and resolves conversations other people are reading |
 | `/pr_qa` | You | Guides a human through a manual pass; there is no pass without the human |
 | `/update_docs` | You | Rewrites and deletes across the doc tree; scope is a judgment call |
@@ -296,17 +298,29 @@ does not ship yet.
 
 ## Sizing
 
-Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median of 1 day; 600+ took 3. An issue fits when its acceptance criteria fit in ≤5 testable bullets — more is an epic; decompose.
+The bound is what one review pass can hold in context with every changed file read in full, not how long a human takes to merge. Past it a review goes shallow by the reviewer's own admission. An issue fits when its acceptance criteria fit in ≤5 testable bullets — more is an epic; decompose.
 
 | Size | Added lines | Guidance |
 |---|---|---|
-| XS | <100 | Fine as-is; consider batching with related work |
-| S | 100–300 | Ideal — merges in ~1 day |
-| M | 300–600 | Healthy upper bound |
-| L | 600–1,200 | Split if possible; expect ~3-day review |
-| XL | 1,200+ | Must split, or accept slow and shallower review |
+| XS | <200 | Fine as-is; consider batching with related work |
+| S | 200–600 | Ideal |
+| M | 600–1,000 | Healthy |
+| L | 1,000–1,500 | Upper bound; expect a third review pass |
+| XL | 1,500+ | Must split |
 
-**Scope-escape rule:** mid-implementation forecast passes 600 added lines or new acceptance criteria appear → stop, split a sub-issue, land the current slice clean.
+**Scope-escape rule:** mid-implementation forecast passes 1,500 added lines or 25 files, or new acceptance criteria appear → stop, split a sub-issue, land the current slice clean.
+
+## Feature branches
+
+A feature with more than one slice lands on a feature branch, not on `main`. Each slice is its own PR into that branch, and the feature reaches `main` as one PR once every slice has landed. A single-slice feature skips all of this: one issue, one PR against `main`.
+
+- **Name.** `feature/<slug>`, where `<slug>` is the design doc's — `docs/plans/2026-03-01-returns-design.md` gives `feature/returns`. `/feature_plan` writes the name into the design doc header and into every sub-issue body, so any tier can find it. `labels` has no parent issue to hang it off, and the design doc is the one artifact all three tiers share.
+- **Created by** `/task_plan` for whichever slice is planned first: branched from `main`, pushed, and opened as a **draft PR to `main`** so CI runs on it from day one and there is somewhere to watch the feature grow.
+- **Base.** Each slice branches from the feature branch and its PR targets it. `/task_plan` records `Base: feature/<slug>` in the task file, and every command that diffs, lints, or opens a PR reads that line instead of assuming `main`.
+- **Closing issues.** GitHub's `Closes #n` fires only on a merge to the default branch, so a slice PR carries no `Closes` line. The feature PR body carries `Closes #<sub>` for every slice that has landed plus `Closes #<parent>`, and is regenerated on each slice merge. Done therefore still means *in `main`*, on every tier: a slice sits in Up for Review from its merge into the feature branch until the feature merges. `/pick` reconciles `beads` and `labels` only against PRs whose base was `main`.
+- **Docs.** Placeholders belong to the feature. A slice completes the ones its work fills in and leaves the rest; the "no `Status: Draft` left behind" rule is enforced on the feature PR.
+- **Staying current.** After each slice merges, merge `origin/main` into the feature branch so the final merge is small. Conflicts there are `/resolve_conflicts`.
+- **Review.** Each slice PR is reviewed by `/pr_review` run from a **fresh session** — a new context per pass, until a pass reports nothing blocking, at most five — and you merge it from that session on the strength of the clean pass. The feature PR is reviewed by a human as an acceptance-criteria walk over the design doc's slice list, reading the posted passes rather than re-reading the whole diff. Why the line sits there: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
 
 ## Command inventory
 
@@ -316,8 +330,8 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 | `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → board Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
 | `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit |
-| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR with `Closes #n` → stack footer (`bin/pr-stack`) → comments (G4) |
-| `/pr_review` | Core | Reviewer side: full-context diff review |
+| `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR with `Closes #n` → comments (G4) |
+| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/grill` | Optional | Interview a design in rounds; empty frontier before a gate, not a substitute for it |
@@ -335,5 +349,5 @@ Grounded in analysis of 100 merged PRs: under 300 added lines merged in a median
 
 - Doc canon: `docs/rules` (one convention per file + `INDEX.md`), `docs/plans` (design docs), `docs/adr` (one decision per file, numbered), `docs/system` (architecture state), `docs/sop` (procedures), `docs/qa` (manual test guides)
 - `.llm/README.md` indexes **committed docs only**; `.llm/tasks/` and `.llm/threads/` are local scratch (gitignored)
-- Doc updates happen at defined points only: `/feature_plan` creates placeholders, `/pr_submit` completes-or-deletes them (+ index dupe/dead-link check), `/update_docs` for deep passes
-- Never merge a PR leaving a Draft placeholder behind
+- Doc updates happen at defined points only: `/feature_plan` creates placeholders, `/pr_submit` completes-or-deletes them (+ index dupe/dead-link check) — at the feature PR for a multi-slice feature, `/update_docs` for deep passes
+- Never merge a PR to `main` leaving a Draft placeholder behind

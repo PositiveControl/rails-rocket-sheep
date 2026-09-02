@@ -21,7 +21,7 @@ gh pr view $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json number,title,
 gh pr checks $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json name,state,link,workflow
 ```
 
-Show brief summary: PR title, branch, table of all checks with status.
+Show brief summary: PR title, branch, table of all checks with status. `<BASE>` below is the PR's `baseRefName` — `main`, or the feature branch this slice targets.
 
 Verify on PR's branch. If not, check out:
 ```bash
@@ -92,7 +92,7 @@ Fix each code failure by category:
 **lint** — linter violations:
 1. Run the linter on changed files:
    ```bash
-   git diff-tree -r --no-commit-id --name-only origin/main HEAD | xargs ls -1 2>/dev/null | xargs bin/rubocop --force-exclusion
+   git diff-tree -r --no-commit-id --name-only origin/<BASE> HEAD | xargs ls -1 2>/dev/null | xargs bin/rubocop --force-exclusion
    ```
 2. If auto-fix doesn't resolve all issues, manually fix remaining violations
 3. Commit the fixes
@@ -100,11 +100,11 @@ Fix each code failure by category:
 **`test`** — Test failures:
 1. Read the failure output carefully to identify failing test(s) and error messages
 2. Determine if the failure is **branch-introduced** or **pre-existing**:
-   - Check if the failing test file was modified on this branch: `git diff --name-only origin/main..HEAD`
+   - Check if the failing test file was modified on this branch: `git diff --name-only origin/<BASE>..HEAD`
    - Check if the failing test relates to code changed on this branch
-   - If uncertain, check if the same test fails on main:
+   - If uncertain, check if the same test fails on the base:
      ```bash
-     git stash && git checkout main && bin/test <failing_test_file> && git checkout - && git stash pop
+     git stash && git checkout <BASE> && bin/test <failing_test_file> && git checkout - && git stash pop
      ```
 3. For branch-introduced failures: diagnose and fix the root cause
 4. For pre-existing failures: note them in the report but do not block
@@ -204,4 +204,4 @@ PR URL: <URL>
 - Lint auto-fix: bin/rubocop -a
 - Security scan: `bin/brakeman -q --no-pager`
 - Max fix iterations: 3 before escalating to user
-- Pre-existing test failures: check if same test fails on main before fixing
+- Pre-existing test failures: check if same test fails on the base branch before fixing

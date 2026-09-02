@@ -51,9 +51,22 @@ only findings come back. Its artifact is a **thread** file in `.llm/threads/`, a
 you discuss it, the thread is the file.
 
 **Sizing**
-The budget on one unit of work: 100 to 600 added lines and 5 to 15 files per PR,
-at most five acceptance criteria per issue. A forecast crossing 600 lines
+The budget on one unit of work: 200 to 1,500 added lines and at most 25 files per
+PR, at most five acceptance criteria per issue. A forecast crossing 1,500 lines
 mid-implementation is a signal to stop, split, and land the current slice.
+
+**Slice**
+One vertical cut of a feature, sized to one PR: one sub-issue, one branch, one
+task file. `/feature_plan` cuts them; `/task_plan` plans one at a time.
+*Avoid*: "sub-task", "story", "ticket".
+
+**Feature branch**
+`feature/<slug>`, the branch a multi-slice feature accumulates on before it
+reaches `main` as one PR. Slices branch from it and target it; the slug is the
+design doc's. A single-slice feature has none. Spec: `WORKFLOW.md`, *Feature
+branches*.
+*Avoid*: calling a slice's branch a feature branch. A slice branch is
+`prefix/<id>/<slug>` and lives for one PR.
 
 ## The documents
 

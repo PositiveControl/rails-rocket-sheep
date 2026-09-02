@@ -5,7 +5,7 @@ argument-hint: '[extra focus, e.g. "auth paths only"]'
 
 # Rails Code Review
 
-Review the current branch against `main`, judged against this stack's Rails 8
+Review the current branch against its base, judged against this stack's Rails 8
 conventions. Reviewing somebody else's PR by number is `/pr_review`; this reads the
 branch you are on. Pass an optional focus: `/rails_code_review "auth paths only"`.
 
@@ -13,11 +13,13 @@ branch you are on. Pass an optional focus: `/rails_code_review "auth paths only"
 
 ### Step 1: Gather context
 
+`<BASE>` is the task file's `Base:` line (`.llm/tasks/<id>_*.md`) — `main`, or the feature branch this slice targets. No task file → `main`.
+
 ```bash
-git fetch origin main
-git diff origin/main...HEAD --stat
-git diff origin/main...HEAD
-git log origin/main..HEAD --oneline
+git fetch origin <BASE>
+git diff origin/<BASE>...HEAD --stat
+git diff origin/<BASE>...HEAD
+git log origin/<BASE>..HEAD --oneline
 ```
 
 Diff alone not enough for context → read changed files in full. Also check related files (models, tests, routes) not changed but relevant to the diff.
@@ -170,7 +172,7 @@ What's done well — specific, not generic.
 Direct and specific. Reference file paths and line numbers. Show corrected snippets for non-obvious fixes. Nothing for a section → omit it. Signal over volume: a focused review with 5 real issues beats 20 nitpicks.
 
 ## Reference
-- Base for the diff: `origin/main`
+- Base for the diff: `origin/<BASE>`, from the task file's `Base:` line; `main` when there is none
 - Conventions, routed by path or symptom: `docs/rules/INDEX.md`
 - A seventh directory under `app/` needs an ADR: `docs/adr/`, written by `/domain_model`
 - Reviewing someone else's PR by number instead: `/pr_review`
