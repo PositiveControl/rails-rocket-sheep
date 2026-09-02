@@ -3,9 +3,9 @@ id: caching
 title: Caching — Solid Cache, Russian-doll fragments, always key by user
 applies_to: ["app/views/**/*.slim", "app/models/**/*.rb", "app/services/**/*.rb", "app/controllers/**/*.rb", "app/serializers/**/*.rb"]
 triggers: ["cache", "Rails.cache", "Solid Cache", "fragment cache", "expires_in", "cache key", "stale", "touch: true", "russian doll"]
-see_also: ["n-plus-one", "rate-limiting", "serialization", "api-versioning"]
+see_also: ["n-plus-one", "rate-limiting"]
 modes: [ web, api ]
-tokens: 1090
+tokens: 1080
 current_state: matches
 ---
 

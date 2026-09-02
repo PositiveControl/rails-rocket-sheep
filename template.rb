@@ -891,10 +891,17 @@ after_bundle do
     RUBY
   end
 
-  # Create and migrate database
+  # Create and migrate database.
+  #
+  # abort_on_failure, because the default is worse than it looks: Thor's
+  # rails_command swallows a non-zero exit, so a migration that aborts leaves the
+  # app with no db/schema.rb and every later `bin/rails` refusing to run — and
+  # generation still prints "template applied successfully" and commits. Better to
+  # stop here, where the reason is on screen, than to hand over an app that says
+  # it is fine.
   say "Setting up database...", :yellow
-  rails_command "db:create"
-  rails_command "db:migrate"
+  rails_command "db:create", abort_on_failure: true
+  rails_command "db:migrate", abort_on_failure: true
 
   # Initialize git repository
   git :init

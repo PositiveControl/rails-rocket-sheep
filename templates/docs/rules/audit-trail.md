@@ -30,8 +30,10 @@ To record who made the change:
 before_action :set_paper_trail_whodunnit
 ```
 
-In API mode that is the wrong controller. `ApplicationController` in an API-only app
-has no session and no `current_user` — `current_user` is defined on
+## In API mode
+
+That is the wrong controller. `ApplicationController` in an API-only app has no
+session and no `current_user` — `current_user` is defined on
 `Api::V1::BaseController`, from the token's resource owner — so
 `set_paper_trail_whodunnit` there records `nil` on every version, silently. Put it on
 the API base controller instead:

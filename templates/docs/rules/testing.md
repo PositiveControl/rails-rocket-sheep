@@ -3,7 +3,7 @@ id: testing
 title: Tests — Minitest, fixtures, VCR, which layer tests what
 applies_to: ["test/**/*.rb", "test/fixtures/**/*.yml"]
 triggers: ["fixture", "fixtures", "VCR", "cassette", "WebMock", "factory", "FactoryBot", "RSpec", "what should I test", "integration test", "system test", "assert_difference", "slow test", "TDD"]
-see_also: ["components", "service-objects", "turbo-status", "jobs"]
+see_also: ["service-objects", "jobs"]
 modes: [ web, api ]
 tokens: 1150
 current_state: matches
@@ -25,7 +25,7 @@ is claimed to work.
 | Model methods, scopes, validations | Unit | `test/models/` |
 | Service objects | Unit, through the `Result` | `test/services/` |
 | Controller actions | Integration — real request, real status | `test/integration/` |
-| ViewComponents | `render_inline` — see [components](components.md) | `test/components/` |
+| ViewComponents | `render_inline` — see `components` | `test/components/` |
 | Jobs | Unit for `perform`, `assert_enqueued_with` at the call site | `test/jobs/` |
 | Turbo Stream / Stimulus interaction | System | `test/system/` |
 
@@ -79,7 +79,8 @@ Plain `assert_*`, plus the ones that state intent in one line: `assert_differenc
 - Services assert **both** branches — `success?` and `failure?` — and the `errors`
   on failure. See [service-objects](service-objects.md).
 - A failed form submission asserts `assert_response :unprocessable_content`, not
-  just the rendered template. A 200 here is the bug — [turbo-status](turbo-status.md).
+  just the rendered template. A 200 here is the bug — in server-rendered mode that
+  is `turbo-status`, in API mode `status-codes`.
 - Tests are order-independent. No test may depend on another having run.
 - No `skip` without a comment saying why and what unblocks it. A flaky test is
   fixed when it is found, not filed.

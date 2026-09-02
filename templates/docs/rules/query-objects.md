@@ -3,7 +3,7 @@ id: query-objects
 title: Query objects — joins across models, always a relation
 applies_to: ["app/queries/**/*.rb", "app/models/**/*.rb", "test/queries/**/*.rb"]
 triggers: ["query object", "joins", "left_joins", "complex query", "to_a", "select in Ruby", "scope too long", "app/queries"]
-see_also: ["scopes", "pagination", "n-plus-one"]
+see_also: ["scopes", "n-plus-one"]
 modes: [ web, api ]
 tokens: 530
 current_state: matches

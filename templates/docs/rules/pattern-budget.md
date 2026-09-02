@@ -3,9 +3,9 @@ id: pattern-budget
 title: Pattern budget — six directories, where code goes
 applies_to: ["app/**"]
 triggers: ["where does this go", "new directory", "app/services", "app/forms", "app/queries", "app/policies", "app/lib", "app/components", "seventh directory", "pattern sprawl", "DRY", "extract"]
-see_also: ["rejected-patterns", "write-path", "service-objects", "form-objects", "query-objects", "policy-objects", "registries", "optional-patterns"]
+see_also: ["rejected-patterns", "write-path", "service-objects", "query-objects", "policy-objects", "registries", "optional-patterns"]
 modes: [ web, api ]
-tokens: 1000
+tokens: 990
 current_state: matches
 ---
 
@@ -26,11 +26,11 @@ The set is per mode. Server-rendered mode gets these six:
 | Directory | Holds | Add a file when | Rule |
 |---|---|---|---|
 | `app/services/` | Multi-step writes with a failure path | Touches >1 model, or called from >1 place | [service-objects](service-objects.md) |
-| `app/forms/` | Form objects for multi-model or non-AR forms | One submit writes ≥2 models, or a field isn't a column | [form-objects](form-objects.md) |
+| `app/forms/` | Form objects for multi-model or non-AR forms | One submit writes ≥2 models, or a field isn't a column | `form-objects` |
 | `app/queries/` | Reads that join ≥2 models | A scope would need a join and 3+ clauses | [query-objects](query-objects.md) |
 | `app/policies/` | Record-level authorization | The answer depends on the record, not just the role | [policy-objects](policy-objects.md) |
 | `app/lib/` | Registries — fixed variant sets | Values are code, not user data | [registries](registries.md) |
-| `app/components/` | Rendered UI units | Markup has logic or variants, or is reused | [components](components.md) |
+| `app/components/` | Rendered UI units | Markup has logic or variants, or is reused | `components` |
 
 **Six. Not seven.** A new top-level directory under `app/` is an architecture
 decision: record it as an ADR in [`../adr/`](../adr/), which `/domain_model`

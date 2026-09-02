@@ -3,9 +3,9 @@ id: service-objects
 title: Service objects — ApplicationService and Result
 applies_to: ["app/services/**/*.rb", "test/services/**/*.rb"]
 triggers: ["service object", "ApplicationService", "business logic", "Result", "success?", "failure?", "transaction", "multi-step write", "coordination"]
-see_also: ["controllers", "form-objects", "jobs", "policy-objects"]
+see_also: ["controllers", "jobs", "policy-objects"]
 modes: [ web, api ]
-tokens: 910
+tokens: 900
 current_state: matches
 ---
 

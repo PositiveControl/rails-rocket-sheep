@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Generates a throwaway app and asserts the things that have actually broken.
+#
+#   bin/smoke-generate api            # or: web
+#   SMOKE_DB=mysql bin/smoke-generate web
+#
+# The template's own gates (bin/lint-docs, bin/doc-tokens --check) read files.
+# This reads a generated app, which is the only place the mode branches, the ERB
+# and the Thor copies are all resolved at once. Every assertion below stands in
+# for a defect that shipped: a CLAUDE.md describing the wrong stack, an
+# unrendered `<%`, a Dockerfile step for a task the app does not have.
+#
+# Needs a live database — generation runs db:create and db:migrate — and a real
+# bundle, because after_bundle installs PaperTrail and Doorkeeper with generators.
+set -euo pipefail
+
+MODE="${1:-}"
+[[ "$MODE" == "web" || "$MODE" == "api" ]] || { echo "usage: bin/smoke-generate <web|api>" >&2; exit 64; }
+
+TEMPLATE_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+SMOKE_DB="${SMOKE_DB:-postgresql}"
+WORKDIR="$(mktemp -d)"
+# Unique per run. The app name becomes the database names, and a second run
+# against the first run's databases finds its tables already there under different
+# migration timestamps — which fails as a template defect and is not one.
+APP="smoke${MODE}$(date +%s)"
+# SMOKE_KEEP=1 leaves the app on disk, for when an assertion fails and the
+# interesting thing is the app rather than the message.
+cleanup() {
+  # SMOKE_KEEP keeps the databases too — inspecting a kept app is the whole point,
+  # and half of what is worth inspecting is in the schema.
+  [[ -n "${SMOKE_KEEP:-}" ]] && { echo "app kept at $WORKDIR/$APP (databases kept: ${APP}_*)"; return; }
+
+  # The databases outlive the directory, so they are dropped by name. A leftover
+  # set is what makes a re-run fail for a reason that has nothing to do with the
+  # template.
+  if [[ -d "$WORKDIR/$APP" ]]; then
+    (cd "$WORKDIR/$APP" && bin/rails db:drop > /dev/null 2>&1) || true
+  fi
+  rm -rf "$WORKDIR"
+}
+trap cleanup EXIT
+
+fails=0
+check() { # check <description> <0-or-1 from a test>
+  if [[ "$2" == "0" ]]; then printf '  ok   %s\n' "$1"
+  else printf '  FAIL %s\n' "$1"; fails=$((fails + 1)); fi
+}
+has()  { grep -qiE "$2" "$1" && echo 0 || echo 1; }
+lacks() { grep -qiE "$2" "$1" && echo 1 || echo 0; }
+
+echo "Generating $MODE app on $SMOKE_DB..."
+api_flag=(); [[ "$MODE" == "api" ]] && api_flag=(--api)
+(
+  cd "$WORKDIR"
+  rails new "$APP" "${api_flag[@]}" --database="$SMOKE_DB" \
+    --template="$TEMPLATE_ROOT/template.rb" > generate.log 2>&1
+) || { echo "generation failed:"; tail -30 "$WORKDIR/generate.log"; exit 1; }
+cd "$WORKDIR/$APP"
+
+echo "Asserting..."
+
+# Nothing may reach a generated app with ERB left in it.
+for f in CLAUDE.md AGENTS.md .cursor/rules/conventions.mdc; do
+  check "$f has no unrendered ERB" "$(lacks "$f" '<%')"
+done
+check "no .tt file shipped" "$([[ -z "$(find . -name '*.tt' -not -path './node_modules/*')" ]] && echo 0 || echo 1)"
+
+# The mode's own stack, in the three files an agent reads before anything else.
+WEB_ONLY='slim|turbo|tailwind|viewcomponent|stimulus|ApplicationForm|app/forms|app/components'
+API_ONLY='serializer|problem\+json|Doorkeeper|openapi|app/contracts|app/filters'
+for f in CLAUDE.md AGENTS.md .cursor/rules/conventions.mdc; do
+  if [[ "$MODE" == "api" ]]; then
+    check "$f names no view-layer stack" "$(lacks "$f" "$WEB_ONLY")"
+  else
+    check "$f names no JSON-boundary stack" "$(lacks "$f" "$API_ONLY")"
+  fi
+done
+[[ "$MODE" == "api" ]] && check "CLAUDE.md names the API stack" "$(has CLAUDE.md "$API_ONLY")"
+
+# The corpus that shipped, and the router it is reached through.
+rules=$(find docs/rules -name '*.md' -not -name 'INDEX.md' -not -name 'SYMPTOMS.md' | wc -l | tr -d ' ')
+want=$([[ "$MODE" == "api" ]] && echo 40 || echo 38)
+check "docs/rules has $want rules (found $rules)" "$([[ "$rules" == "$want" ]] && echo 0 || echo 1)"
+check "the skill's index exists" "$([[ -f docs/rules/INDEX.md && -f .claude/skills/rails-conventions/SKILL.md ]] && echo 0 || echo 1)"
+
+# Deploy surface. assets:precompile does not exist in an API app, so a Dockerfile
+# that runs it fails every image build.
+if [[ "$MODE" == "api" ]]; then
+  check "Dockerfile skips assets:precompile" "$(lacks Dockerfile '^RUN .*assets:precompile')"
+  check "deploy.yml sets no asset_path"      "$(lacks config/deploy.yml '^asset_path:')"
+  check "the contract gate shipped"          "$([[ -f .github/workflows/api-contract.yml ]] && echo 0 || echo 1)"
+else
+  check "Dockerfile precompiles assets" "$(has Dockerfile '^RUN .*assets:precompile')"
+  check "deploy.yml sets asset_path"    "$(has config/deploy.yml '^asset_path:')"
+fi
+
+# It has to boot. Fixtures ship empty, so a green suite here proves the app loads,
+# the database is reachable and the initializers do not raise.
+if bin/rails test > test.log 2>&1; then
+  check "bin/rails test passes" 0
+else
+  check "bin/rails test passes" 1; tail -20 test.log
+fi
+
+echo
+if [[ "$fails" -gt 0 ]]; then echo "smoke-generate $MODE: $fails failed"; exit 1; fi
+echo "smoke-generate $MODE: clean"
