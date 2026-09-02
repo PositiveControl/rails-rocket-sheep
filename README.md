@@ -116,6 +116,7 @@ they sit in is [templates/WORKFLOW.md](templates/WORKFLOW.md).
 | [JSON boundary audit](docs/json-boundary-audit.md) | A Rails app's JSON surface with no rules governing it |
 | [Layer boundary traces](docs/layer-boundary-traces.md) | Three requests traced end to end through a real app |
 | [Deterministic gates](docs/deterministic-gates.md) | Draft: which rules can be enforced mechanically, and where |
+| [Skills adoption assessment](.agents/skills-adoption-assessment.md) | What was taken from the skills repo as commands, and why they did not become skills |
 
 ---
 
