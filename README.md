@@ -90,8 +90,10 @@ Swap in `--database=mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` and
 everything follows it. `main` is always the latest; to generate from a fixed
 version, replace `main` in the URL with a tag from
 [Releases](https://github.com/PositiveControl/rails-rocket-sheep/releases), for
-example `v1.0.0/template.rb`. The full walkthrough, including what to configure
-before deploying, is in [Getting Started](docs/getting-started.md).
+example `v1.0.0/template.rb`. It is also listed on
+[RailsBytes](https://railsbytes.com/templates/Vwys9d), pinned to the latest release.
+The full walkthrough, including what to configure before deploying, is in
+[Getting Started](docs/getting-started.md).
 
 ---
 

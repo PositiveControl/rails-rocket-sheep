@@ -36,6 +36,13 @@ The URL form shallow-clones this repo to a temp directory first — `--template`
 fetches `template.rb` itself, not the `templates/` tree it copies from — so `git`
 must be on your PATH.
 
+The same template is listed on [RailsBytes](https://railsbytes.com/templates/Vwys9d),
+pinned to the latest tagged release rather than `main`:
+
+```bash
+rails new myapp --database=postgresql --template=https://railsbytes.com/script/Vwys9d
+```
+
 Or from a local clone, which is faster if you're generating more than one app:
 
 ```bash
