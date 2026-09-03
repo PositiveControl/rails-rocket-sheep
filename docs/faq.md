@@ -123,7 +123,7 @@ Fixes land on `main`, and a generated app pulls them when it asks — never on i
 
 Where only the template changed, you get the change. Where only you changed, you keep yours. Where both changed the same lines you get conflict markers, and you decide — the files are still yours, which is the point. `bin/rocket-sheep-update --check` shows what would move without writing anything. See [Staying Current](staying-current.md).
 
-There are no version tags yet, so the commit is the identifier. `--ref` takes a tag, branch, or SHA for the day there are.
+Releases are tagged, starting at [v1.0.0](https://github.com/PositiveControl/rails-rocket-sheep/releases). `--ref` takes a tag, branch, or SHA, so `bin/rocket-sheep-update --ref v1.0.0` moves to a release and the default, `--ref main`, moves to the latest commit. The same tag pins generation: put it in place of `main` in the `--template=` URL.
 
 ---
 
