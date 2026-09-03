@@ -11,7 +11,7 @@ current_state: matches
 
 # Testing an API
 
-Minitest and FactoryBot, as everywhere else — [testing](testing.md) covers the parts
+Minitest and fixtures, as everywhere else — [testing](testing.md) covers the parts
 that do not change. What changes on an API is which layer carries the weight.
 
 **Request tests are the primary layer**, not a supplement to unit tests. They are the

@@ -5,13 +5,23 @@ default: &default
   adapter: <%= DB_ADAPTER %>
 <% if POSTGRESQL -%>
   encoding: unicode
+  # template0 accepts any encoding; template1 inherits the server's locale, and a
+  # SQL_ASCII server refuses to clone it as unicode. db:create and the test-schema
+  # purge both create databases, so both depend on this.
+  template: template0
 <% else -%>
   encoding: utf8mb4
   collation: utf8mb4_unicode_ci
 <% end -%>
   pool: <%%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
   host: <%%= ENV.fetch("DB_HOST") { "localhost" } %>
-  username: <%%= ENV.fetch("DB_USERNAME") { <%= POSTGRESQL ? 'ENV["USER"]' : '"root"' %> } %>
+<% if POSTGRESQL -%>
+  # Unset means libpq's own default, the OS login name — which is also what
+  # ENV["USER"] would have been, except in a container where USER is not set.
+  username: <%%= ENV["DB_USERNAME"] %>
+<% else -%>
+  username: <%%= ENV.fetch("DB_USERNAME") { "root" } %>
+<% end -%>
   password: <%%= ENV["DB_PASSWORD"] %>
 
 development:

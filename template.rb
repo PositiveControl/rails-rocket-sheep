@@ -837,7 +837,21 @@ after_bundle do
         # this back gives the app a second error format.
         handle_auth_errors :raise
 
+        # A first-party browser client has no login page to be redirected to, so it
+        # gets its token with the password grant as a public client. Uncomment to
+        # enable it; `bin/rails db:seed` creates the client application. The
+        # authorization-code flow stays available for third parties.
+        # See docs/rules/api-auth.md.
+        #
+        # grant_flows %w[password authorization_code]
+        #
+        # resource_owner_from_credentials do |_routes|
+        #   user = User.find_by(email: params[:username])
+        #   user if user&.valid_password?(params[:password])
+        # end
+
       RUBY
+        .indent(2) # inside `Doorkeeper.configure do`, where RuboCop expects the comment before `orm` indented
     end
 
     # Doorkeeper ships an authenticator whose body raises until it is wired up.
@@ -873,12 +887,12 @@ after_bundle do
       class CreateIdempotentRequests < ActiveRecord::Migration[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]
         def change
           create_table :idempotent_requests#{POSTGRESQL ? ", id: :uuid" : ""} do |t|
-            t.string  :key,         null: false
+            t.string :key, null: false
             t.#{DB_PRIMARY_KEY} :user_id
-            t.string  :endpoint,    null: false
-            t.string  :fingerprint, null: false
-            t.integer :status,      null: false
-            t.json    :body,        null: false
+            t.string :endpoint, null: false
+            t.string :fingerprint, null: false
+            t.integer :status, null: false
+            t.json :body, null: false
 
             t.timestamps
           end
@@ -890,6 +904,13 @@ after_bundle do
       end
     RUBY
   end
+
+  # The repository and its hooks come before the database, so that when db:create
+  # aborts below the owner is left with a repo, hooks, and two commands to run
+  # (`bin/rails db:prepare`, then `git add -A && git commit`) rather than a
+  # directory with no history and four steps to find in this file.
+  git :init
+  install_git_hooks
 
   # Create and migrate database.
   #
@@ -903,16 +924,12 @@ after_bundle do
   rails_command "db:create", abort_on_failure: true
   rails_command "db:migrate", abort_on_failure: true
 
-  # Initialize git repository.
-  #
   # The commit is the last thing generation does, and until now it could sink all
   # of it: a machine with no `user.email` — a fresh container, a CI runner — fails
   # with `empty ident name`, `rails new` exits non-zero, and everything that
   # succeeded looks like it did not. The repo and the staged tree are the parts
   # that matter; the commit is a convenience, so it is skipped with a note rather
   # than taken as fatal.
-  git :init
-  install_git_hooks
   git add: "."
 
   # `git :init` above ran here without a path, so this does too.

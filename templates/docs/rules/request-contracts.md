@@ -5,7 +5,7 @@ applies_to: ["app/contracts/**/*.rb", "app/controllers/api/**/*.rb"]
 triggers: ["strong params", "permit", "request validation", "params object", "contract", "invalid body", "422", "unknown field", "type coercion"]
 see_also: ["error-envelope", "status-codes", "filtering-sorting", "pattern-budget", "service-objects"]
 modes: [ api ]
-tokens: 820
+tokens: 1000
 current_state: matches
 ---
 
@@ -47,7 +47,11 @@ one request, and the return type is the reason they are two directories
 **Declare the type, then validate the range.** This is the trap the pattern exists
 for: `ActiveModel` casts `"abc"` to `0` for an integer attribute, silently. A declared
 type without a `numericality` check turns a client's typo into a free item. Every
-numeric attribute gets a bound; every string that matters gets a length.
+numeric attribute gets a bound; every string that matters gets a length. The range
+alone is not the catch: `ApplicationContract` makes `numericality` read the value the
+client sent rather than the cast one, so `"abc"` fails as *not a number* even where
+`0` would be in range. On an update contract add `allow_nil: true`, or an omitted
+field fails the same check.
 
 **Unknown keys are ignored, not rejected.** [Versioning](api-versioning.md) promises a
 `v1` client keeps working, and the mirror of that promise is that a client sending a
@@ -66,3 +70,9 @@ a service and a console can write without passing a contract at all.
 `Items::UpdateContract`. An update whose rules genuinely match create can subclass it,
 but the two usually differ — required on create, optional on update — and one contract
 serving both grows conditionals nobody can read.
+
+**Omitted is not null.** `to_h` returns only the keys the client sent, so a
+`PATCH { "status": "done" }` through an update contract yields `{ status: "done" }`
+and a service that splats it leaves the title alone. A field the client sent as
+`null` is still returned, as `nil`. "Optional on update" is `if: -> { provided?(:title) }`
+on the validation, not a missing `presence` check.

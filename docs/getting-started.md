@@ -167,6 +167,15 @@ CLAUDE.md                    # Conventions your AI agent reads
 
 **`PG::ConnectionBad` or `Mysql2::Error` during generation.** The database server wasn't running. Start it, delete the half-generated directory, and run the generator again.
 
+**Generation stopped at `db:create` and you would rather not start over.** Everything before the database step is done, including `git init` and the hooks path. Fix the cause, then finish by hand:
+
+```bash
+bin/rails db:prepare
+git add -A && git commit -m "Initial commit from Rails Rocket Sheep template"
+```
+
+**PostgreSQL only listens on a socket, or `localhost` resolves to IPv6 and refuses.** `database.yml` defaults `host` to `localhost`. Point it at the socket directory instead: `DB_HOST=/tmp bin/rails db:prepare` (or `/var/run/postgresql`, wherever `pg_isready` says it is). `DB_USERNAME` overrides the OS login name when the two differ.
+
 **Devise routes missing from the home page.** You haven't run `rails g devise User` yet. The home view calls `user_signed_in?`, which needs the Devise model to exist.
 
 **Tailwind classes with brackets don't render.** Slim parses `[` specially. Use the explicit attribute form — `div class="max-h-[85vh]"` rather than `.max-h-[85vh]`. This and other Slim gotchas are in `docs/rules/slim-gotchas.md`.

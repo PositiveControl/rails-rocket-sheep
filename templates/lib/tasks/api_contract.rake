@@ -75,9 +75,15 @@ module Api
 
     def response_object(observation)
       described = observation["problem_type"] ? "problem: #{observation['problem_type']}" : "observed in a request test"
-      content = { observation["media_type"] => {} }
-      content[observation["media_type"]] = { "x-top-level-keys" => observation["keys"] } if observation["keys"].any?
-      { "description" => described, "content" => content }
+      object = { "description" => described }
+
+      # A 204 has no media type, and an empty-string key is not valid OpenAPI.
+      if (media_type = observation["media_type"])
+        object["content"] = { media_type => {} }
+        object["content"][media_type] = { "x-top-level-keys" => observation["keys"] } if observation["keys"].any?
+      end
+
+      object
     end
   end
 end

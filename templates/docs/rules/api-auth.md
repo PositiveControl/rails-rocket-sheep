@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb",
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
 modes: [ api ]
-tokens: 850
+tokens: 1160
 current_state: matches
 ---
 
@@ -54,6 +54,23 @@ undocumented, and both reaching the same client.
 
 **Authentication endpoints are rate-limited by identifier, not only by IP** —
 [rate-limiting](rate-limiting.md).
+
+**The OAuth endpoints are the one un-versioned surface.** `use_doorkeeper` mounts
+`/oauth/token` and `/oauth/revoke` above `namespace :api` in `routes.rb`, and that
+is deliberate: every OAuth client library assumes those paths, and a token endpoint
+does not change shape between `v1` and `v2` of the resources behind it. They are
+the exception [api-versioning](api-versioning.md) otherwise refuses, and CORS names
+them by hand — [cors](cors.md). Their errors are RFC 6749 shape (`error`,
+`error_description`), not a problem document — [error-envelope](error-envelope.md).
+
+**A first-party browser client uses the password grant, as a public client.** The
+shipped initializer configures the authorization-code flow, which needs a login page
+an API-only app does not have. The initializer carries a commented block that
+enables `grant_flows %w[password]` and resolves the resource owner from Devise
+credentials; `db/seeds.rb` creates one public `Doorkeeper::Application` for the
+client to name. It is public (`confidential = false`) because a secret shipped in
+JavaScript is not a secret. Third-party clients still get the authorization-code
+flow, and enabling one grant does not disable the other.
 
 **Why this weight is justified.** The audited app, with no rule about any of it,
 hand-built bearer tokens, signed verification, digest-keyed revocation and

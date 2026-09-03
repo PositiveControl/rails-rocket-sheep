@@ -170,6 +170,7 @@ defaults are in `test/support/slowpoke.rb`.
 
 `binding.pry` drops into a debugger anywhere.
 
+<% unless API_MODE -%>
 ## SEO
 
 robots.txt, dynamic `/sitemap.xml`, meta description and canonical URL with
@@ -177,6 +178,7 @@ per-page `content_for` overrides, `StructuredDataHelper#jsonld_tag` for JSON-LD,
 integration tests in `test/integration/seo_test.rb`, and a weekly Lighthouse CI
 workflow. Adding a page: `docs/sop/add-seo-to-a-page.md`.
 
+<% end -%>
 ## Deployment
 
 Kamal 2. Configure `config/deploy.yml`, fill `.kamal/secrets`, then

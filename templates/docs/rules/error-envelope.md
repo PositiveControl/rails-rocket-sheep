@@ -5,7 +5,7 @@ applies_to: ["app/controllers/**/*.rb", "app/lib/problem.rb"]
 triggers: ["error response", "problem+json", "RFC 9457", "error envelope", "422 body", "error json", "errors array", "validation errors", "error message"]
 see_also: ["status-codes", "exception-boundary", "serialization", "request-contracts"]
 modes: [ api ]
-tokens: 860
+tokens: 950
 current_state: matches
 ---
 
@@ -56,6 +56,11 @@ problem type: "validation-failed", title: "Validation failed",
 That is the only place a list appears. `errors` is always an array of objects, never
 a bare string and never a hash keyed by field — a client that has to type-check the
 value before reading it has no contract.
+
+**The one other error shape is the token endpoint's.** `/oauth/token` answers a bad
+grant with RFC 6749's `{ "error": ..., "error_description": ... }`, because the OAuth
+spec requires it and every client library parses it. It is the only place a client
+of this app meets a second format, and it is outside `/api` — [api-auth](api-auth.md).
 
 **Never a success or error boolean in the body.** The status line already carries
 whether the request succeeded. A `success: false` beside a `422` is a second source
