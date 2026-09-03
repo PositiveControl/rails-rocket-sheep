@@ -1,6 +1,7 @@
 # Rails Rocket Sheep 🚀🐑
 
-**A Rails 8 application template built for working with AI coding agents.**
+**A Rails 8 application template for building with AI coding agents: Claude Code,
+Cursor, Codex, or any agent that reads a `CLAUDE.md` or `AGENTS.md`.**
 
 `rails new` gives you a framework. Rocket Sheep gives you a codebase an agent can be
 productive in on the first prompt: the patterns are already there, the conventions
@@ -11,6 +12,11 @@ first one.
 
 It is applied once and leaves behind ordinary Rails files you own. There is no gem,
 no runtime dependency, and nothing to upgrade. MIT licensed.
+
+```bash
+rails new myapp --database=postgresql \
+  --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
+```
 
 ---
 
@@ -83,6 +89,18 @@ bin/test
 Swap in `--database=mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` and
 everything follows it. The full walkthrough, including what to configure before
 deploying, is in [Getting Started](docs/getting-started.md).
+
+---
+
+## How it compares
+
+Jumpstart Pro and Bullet Train are SaaS starter kits: billing, teams, an admin
+panel, and a gem or a git remote to keep up with. Suspenders and the other
+`rails new` templates are opinionated defaults with no agent layer. Rocket Sheep
+is the third thing: thin on features, and the only one that ships the conventions,
+routing, and mechanical gates an AI coding agent needs to stay inside the codebase's
+patterns. The row-by-row version, including where each alternative is the better
+choice, is in [Comparison](docs/comparison.md).
 
 ---
 
