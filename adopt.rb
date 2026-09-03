@@ -143,7 +143,8 @@ copy_template_file "docs/sop/harden-a-kamal-server.md"
 copy_template_file "docs/sop/extract-database-and-storage.md"
 copy_template_file "docs/sop/beads-setup.md"
 copy_template_file "docs/sop/find-slow-tests.md"
-copy_template_file "docs/sop/add-seo-to-a-page.md"
+copy_template_file "docs/sop/add-seo-to-a-page.md" unless API_MODE
+copy_template_file "docs/sop/add-an-endpoint.md" if API_MODE
 copy_template_file "docs/sop/update-from-the-template.md"
 
 # Sharded conventions. One rule per file with frontmatter (applies_to globs,

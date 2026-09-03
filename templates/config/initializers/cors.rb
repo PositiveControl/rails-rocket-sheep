@@ -17,5 +17,10 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
              # ones a client has to act on are named here or they are invisible.
              expose: %w[Retry-After Deprecation Sunset Location],
              max_age: 600
+
+    # The token endpoints live outside /api — docs/rules/api-auth.md. A browser
+    # client that cannot preflight /oauth/token never gets a token at all.
+    resource "/oauth/token",  headers: :any, methods: %i[post options], max_age: 600
+    resource "/oauth/revoke", headers: :any, methods: %i[post options], max_age: 600
   end
 end

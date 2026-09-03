@@ -44,8 +44,32 @@ def seed_admin_user
   puts "  This is shown once and is not stored anywhere. Save it now."
 end
 
+# API mode: the one public OAuth client a first-party browser app names when it asks
+# for a token — docs/rules/api-auth.md. Public, because a secret shipped in JavaScript
+# is not one. No-op in a web app, where Doorkeeper is not installed.
+def seed_oauth_client
+  return unless defined?(Doorkeeper::Application)
+
+  uid = ENV.fetch("SEED_OAUTH_CLIENT_UID", "web-client")
+
+  if Doorkeeper::Application.exists?(uid: uid)
+    puts "OAuth client #{uid} already exists — leaving it alone."
+    return
+  end
+
+  Doorkeeper::Application.create!(
+    uid: uid,
+    name: ENV.fetch("SEED_OAUTH_CLIENT_NAME", "Web client"),
+    confidential: false,
+    redirect_uri: "urn:ietf:wg:oauth:2.0:oob",
+    scopes: "read write"
+  )
+  puts "Created OAuth client: #{uid}"
+end
+
 if Rails.env.production? && ENV["SEED_ALLOW_PRODUCTION"].blank?
   puts "Refusing to seed in production. Set SEED_ALLOW_PRODUCTION=1 if you really mean it."
 else
   seed_admin_user
+  seed_oauth_client
 end

@@ -55,7 +55,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [api-auth](api-auth.md) | 850 | Doorkeeper, coarse scopes, server-side revocation |
+| [api-auth](api-auth.md) | 1340 | Doorkeeper, coarse scopes, server-side revocation |
 | [api-testing](api-testing.md) | 750 | Request tests are the layer that matters |
 | [api-versioning](api-versioning.md) | 610 | One number in the path, additive within it |
 | [async-202](async-202.md) | 610 | 202, a `Location`, and a real status resource |
@@ -65,13 +65,13 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [callbacks](callbacks.md) | 370 | Same record only, `after_commit` for jobs |
 | [client-contract](client-contract.md) | 750 | What the client may rely on, and what it must not |
 | [controllers](controllers.md) | 940 | Seven actions, new verb = new resource, thin actions |
-| [cors](cors.md) | 590 | Named origins, and never a wildcard with credentials |
+| [cors](cors.md) | 720 | Named origins, and never a wildcard with credentials |
 | [current-attributes](current-attributes.md) | 240 | Two acceptable uses, and why |
 | [cursor-pagination](cursor-pagination.md) | 920 | Cursor first, `(created_at, id)`, never an array |
 | [database-conventions](database-conventions.md) | 560 | Primary keys per database (UUID on PostgreSQL, bigint on MySQL), foreign keys, composite indexes |
 | [deletes](deletes.md) | 610 | `destroy` by default, Discard opt-in, the `.kept` tax |
 | [deprecation-policy](deprecation-policy.md) | 630 | `Deprecation` and `Sunset`, a date, and evidence |
-| [error-envelope](error-envelope.md) | 860 | RFC 9457 problem documents, and a machine-readable `type` |
+| [error-envelope](error-envelope.md) | 950 | RFC 9457 problem documents, and a machine-readable `type` |
 | [exception-boundary](exception-boundary.md) | 600 | `rescue_from` once, scoped lookups |
 | [filtering-sorting](filtering-sorting.md) | 730 | An allowlist that is data, not control flow |
 | [idempotency](idempotency.md) | 800 | A key on every write that costs money |
@@ -86,7 +86,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [rate-limiting](rate-limiting.md) | 580 | Rails 8 `rate_limit`, what to apply it to |
 | [registries](registries.md) | 790 | `Data` objects, `fetch`, capabilities not identities |
 | [rejected-patterns](rejected-patterns.md) | 540 | Repository, CQRS, hexagonal, interactors, DI, decorators |
-| [request-contracts](request-contracts.md) | 820 | Validate the body before a model sees it |
+| [request-contracts](request-contracts.md) | 1000 | Validate the body before a model sees it |
 | [safe-migrations](safe-migrations.md) | 500 | Concurrent indexes, two-deploy column removal |
 | [scopes](scopes.md) | 280 | Scopes, never class methods |
 | [seeds](seeds.md) | 480 | Idempotent seeds, kept in step with models and processes |
@@ -97,7 +97,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 580 | Layer order end to end |
 
-**Total corpus:** ~28,390 tokens across 41 rules — but nobody reads it whole.
+**Total corpus:** ~29,280 tokens across 41 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a

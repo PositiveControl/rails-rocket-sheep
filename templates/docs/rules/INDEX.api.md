@@ -44,7 +44,6 @@ Editing a file that matches → read these rules.
 | `app/jobs/**`, `config/queue.yml`, `config/recurring.yml` | [jobs](jobs.md) · [async-202](async-202.md) |
 | `config/initializers/doorkeeper.rb` | [api-auth](api-auth.md) |
 | `config/initializers/cors.rb` | [cors](cors.md) |
-| `config/initializers/rack_attack.rb` | [rate-limiting](rate-limiting.md) |
 | `db/migrate/**` | [safe-migrations](safe-migrations.md) · [database-conventions](database-conventions.md) · [seeds](seeds.md) |
 | `db/seeds.rb`, `db/seeds/**` | [seeds](seeds.md) |
 | `db/queries.yml` | [query-ledger](query-ledger.md) |
@@ -92,7 +91,7 @@ read one when the work touches it, not because you opened a file of that type.
 | asserting a failure | [error-envelope](error-envelope.md) · [status-codes](status-codes.md) |
 | testing who may call what | [api-auth](api-auth.md) · [policy-objects](policy-objects.md) |
 
-**Read cost:** this index (~1600) plus one or two rules (240–1150) ·
+**Read cost:** this index (~1600) plus one or two rules (240–1340) ·
 [`SYMPTOMS.md`](SYMPTOMS.md) (~2400) only when routing by path missed. Every `tokens`
 figure is generated from the file by `bin/doc-tokens` — budget from it, and re-run that
 script after editing a rule.

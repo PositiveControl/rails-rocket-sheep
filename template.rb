@@ -641,6 +641,14 @@ if API
         end
       end
 
+      # Devise, once `rails g devise User` has run. Its generator writes
+      # `devise_for :users` at the top of this file; replace that line with this
+      # one, so password reset, confirmation and unlock live under the version
+      # prefix and inside the CORS policy. Sessions are skipped because Doorkeeper
+      # issues the tokens — docs/rules/api-auth.md.
+      #
+      # devise_for :users, path: "api/v1/users", skip: [ :sessions ]
+
       # Email preview in development
       if Rails.env.development?
         mount LetterOpenerWeb::Engine, at: "/letter_opener"
@@ -863,7 +871,21 @@ after_bundle do
         # this back gives the app a second error format.
         handle_auth_errors :raise
 
+        # A first-party browser client has no login page to be redirected to, so it
+        # gets its token with the password grant as a public client. Uncomment to
+        # enable it; `bin/rails db:seed` creates the client application. The
+        # authorization-code flow stays available for third parties.
+        # See docs/rules/api-auth.md.
+        #
+        # grant_flows %w[password authorization_code]
+        #
+        # resource_owner_from_credentials do |_routes|
+        #   user = User.find_by(email: params[:username])
+        #   user if user&.valid_password?(params[:password])
+        # end
+
       RUBY
+        .indent(2) # inside `Doorkeeper.configure do`, where RuboCop expects the comment before `orm` indented
     end
 
     # Doorkeeper ships an authenticator whose body raises until it is wired up.
@@ -899,12 +921,12 @@ after_bundle do
       class CreateIdempotentRequests < ActiveRecord::Migration[#{Rails::VERSION::MAJOR}.#{Rails::VERSION::MINOR}]
         def change
           create_table :idempotent_requests#{POSTGRESQL ? ", id: :uuid" : ""} do |t|
-            t.string  :key,         null: false
+            t.string :key, null: false
             t.#{DB_PRIMARY_KEY} :user_id
-            t.string  :endpoint,    null: false
-            t.string  :fingerprint, null: false
-            t.integer :status,      null: false
-            t.json    :body,        null: false
+            t.string :endpoint, null: false
+            t.string :fingerprint, null: false
+            t.integer :status, null: false
+            t.json :body, null: false
 
             t.timestamps
           end
@@ -916,6 +938,13 @@ after_bundle do
       end
     RUBY
   end
+
+  # The repository and its hooks come before the database, so that when db:create
+  # aborts below the owner is left with a repo, hooks, and two commands to run
+  # (`bin/rails db:prepare`, then `git add -A && git commit`) rather than a
+  # directory with no history and four steps to find in this file.
+  git :init
+  install_git_hooks
 
   # Create and migrate database.
   #
@@ -936,16 +965,12 @@ after_bundle do
   say "Recording the query ledger...", :yellow
   rails_command "db:queries"
 
-  # Initialize git repository.
-  #
   # The commit is the last thing generation does, and until now it could sink all
   # of it: a machine with no `user.email` — a fresh container, a CI runner — fails
   # with `empty ident name`, `rails new` exits non-zero, and everything that
   # succeeded looks like it did not. The repo and the staged tree are the parts
   # that matter; the commit is a convenience, so it is skipped with a note rather
   # than taken as fatal.
-  git :init
-  install_git_hooks
   git add: "."
 
   # `git :init` above ran here without a path, so this does too.
@@ -975,10 +1000,10 @@ after_bundle do
     say "  4. Name the client origins CORS will allow:"
     say "     bin/rails credentials:edit   # api: { allowed_origins: [...] }"
     say ""
-    say "  5. Check the Doorkeeper resource owner is wired to Devise:"
-    say "     config/initializers/doorkeeper.rb — resource_owner_authenticator"
+    say "  5. After `rails g devise User`, move its route under the version prefix:"
+    say "     config/routes.rb — the commented devise_for line shows how"
     say ""
-    say "  6. Add your first endpoint under app/controllers/api/v1/, then:"
+    say "  6. Add your first endpoint: docs/sop/add-an-endpoint.md"
     say "     bin/rails api:contract       # generate openapi.yaml from the tests"
     say ""
     say "  7. Start developing:"

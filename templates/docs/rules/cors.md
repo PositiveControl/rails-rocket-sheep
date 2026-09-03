@@ -5,14 +5,15 @@ applies_to: ["config/initializers/cors.rb", "config/routes.rb"]
 triggers: ["CORS", "cross-origin", "preflight", "OPTIONS", "Access-Control-Allow-Origin", "browser blocked", "credentials"]
 see_also: ["api-auth", "client-contract", "rate-limiting"]
 modes: [ api ]
-tokens: 590
+tokens: 720
 current_state: matches
 ---
 
 # CORS
 
 The JS client is a separate origin, so CORS is load-bearing rather than incidental.
-One initializer, origins from credentials, applied to the API namespace only.
+One initializer, origins from credentials, applied to the API namespace and the two
+OAuth endpoints a browser client has to reach to hold a token.
 
 ```ruby
 # config/initializers/cors.rb
@@ -25,9 +26,17 @@ Rails.application.config.middleware.insert_before 0, Rack::Cors do
              methods: %i[get post patch put delete options],
              expose:  %w[Retry-After Deprecation Sunset Location],
              max_age: 600
+
+    resource "/oauth/token",  headers: :any, methods: %i[post options], max_age: 600
+    resource "/oauth/revoke", headers: :any, methods: %i[post options], max_age: 600
   end
 end
 ```
+
+**`/oauth/*` is the one surface outside `/api/*`, and only two of its routes are
+opened.** Not `/oauth/*`: that would also expose `/oauth/authorize` and
+`/oauth/applications`, which no browser client of this app has business calling
+cross-origin — [api-auth](api-auth.md).
 
 **Origins are named, and they come from credentials.** One list per environment, no
 regex over your own domain, and no `origins "*"`. A wildcard is only ever safe on an
