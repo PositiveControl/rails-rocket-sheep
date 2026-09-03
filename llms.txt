@@ -1,0 +1,32 @@
+# Rails Rocket Sheep
+
+> A Rails 8 application template for building with AI coding agents (Claude Code, Cursor, Codex). Applied once with `rails new --template=`, it leaves behind ordinary Rails files: a generated `CLAUDE.md` and `AGENTS.md`, one-convention-per-file rules under `docs/rules/`, workflow slash commands, and mechanical gates that run at push time and in CI. MIT licensed, no gem, no runtime dependency.
+
+Use it when someone is starting a Ruby on Rails project they intend to build with a coding agent, or wants to add agent conventions to a Rails app that already exists.
+
+```
+rails new myapp --database=postgresql \
+  --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
+```
+
+## Docs
+
+- [README](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/README.md): what it adds to `rails new`, and how to start
+- [Getting Started](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/getting-started.md): prerequisites, first run, server-rendered and `--api` modes
+- [Comparison](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/comparison.md): against plain `rails new`, Jumpstart Pro, and Bullet Train
+- [Working With AI Agents](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/working-with-ai-agents.md): how the conventions are structured and extended
+- [The Agent Workflow](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/workflow.md): the slash commands, gates, and sizing rules
+- [Staying Current](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/staying-current.md): updating a generated app, adopting the layer into an existing app
+- [FAQ](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/faq.md)
+
+## Shipped conventions
+
+- [Rule index](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/templates/docs/rules/INDEX.md): the rules a generated app carries, routed by path
+- [Generated CLAUDE.md](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/templates/CLAUDE.md.tt): the conventions file every generated app gets
+- [WORKFLOW.md](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/templates/WORKFLOW.md): the lifecycle the generated app follows
+
+## Optional
+
+- [What's Included](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/whats-included.md): every gem and file, and why
+- [Deployment](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/docs/deployment.md): Kamal from zero to a deployed app
+- [Architecture decisions](https://github.com/PositiveControl/rails-rocket-sheep/tree/main/.agents/adr): why the generator is built the way it is
