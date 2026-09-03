@@ -86,6 +86,14 @@ bin/rails server
 bin/test
 ```
 
+**From Claude Code**, as a plugin that runs the same command:
+
+```
+/plugin marketplace add PositiveControl/rails-rocket-sheep
+/plugin install rails-rocket-sheep@rails-rocket-sheep
+/rails-rocket-sheep:new myapp --database=postgresql
+```
+
 Swap in `--database=mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` and
 everything follows it. `main` is always the latest; to generate from a fixed
 version, replace `main` in the URL with a tag from

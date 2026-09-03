@@ -1,0 +1,10 @@
+{
+  "name": "rails-rocket-sheep",
+  "description": "Generate a Rails 8 app built for AI coding agents with rails new --template",
+  "version": "1.0.1",
+  "author": { "name": "PositiveControl", "url": "https://github.com/PositiveControl" },
+  "homepage": "https://github.com/PositiveControl/rails-rocket-sheep",
+  "repository": "https://github.com/PositiveControl/rails-rocket-sheep",
+  "license": "MIT",
+  "keywords": ["rails", "rails-template", "ruby-on-rails", "claude-md", "agents-md"]
+}
