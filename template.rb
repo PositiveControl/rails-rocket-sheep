@@ -32,6 +32,29 @@
 # directory and copy from there instead.
 DEFAULT_REPO = "PositiveControl/rails-rocket-sheep"
 
+# `rails app:template LOCATION=...` builds an AppGenerator with default options
+# inside a booted app, so `Rails.application` is set and `--database` reads as
+# sqlite3 whatever the app runs; the database check below would then blame
+# SQLite. RailsBytes prints that command under every listing, so it will be
+# run. Stop here, before the clone, with the command that was meant.
+if defined?(Rails) && Rails.respond_to?(:application) && Rails.application
+  raise Thor::Error, <<~MSG
+    This is a `rails new` template, and it was run with `rails app:template`
+    inside an existing app. Nothing has been written.
+
+    To generate a new app, from outside any Rails app:
+
+      rails new myapp --database=postgresql --template=<the LOCATION you just used>
+
+    To add the agent conventions to this app instead, clone the repo and run
+    its adoption script (docs/staying-current.md in the repo explains what it
+    installs):
+
+      git clone https://github.com/#{DEFAULT_REPO}.git
+      bin/rails app:template LOCATION=rails-rocket-sheep/adopt.rb
+  MSG
+end
+
 TEMPLATE_ROOT =
   if __dir__.to_s.start_with?("http://", "https://")
     require "tmpdir"
