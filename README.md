@@ -87,8 +87,11 @@ bin/test
 ```
 
 Swap in `--database=mysql`, `trilogy`, `mariadb-mysql`, or `mariadb-trilogy` and
-everything follows it. The full walkthrough, including what to configure before
-deploying, is in [Getting Started](docs/getting-started.md).
+everything follows it. `main` is always the latest; to generate from a fixed
+version, replace `main` in the URL with a tag from
+[Releases](https://github.com/PositiveControl/rails-rocket-sheep/releases), for
+example `v1.0.0/template.rb`. The full walkthrough, including what to configure
+before deploying, is in [Getting Started](docs/getting-started.md).
 
 ---
 
