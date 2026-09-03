@@ -62,6 +62,9 @@ templates/               Everything copied into the generated app.
 ├── bin/gates            Mechanical checks, run from bin/hooks/pre-push and .github/workflows/gates.yml
 └── app/ bin/ config/ …  Application code the template installs
 
+plugin/                  Claude Code plugin: one command that runs `rails new --template=`
+                         against a tagged release. Not shipped. Manifest for the
+                         marketplace is .claude-plugin/marketplace.json at the root.
 docs/                    Product documentation for buyers. Not shipped.
 README.md                Sales page. Not shipped.
 ```
@@ -243,8 +246,11 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   ([0010](.agents/adr/0010-skills-are-a-generated-overlay-over-the-rule-index.md)),
   why a rule declares in frontmatter how far the app has drifted from it
   ([0011](.agents/adr/0011-a-rule-declares-how-far-the-app-has-drifted-from-it.md)),
-  and why routing is two-tier in both modes
-  ([0012](.agents/adr/0012-routing-is-two-tier-in-both-modes.md)).
+  why routing is two-tier in both modes
+  ([0012](.agents/adr/0012-routing-is-two-tier-in-both-modes.md)), and why the
+  Claude Code plugin is a second door to the generator rather than a source of
+  anything
+  ([0013](.agents/adr/0013-a-plugin-is-a-second-door-to-the-same-generator.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
@@ -279,6 +285,18 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   prose about the outside world, so read the tree before writing the sentence.
 - **Product docs at the root describe the template; they do not restate its rules.**
   `README.md` and `docs/` link into `templates/docs/rules/` rather than copying it.
+
+## Cutting a release
+
+Tag `vX.Y.Z` on `main` and push it. Three places pin the tag and move with it, in
+one commit before tagging:
+
+- `plugin/commands/new.md`, the `--template=` URL
+- `plugin/.claude-plugin/plugin.json`, the `version`
+- the RailsBytes script at https://railsbytes.com/templates/Vwys9d, the `apply`
+  line (edited on the site, not here)
+
+`claude plugin validate ./plugin --strict` after the first two.
 
 ## Where things are decided
 
