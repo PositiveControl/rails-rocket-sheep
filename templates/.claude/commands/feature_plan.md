@@ -50,13 +50,14 @@ Open questions the user cannot answer off the top of their head, or an approach 
 
 After approval:
 
-1. Single-slice feature → one issue, no parent
-2. Multi-slice → parent issue + one sub-issue per slice
+1. Single-slice feature → one issue, no parent, PR straight to `main`
+2. Multi-slice → parent issue + one sub-issue per slice, landing on a **feature branch** `feature/<slug>` (the design doc's slug). Write `**Feature branch:** feature/<slug>` at the top of the design doc and `Feature branch: feature/<slug>` in every sub-issue body — `/task_plan` reads it there and creates the branch when it plans the first slice. Spec: `WORKFLOW.md`, *Feature branches*.
 
 Each sub-issue must have:
 - Goal (1-2 sentences) + link to the design doc
+- The feature branch line, when multi-slice
 - Acceptance criteria — **≤5 testable bullets** (more → split the slice)
-- Size forecast targeting **100–600 added lines** per PR
+- Size forecast targeting **200–1,500 added lines** per PR
 - Dependencies on sibling slices noted in the body
 
 Tier `{{TRACKER}}`. Follow only the matching branch.
@@ -98,7 +99,7 @@ gh issue create --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --title "<title>" --body "
 
 ### Step 6: Create doc placeholders
 
-Per the design doc's **Docs impact** section, create placeholder files in `docs/sop/` and/or `docs/system/` (`**Status:** Draft — created for #<issue>`), and add them to the `.llm/README.md` index. They are completed or deleted at `/pr_submit` time — never left as drafts after the feature ships.
+Per the design doc's **Docs impact** section, create placeholder files in `docs/sop/` and/or `docs/system/` (`**Status:** Draft — created for #<issue>`), and add them to the `.llm/README.md` index. A slice's `/pr_submit` completes the ones its work fills in; the feature PR to `main` is where the rest are completed or deleted — never left as drafts after the feature ships.
 
 ### Next step
 
@@ -111,5 +112,5 @@ Ready to start? Run: /pick   (or /task_plan <first-sub-issue>)
 - Project: #{{PROJECT_NUMBER}} "{{PROJECT_NAME}}" (owner: {{GITHUB_ORG}}), Project ID: {{PROJECT_ID}}
 - Status field ID: {{STATUS_FIELD_ID}}; Todo option: {{STATUS_TODO}}
 - Design docs: `docs/plans/YYYY-MM-DD-<slug>-design.md`
-- Sizing: PR 100–600 added lines / 5–15 files; acceptance criteria ≤5 bullets per issue
+- Sizing: PR 200–1,500 added lines / ≤25 files; acceptance criteria ≤5 bullets per issue
 - Issue node IDs: `gh issue view <n> --json id --jq .id`

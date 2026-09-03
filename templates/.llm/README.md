@@ -55,6 +55,7 @@ Written by `/domain_model`.
 - [ViewComponent for UI Units](../docs/adr/0006-viewcomponent-for-ui-units.md) — the component/partial line
 - [Pattern Budget](../docs/adr/0007-pattern-budget.md) — the six sanctioned directories, and what a seventh costs
 - [Registries as `Data` Objects](../docs/adr/0008-registries-as-data-objects.md) — fixed variant sets without a base class
+- [Slices Merge on the Agent's Review, Features on a Human's](../docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md) — where the human reads, and why a fresh session reviews a slice
 <!-- adr:end -->
 
 ## SOP — `docs/sop/`

@@ -378,30 +378,17 @@ say "Adding service object patterns...", :green
 # ApplicationService base class
 copy_template_file "app/services/application_service.rb"
 
-if API
-  # The seven directories an API app gets — docs/rules/pattern-budget.md.
-  copy_template_file "app/serializers/application_serializer.rb"
-  copy_template_file "app/contracts/application_contract.rb"
-  copy_template_file "app/filters/application_filter.rb"
-  copy_template_file "app/lib/cursor.rb"
-  copy_template_file "app/controllers/api/v1/base_controller.rb"
-  copy_template_file "app/models/idempotent_request.rb"
-  # force, because `rails new --api` has already written a commented-out sample at
-  # this path. Without it an interactive generation stops and asks the user whether
-  # to keep the file the template deliberately came here to write.
-  copy_template_file "config/initializers/cors.rb", nil, force: true
-  copy_template_file "lib/tasks/api_contract.rake"
-
-  # The gate that makes "generated from the request tests" a promise rather than a
-  # preference. Written here rather than shipped as a static file because the
-  # service container follows the database family — docs/rules/openapi-contract.md.
-  create_file ".github/workflows/api-contract.yml", <<~YAML
-    name: API contract
+# A CI job that needs the database. The service container follows the database
+# family, so these workflows are written at generation rather than shipped as
+# static files; every drift gate that runs the suite goes through here.
+def database_workflow(title, job, final_steps)
+  <<~YAML
+    name: #{title}
 
     on: [ push, pull_request ]
 
     jobs:
-      contract:
+      #{job}:
         runs-on: ubuntu-latest
 
         services:
@@ -428,10 +415,42 @@ if API
 
           - run: bin/rails db:prepare
 
-          # Regenerates from the request tests and diffs against the committed copy.
-          # A stale openapi.yaml fails here rather than reaching a client.
-          - run: bin/rails api:contract:check
-    YAML
+    #{final_steps.indent(6).rstrip}
+  YAML
+end
+
+# Every SQL shape the suite emits has a reviewed line in db/queries.yml, and CI
+# fails on one it does not know — docs/rules/query-ledger.md. The recorder that
+# feeds it is copied with the test support files.
+copy_template_file "lib/tasks/query_ledger.rake"
+create_file ".github/workflows/query-ledger.yml", database_workflow("Query ledger", "queries", <<~YAML)
+  # Runs the suite with the recorder armed and fails on a shape db/queries.yml
+  # lacks, or a review left empty. Whether the review line is right is the PR
+  # reviewer's call; this only asserts that someone wrote one.
+  - run: bin/rails db:queries:check
+YAML
+
+if API
+  # The seven directories an API app gets — docs/rules/pattern-budget.md.
+  copy_template_file "app/serializers/application_serializer.rb"
+  copy_template_file "app/contracts/application_contract.rb"
+  copy_template_file "app/filters/application_filter.rb"
+  copy_template_file "app/lib/cursor.rb"
+  copy_template_file "app/controllers/api/v1/base_controller.rb"
+  copy_template_file "app/models/idempotent_request.rb"
+  # force, because `rails new --api` has already written a commented-out sample at
+  # this path. Without it an interactive generation stops and asks the user whether
+  # to keep the file the template deliberately came here to write.
+  copy_template_file "config/initializers/cors.rb", nil, force: true
+  copy_template_file "lib/tasks/api_contract.rake"
+
+  # The gate that makes "generated from the request tests" a promise rather than a
+  # preference — docs/rules/openapi-contract.md.
+  create_file ".github/workflows/api-contract.yml", database_workflow("API contract", "contract", <<~YAML)
+    # Regenerates from the request tests and diffs against the committed copy.
+    # A stale openapi.yaml fails here rather than reaching a client.
+    - run: bin/rails api:contract:check
+  YAML
 else
   # ApplicationForm base class (multi-model / non-AR forms)
   copy_template_file "app/forms/application_form.rb"
@@ -521,6 +540,10 @@ copy_template_file "test/support/vcr.rb"
 # Slowpoke slow-test reporting
 copy_template_file "test/support/slowpoke.rb"
 
+# Records the SQL shapes application code emits, so db/queries.yml is a build
+# output — docs/rules/query-ledger.md. Inert unless QUERY_LEDGER_OUT is set.
+copy_template_file "test/support/query_ledger.rb"
+
 if API
   # assert_problem and a token-per-scope helper — docs/rules/api-testing.md.
   copy_template_file "test/support/api_helpers.rb"
@@ -551,6 +574,9 @@ inject_into_file "test/test_helper.rb", after: %(require "rails/test_help"\n) do
 
   # Slowpoke — reports tests slower than the threshold after each run
   require_relative "support/slowpoke"
+
+  # Arms the query ledger recorder when QUERY_LEDGER_OUT is set; inert otherwise
+  require_relative "support/query_ledger"
 
   RUBY
 end
@@ -923,6 +949,13 @@ after_bundle do
   say "Setting up database...", :yellow
   rails_command "db:create", abort_on_failure: true
   rails_command "db:migrate", abort_on_failure: true
+
+  # Arm the query ledger: whatever shapes the shipped suite emits are in
+  # db/queries.yml before the first push, so the CI job has a file to check —
+  # docs/rules/query-ledger.md. Not abort_on_failure: a suite that cannot run here
+  # leaves the gate unarmed, which `bin/rails db:queries` fixes later.
+  say "Recording the query ledger...", :yellow
+  rails_command "db:queries"
 
   # The commit is the last thing generation does, and until now it could sink all
   # of it: a machine with no `user.email` — a fresh container, a CI runner — fails

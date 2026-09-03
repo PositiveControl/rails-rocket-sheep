@@ -80,7 +80,10 @@ done
 
 # The corpus that shipped, and the router it is reached through.
 rules=$(find docs/rules -name '*.md' -not -name 'INDEX.md' -not -name 'SYMPTOMS.md' | wc -l | tr -d ' ')
-want=$([[ "$MODE" == "api" ]] && echo 40 || echo 38)
+# Derived from the same frontmatter adopt.rb reads, so adding a rule cannot break
+# this. The routers are skipped: INDEX.api.md quotes a `modes:` line as an example.
+want=$(find "$TEMPLATE_ROOT"/templates/docs/rules -name '*.md' -not -name 'INDEX*' -not -name 'SYMPTOMS*' \
+         -exec grep -l "^modes:.*\b$MODE\b" {} + | wc -l | tr -d ' ')
 check "docs/rules has $want rules (found $rules)" "$([[ "$rules" == "$want" ]] && echo 0 || echo 1)"
 check "the skill's index exists" "$([[ -f docs/rules/INDEX.md && -f .claude/skills/rails-conventions/SKILL.md ]] && echo 0 || echo 1)"
 

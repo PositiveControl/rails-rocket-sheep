@@ -34,6 +34,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | `def self.something` returning a relation | [scopes](scopes.md) |
 | A save that mysteriously writes another table | [callbacks](callbacks.md) |
 | Slow endpoint, Bullet warning, a query per row | [n-plus-one](n-plus-one.md) |
+| CI says a query shape is unknown, or a review is empty; "does this query use an index?" | [query-ledger](query-ledger.md) |
 | Soft deletes, restoring a record | [deletes](deletes.md) |
 | Change history, who changed what | [audit-trail](audit-trail.md) |
 | Background work, retries, `perform_later` | [jobs](jobs.md) |
@@ -75,7 +76,8 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [filtering-sorting](filtering-sorting.md) | 730 | An allowlist that is data, not control flow |
 | [idempotency](idempotency.md) | 800 | A key on every write that costs money |
 | [jobs](jobs.md) | 600 | Thin wrapper, IDs not records, idempotent, after commit |
-| [n-plus-one](n-plus-one.md) | 370 | `includes`, `counter_cache`, aggregate in SQL |
+| [n-plus-one](n-plus-one.md) | 410 | `includes`, `counter_cache`, aggregate in SQL |
+| [query-ledger](query-ledger.md) | 950 | Every query shape has a reviewed line in `db/queries.yml`; CI fails on one it does not know |
 | [openapi-contract](openapi-contract.md) | 730 | Generated from the request tests; CI fails on drift |
 | [optional-patterns](optional-patterns.md) | 640 | Value objects, status columns, concerns |
 | [pattern-budget](pattern-budget.md) | 990 | Seven directories, DRY triggers, ADR for an eighth |
@@ -95,7 +97,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 580 | Layer order end to end |
 
-**Total corpus:** ~28,110 tokens across 40 rules — but nobody reads it whole.
+**Total corpus:** ~29,100 tokens across 41 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a

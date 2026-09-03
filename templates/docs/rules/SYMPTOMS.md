@@ -22,6 +22,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | `def self.something` returning a relation | [scopes](scopes.md) |
 | A save that mysteriously writes another table | [callbacks](callbacks.md) |
 | Slow page, Bullet warning, a query per row | [n-plus-one](n-plus-one.md) |
+| CI says a query shape is unknown, or a review is empty; "does this query use an index?" | [query-ledger](query-ledger.md) |
 | Soft deletes, `discarded_at`, restoring a record | [deletes](deletes.md) |
 | Change history, who changed what | [audit-trail](audit-trail.md) |
 | Background work, retries, `perform_later` | [jobs](jobs.md) |
@@ -69,7 +70,8 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [registries](registries.md) | 790 | `Data` objects, `fetch`, capabilities not identities |
 | [scopes](scopes.md) | 280 | Scopes, never class methods |
 | [callbacks](callbacks.md) | 370 | Same record only, `after_commit` for jobs |
-| [n-plus-one](n-plus-one.md) | 370 | `includes`, `counter_cache`, aggregate in SQL |
+| [n-plus-one](n-plus-one.md) | 410 | `includes`, `counter_cache`, aggregate in SQL |
+| [query-ledger](query-ledger.md) | 950 | Every query shape has a reviewed line in `db/queries.yml`; CI fails on one it does not know |
 | [deletes](deletes.md) | 610 | `destroy` by default, Discard opt-in, the `.kept` tax |
 | [audit-trail](audit-trail.md) | 560 | PaperTrail, scoped with `only:` |
 | [jobs](jobs.md) | 600 | Thin wrapper, IDs not records, idempotent, after commit |
@@ -96,7 +98,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [accessibility](accessibility.md) | 300 | Semantic HTML, contrast, keyboard, focus |
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 
-**Total corpus:** ~22,110 tokens across 38 rules. Typical read: this index (~3000)
+**Total corpus:** ~23,100 tokens across 39 rules. Typical read: this index (~3000)
 plus one or two rules (240–1150). Reading the whole corpus is a bug, not thoroughness.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand —

@@ -113,6 +113,9 @@ app's problem envelope rather than answering in a second format.
 | `bin/test` | Test runner; forces a single worker on macOS where Minitest forking is flaky |
 | `test/support/vcr.rb` | VCR configuration, required from `test_helper.rb` |
 | `test/support/slowpoke.rb` | Slow-test reporting, required from `test_helper.rb`; tuned by `SLOWPOKE_*` env vars |
+| `test/support/query_ledger.rb` | Records the SQL shapes application code emits; inert unless `QUERY_LEDGER_OUT` is set |
+| `lib/tasks/query_ledger.rake` | `db:queries`, `db:queries:explain` and `db:queries:check` — every query shape gets a reviewed line in `db/queries.yml` |
+| `.github/workflows/query-ledger.yml` | Runs `db:queries:check` with a service container matching your database |
 | `test/integration/seo_test.rb` | Asserts meta description, canonical URL, JSON-LD, sitemap, robots.txt |
 | `test/components/*_test.rb` | Unit tests for the four shipped components |
 | `.github/workflows/lighthouse.yml` | Weekly Lighthouse CI audit |
@@ -152,7 +155,6 @@ app's problem envelope rather than answering in a second format.
 | [`WORKFLOW.md`](../templates/WORKFLOW.md) | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
 | [`.llm/README.md`](../templates/.llm/README.md) | Index of committed docs, so agents find existing docs before writing duplicates |
 | [`.llm/tasks/task_template.md`](../templates/.llm/tasks/task_template.md) | Resumable task file format — the artifact that makes `/implement` idempotent |
-| `bin/pr-stack` | Stacked-PR footer generator, called by `/pr_submit` |
 | `bin/doc-tokens` | Regenerates the `tokens:` figure in each `docs/rules/*.md` and the four figures derived from it in the routers; `--check` fails on drift |
 | `bin/lint-docs` | The same checks this template runs on its own docs, pointed at yours: rule frontmatter, index routing, read costs, cross-mode links, path resolution, command frontmatter, quoted counts, and no routable host in any doc. `/update_docs` ends on it |
 | [`.github/PULL_REQUEST_TEMPLATE.md`](../templates/.github/PULL_REQUEST_TEMPLATE.md) | Tier-neutral PR body + checklist, for PRs opened by hand |
