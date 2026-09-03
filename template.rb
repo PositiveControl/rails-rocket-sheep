@@ -641,6 +641,14 @@ if API
         end
       end
 
+      # Devise, once `rails g devise User` has run. Its generator writes
+      # `devise_for :users` at the top of this file; replace that line with this
+      # one, so password reset, confirmation and unlock live under the version
+      # prefix and inside the CORS policy. Sessions are skipped because Doorkeeper
+      # issues the tokens — docs/rules/api-auth.md.
+      #
+      # devise_for :users, path: "api/v1/users", skip: [ :sessions ]
+
       # Email preview in development
       if Rails.env.development?
         mount LetterOpenerWeb::Engine, at: "/letter_opener"
@@ -992,10 +1000,10 @@ after_bundle do
     say "  4. Name the client origins CORS will allow:"
     say "     bin/rails credentials:edit   # api: { allowed_origins: [...] }"
     say ""
-    say "  5. Check the Doorkeeper resource owner is wired to Devise:"
-    say "     config/initializers/doorkeeper.rb — resource_owner_authenticator"
+    say "  5. After `rails g devise User`, move its route under the version prefix:"
+    say "     config/routes.rb — the commented devise_for line shows how"
     say ""
-    say "  6. Add your first endpoint under app/controllers/api/v1/, then:"
+    say "  6. Add your first endpoint: docs/sop/add-an-endpoint.md"
     say "     bin/rails api:contract       # generate openapi.yaml from the tests"
     say ""
     say "  7. Start developing:"

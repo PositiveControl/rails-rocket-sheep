@@ -115,6 +115,8 @@ and the "when not to" — follow the link before you argue with the rule.
   → `docs/rules/pattern-budget.md`
 - **`openapi.yaml` is regenerated in the same PR** that changes an endpoint, or CI
   fails → `docs/rules/openapi-contract.md`
+- **Adding an endpoint** follows `docs/sop/add-an-endpoint.md`: route, request test,
+  contract, filter, policy, service, serializer, controller, then regenerate
 <% else -%>
 - **Six sanctioned directories under `app/`** — `services`, `forms`, `queries`,
   `policies`, `lib`, `components`. A seventh needs an ADR → `docs/rules/pattern-budget.md`

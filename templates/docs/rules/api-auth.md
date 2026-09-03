@@ -5,7 +5,7 @@ applies_to: ["app/controllers/api/**/*.rb", "config/initializers/doorkeeper.rb",
 triggers: ["authentication", "bearer token", "OAuth", "Doorkeeper", "scope", "revoke", "401", "access token", "refresh token", "current_user in api"]
 see_also: ["policy-objects", "error-envelope", "status-codes", "rate-limiting"]
 modes: [ api ]
-tokens: 1160
+tokens: 1340
 current_state: matches
 ---
 
@@ -62,6 +62,21 @@ does not change shape between `v1` and `v2` of the resources behind it. They are
 the exception [api-versioning](api-versioning.md) otherwise refuses, and CORS names
 them by hand — [cors](cors.md). Their errors are RFC 6749 shape (`error`,
 `error_description`), not a problem document — [error-envelope](error-envelope.md).
+
+**Devise's routes live under the version prefix.** `rails g devise User` writes
+`devise_for :users` at the top of `routes.rb`, which puts password reset,
+confirmation and unlock at `/users/*`: outside the version and outside the CORS
+policy, so a browser client's reset request fails the same way the token endpoint
+did. Replace that line with
+
+```ruby
+devise_for :users, path: "api/v1/users", skip: [ :sessions ]
+```
+
+Sessions are skipped because Doorkeeper issues the tokens; add `:registrations`
+to the skip list if signup is not self-service. The reset mail's link then points
+at the API, so a client-side reset page means overriding the Devise mailer view to
+link to the client instead.
 
 **A first-party browser client uses the password grant, as a public client.** The
 shipped initializer configures the authorization-code flow, which needs a login page

@@ -91,7 +91,7 @@ read one when the work touches it, not because you opened a file of that type.
 | asserting a failure | [error-envelope](error-envelope.md) · [status-codes](status-codes.md) |
 | testing who may call what | [api-auth](api-auth.md) · [policy-objects](policy-objects.md) |
 
-**Read cost:** this index (~1600) plus one or two rules (240–1160) ·
+**Read cost:** this index (~1600) plus one or two rules (240–1340) ·
 [`SYMPTOMS.md`](SYMPTOMS.md) (~2400) only when routing by path missed. Every `tokens`
 figure is generated from the file by `bin/doc-tokens` — budget from it, and re-run that
 script after editing a rule.

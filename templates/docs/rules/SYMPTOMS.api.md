@@ -55,7 +55,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 
 | Rule | Tokens | Covers |
 |---|---|---|
-| [api-auth](api-auth.md) | 1160 | Doorkeeper, coarse scopes, server-side revocation |
+| [api-auth](api-auth.md) | 1340 | Doorkeeper, coarse scopes, server-side revocation |
 | [api-testing](api-testing.md) | 750 | Request tests are the layer that matters |
 | [api-versioning](api-versioning.md) | 610 | One number in the path, additive within it |
 | [async-202](async-202.md) | 610 | 202, a `Location`, and a real status resource |
@@ -97,7 +97,7 @@ once. Routing by path is cheaper and lands in the same place; start there.
 | [testing](testing.md) | 1150 | Minitest + fixtures, which layer tests what, VCR |
 | [write-path](write-path.md) | 580 | Layer order end to end |
 
-**Total corpus:** ~29,100 tokens across 41 rules — but nobody reads it whole.
+**Total corpus:** ~29,280 tokens across 41 rules — but nobody reads it whole.
 A typical lookup is [`INDEX.md`](INDEX.md) plus one or two rules.
 
 These figures are generated from the files by `bin/doc-tokens`, not typed by hand — a
