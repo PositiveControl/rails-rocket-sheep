@@ -23,7 +23,7 @@ CI gates already in place. Arguments: `$ARGUMENTS`.
 
    ```bash
    rails new <app-name> --database=<database> [--api] \
-     --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/v1.0.1/template.rb
+     --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/v1.1.0/template.rb
    ```
 
 4. If it fails, show the last thirty lines of output and stop. Do not retry with

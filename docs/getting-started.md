@@ -43,6 +43,15 @@ pinned to the latest tagged release rather than `main`:
 rails new myapp --database=postgresql --template=https://railsbytes.com/script/Vwys9d
 ```
 
+From Claude Code, the plugin runs the same `rails new`, pinned to the latest tagged
+release:
+
+```
+/plugin marketplace add PositiveControl/rails-rocket-sheep
+/plugin install rails-rocket-sheep@rails-rocket-sheep
+/rails-rocket-sheep:new myapp --database=postgresql
+```
+
 Or from a local clone, which is faster if you're generating more than one app:
 
 ```bash
