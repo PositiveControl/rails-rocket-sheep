@@ -62,14 +62,20 @@ end
 
 # Fetch whatever BASE names, not only main: CI passes the PR's own base (see
 # .github/workflows/flay.yml), and actions/checkout leaves a feature branch
-# unfetched — a missing ref reads as an empty BASE tree, which reports
-# every duplicate in the repo as added.
-base_ref = BASE.delete_prefix("origin/")
-system("git fetch -q origin #{base_ref} 2>/dev/null") if BASE.start_with?("origin/")
+# unfetched. A ref that still does not resolve aborts: read as an empty tree,
+# it would report every duplicate in the repo as added.
+system("git", "fetch", "-q", "origin", BASE.delete_prefix("origin/"), err: File::NULL) if BASE.start_with?("origin/")
+unless system("git", "rev-parse", "--verify", "--quiet", "#{BASE}^{commit}", out: File::NULL)
+  abort "flay: BASE #{BASE} is not a commit here. Fetch it, or set BASE to the branch this one targets."
+end
 
 before = Dir.mktmpdir do |tmp|
-  present = `git ls-tree --name-only #{BASE} -- #{DIRS.join(' ')}`.split
-  system("git archive #{BASE} #{present.join(' ')} | tar -x -C #{tmp}", exception: true) unless present.empty?
+  present = IO.popen([ "git", "ls-tree", "--name-only", BASE, "--", *DIRS ], &:read).split
+  unless present.empty?
+    archive = File.join(tmp, "base.tar")
+    system("git", "archive", "-o", archive, BASE, *present, exception: true)
+    system("tar", "-xf", archive, "-C", tmp, exception: true)
+  end
   occurrences(scan(tmp))
 end
 

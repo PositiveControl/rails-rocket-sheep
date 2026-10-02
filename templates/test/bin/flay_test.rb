@@ -114,14 +114,21 @@ class FlayGateTest < Minitest::Test
     assert status.success?, out
   end
 
+  def test_aborts_when_base_does_not_resolve
+    out, status = run_gate("BASE" => "no-such-ref")
+
+    refute status.success?, out
+    assert_includes out, "BASE no-such-ref is not a commit here"
+  end
+
   private
 
   def write(path, body)
     File.write(File.join(@repo, path), body)
   end
 
-  def run_gate
-    env = { "BASE" => "HEAD", "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") }
+  def run_gate(overrides = {})
+    env = { "BASE" => "HEAD", "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") }.merge(overrides)
     out, err, status = Open3.capture3(env, File.join(ROOT, "bin/flay"), chdir: @repo)
     [ out + err, status ]
   end
