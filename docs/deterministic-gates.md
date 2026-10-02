@@ -16,8 +16,8 @@ did. This doc scopes the checking layer.
 
 ## 1. What's already enforced
 
-A generated app ships five deterministic layers. They cover a small slice of the
-rule corpus, and three of the five are Claude-Code-specific.
+A generated app ships seven deterministic layers. They cover a small slice of the
+rule corpus, and three of the seven are Claude-Code-specific.
 
 | Layer | Fires when | Covers today | Tool-neutral? |
 |---|---|---|---|
@@ -27,12 +27,14 @@ rule corpus, and three of the five are Claude-Code-specific.
 | Rails 8 default `ci.yml` + branch protection | push / PR | `scan_ruby`, `scan_js`, `lint` (RuboCop), `test` | ✅ any agent |
 | [`bin/gates`](../templates/bin/gates) via `pre-push` + [`gates.yml`](../templates/.github/workflows/gates.yml) | push / PR | rejected-pattern tokens, `app/` directory budget, `.cursor/commands` mirror, unindexed foreign keys | ✅ any agent |
 | `bin/rails db:queries:check` via the generated `query-ledger.yml` | push / PR | every SQL shape the suite emits from `app/` has a reviewed line in `db/queries.yml` | ✅ any agent |
+| [`bin/flay`](../templates/bin/flay) via [`flay.yml`](../templates/.github/workflows/flay.yml) | PR | Ruby the PR copies (identical, or a method or class renamed) that its own base lacks | ✅ any agent |
 
 Net: of **39 rules and 4 workflow gates (G1–G4)** in web mode, **seven rules** have a
 deterministic backstop — the two RuboCop-and-Slim checks in `post_edit`, the
 Draft-placeholder check in `session_end`, `rejected-patterns`,
 `pattern-budget` and the foreign-key half of `database-conventions` in
-`bin/gates`, and `query-ledger` in its own CI job. Everything else is prose. The
+`bin/gates`, and `query-ledger` in its own CI job. `bin/flay` backs no rule: it
+gates copy-paste, which no rule names. Everything else is prose. The
 [inventory](inventory.md) states the problem plainly: *"the alignment layer was
 entirely advisory… Conventions drift under pressure. This reduces divergence; it
 doesn't eliminate it."*
@@ -408,7 +410,10 @@ opted in.
 2. **MySQL normalization.** Inline literals are the hard case: a string literal
    containing a quote, a `LIMIT 20 OFFSET 40` pair, a datetime. The regex has to
    be proven on a MySQL probe before the check is turned on there. **Decided:**
-   one normalizer for both families — `$n`, quoted literals (with `3. **Ledger size.** A mature app might carry several hundred shapes. That is the
+   one normalizer for both families — `$n`, quoted literals (with `\'` and `''`
+   escapes), bare numbers, then runs of `?` collapse to one. Proven on sample
+   MySQL SQL, not on a live MySQL probe; that run is verification debt.
+3. **Ledger size.** A mature app might carry several hundred shapes. That is the
    point — each was looked at — but the file needs to stay reviewable in a diff,
    so entries are sorted by `from:` then `sql`, and nothing else is stored.
    **Decided:** as written. The literal query `explain` needs lives in
@@ -437,29 +442,4 @@ attention a reviewer would otherwise spend on the mechanical third.
 - [`inventory.md`](inventory.md) — shipped/absent status; gap 9 (cursor-drift) folds in here
 - [`../templates/WORKFLOW.md`](../templates/WORKFLOW.md) — the four workflow gates and tier model
 - [`../templates/docs/rules/INDEX.md`](../templates/docs/rules/INDEX.md) — the 39-rule web-mode corpus being bucketed
-- [`../templates/docs/rules/pattern-budget.md`](../templates/docs/rules/pattern-budget.md) — the gate-ability criterion
-` and `''`
-   escapes), bare numbers, then runs of `?` collapse to one. Proven on sample
-   MySQL SQL, not on a live MySQL probe; that run is verification debt.
-3. **Ledger size.** A mature app might carry several hundred shapes. That is the
-   point — each was looked at — but the file needs to stay reviewable in a diff,
-   so entries are sorted by `from:` then `sql`, and nothing else is stored.
-
-## 9. What this does not do
-
-Same honesty as [`agent-guardrails.md`](agent-guardrails.md): gates reduce the
-blast radius; they don't remove review. An agent can still write logically wrong
-code that passes every mechanical check — the gates decide *shape and process
-conformance*, not correctness. The un-gateable two-thirds of the corpus (Bucket C)
-is exactly the part that most needs a human to read the diff. Gates buy back the
-attention a reviewer would otherwise spend on the mechanical third.
-
----
-
-## Cross-references
-
-- [`agent-guardrails.md`](agent-guardrails.md) — the existing enforcement layer this extends
-- [`inventory.md`](inventory.md) — shipped/absent status; gap 9 (cursor-drift) folds in here
-- [`../templates/WORKFLOW.md`](../templates/WORKFLOW.md) — the four workflow gates and tier model
-- [`../templates/docs/rules/INDEX.md`](../templates/docs/rules/INDEX.md) — the 38-rule web-mode corpus being bucketed
 - [`../templates/docs/rules/pattern-budget.md`](../templates/docs/rules/pattern-budget.md) — the gate-ability criterion

@@ -16,7 +16,7 @@ Each command declares a one-line description and, where it takes one, an argumen
 
 Every command ends by naming the next one, so the workflow self-navigates. `/pick` is the entry door for every session — it surfaces prioritized ready work and routes each item by shape and tracker state.
 
-Naming the next command is a prompt for you, not a handoff: nothing here invokes another command on its own. Fifteen of the nineteen are yours to type, because they post, push, move the board, or stand at a gate. The other four (`/run_lint`, `/test_fix`, `/rails_code_review`, `/pr_fix_ci`) only read and edit locally, so an agent may reach for one mid-session when the situation fits. The generated app's `WORKFLOW.md` states which is which, per command, with the reason.
+Naming the next command is a prompt for you, not a handoff: nothing here invokes another command on its own. Fifteen of the twenty-five are yours to type, because they post, push, move the board, or stand at a gate. The other ten (`/grill`, `/research`, `/domain_model`, `/diagnose`, `/resolve_conflicts`, `/run_lint`, `/test_fix`, `/rails_code_review`, `/qa_walkthrough`, `/pr_fix_ci`) only read and edit locally, so an agent may reach for one mid-session when the situation fits. The generated app's `WORKFLOW.md` states which is which, per command, with the reason.
 
 ```mermaid
 flowchart LR
@@ -150,6 +150,7 @@ Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there �
 | `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR (with `Closes #n` where the tier uses it) → comments (G4) |
 | `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session, and `--local` before a PR exists |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
+| `/qa_walkthrough` | Core | Writes a `script/qa/` script that drives a browser through the pages a change touched, for the reviewer; web mode only |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/rails_code_review` | Core | Rails-specific review against this stack's conventions |
 | `/grill` | Optional | Interview a design in rounds until nothing is silently assumed |
@@ -241,7 +242,7 @@ Exactly one owner per slot. This matters if you run other agent tooling alongsid
 
 The commands are markdown files. Delete what you don't want.
 
-Ten of the nineteen commands touch no tracker at all — `/pr_qa`, `/rails_code_review`, `/run_lint`, `/test_fix`, `/update_docs`, and all five `segue_*`. They work standalone on any repo.
+Many commands touch no tracker at all, among them `/pr_qa`, `/rails_code_review`, `/run_lint`, `/test_fix`, `/update_docs`, and all five `segue_*`. They work standalone on any repo.
 
 The tiers exist so the other nine degrade rather than break. If you don't use GitHub at all, delete `.claude/commands/` and `.cursor/commands/`; the rest of the template is unaffected.
 

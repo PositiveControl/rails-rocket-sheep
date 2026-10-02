@@ -9,6 +9,8 @@ rails new myapp --database=postgresql \
   --template=https://raw.githubusercontent.com/PositiveControl/rails-rocket-sheep/main/template.rb
 ```
 
+From Claude Code, `/plugin marketplace add PositiveControl/rails-rocket-sheep` then `/plugin install rails-rocket-sheep@rails-rocket-sheep` adds `/rails-rocket-sheep:new`, which runs the same command against the latest release.
+
 ## Docs
 
 - [README](https://github.com/PositiveControl/rails-rocket-sheep/blob/main/README.md): what it adds to `rails new`, and how to start
