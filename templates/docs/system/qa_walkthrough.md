@@ -6,6 +6,9 @@ that changed and captions it on screen. In the terminal, Enter advances and Esc 
 are ignored. `/qa_walkthrough <issue>` writes the script (`.claude/commands/qa_walkthrough.md`);
 the human QA pass and its report in `docs/qa/` remain `/pr_qa`'s.
 
+Web mode only. An API-only app has no pages to walk, ships no `bin/qa-walkthrough`, and skips
+the step with a one-line reason in the PR body.
+
 ## Where it sits in the workflow
 
 Every branch, not just features. `/task_plan` ends the Next Actions with the walkthrough steps the
