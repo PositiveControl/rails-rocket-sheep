@@ -68,6 +68,7 @@ flowchart TB
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
 | Reviewer walkthroughs | ✅ | `lib/qa_walkthrough.rb` + `bin/qa-walkthrough` (generation only, web mode): a script per change drives a browser through the pages it touched. `/qa_walkthrough` writes one; `/task_plan` plans it and `/pr_submit` Step 3b gates on it. The human pass stays `/pr_qa` |
 | Duplication gate | ✅ | `bin/flay` + `.github/workflows/flay.yml` (generation only): fails on copied Ruby a PR adds against its own base. Run by `/run_lint` and `/pr_submit` |
+| Pre-PR review | ✅ | `/implement` Step 5: a new-context agent runs `/pr_review --local`, this session verifies each finding, the developer rules on disagreements, fixes land with a failing-first test. Two rounds at most; round 2 reviews only round 1's fixes |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
 | Model-invocable conventions | ✅ | One skill, `.claude/skills/rails-conventions/`, pointing at `docs/rules/INDEX.md`. Closes the one cost [ADR 0001](../.agents/adr/0001-plain-markdown-commands-not-skills.md) accepted and could not mitigate: routing that only fires when something tells the agent to read the index first. Carries no rule content and no routing table ([ADR 0010](../.agents/adr/0010-skills-are-a-generated-overlay-over-the-rule-index.md)) |
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |

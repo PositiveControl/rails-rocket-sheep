@@ -147,7 +147,7 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   bullets. Forecast passes 1,500 lines mid-implementation → stop, split, land the
   current slice
 - Multi-slice features land on `feature/<slug>`. A slice is reviewed by `/pr_review`
-  run from a fresh session until a pass is clean, and merged there on that review;
+  run from a fresh session, two passes at most, and merged there on that review;
   the feature PR gets the human review. Spec: `WORKFLOW.md`, *Feature branches*;
   why: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`
 - `/segue` is the escape valve — isolate a tangent, merge findings back without

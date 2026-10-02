@@ -18,6 +18,7 @@ Verify branch ready to push:
 3. Run `git log origin/<BASE>..HEAD --oneline` to confirm commits exist to push.
 4. Confirm branch name follows convention `{{BRANCH_PREFIX}}/<issue>/<slug>` (e.g., `{{BRANCH_PREFIX}}/1613/fix-address-delete`). Mismatch → note, don't block.
 5. Rebase or merge left conflicts in the tree → `/resolve_conflicts` first. Never push a half-resolved rebase.
+6. No `Pre-PR review:` line in the task file's progress log → run `/implement` Step 5 (the fresh-context review) now, then come back.
 
 ### Step 2: Run local checks (pre-push)
 
@@ -241,7 +242,7 @@ If there are human reviewers who need to approve, mention that.
 
 ### Next step
 
-`<BASE>` is a feature branch → this is a slice, and you review it yourself from a **new session**: `/pr_review <PR_NUMBER>`, repeated from a fresh session each time until a pass is clean, at most five. That session merges it and updates the feature PR (`/pr_review`, *Self-review of a slice*). Say so and stop here.
+`<BASE>` is a feature branch → this is a slice, and you review it yourself from a **new session**: `/pr_review <PR_NUMBER>` — two passes at most, each from a fresh session, the second over only the first's fixes. That session merges it and updates the feature PR (`/pr_review`, *Self-review of a slice*). Say so and stop here.
 
 `<BASE>` is `main` → merge is human judgment — a reviewer approves and clicks merge. After merge, GitHub auto-deletes the branch under every tier. Under `github-projects` and `labels`, `Closes #N` closes the issue, and under `github-projects` the Projects "item closed" workflow then sets the board to Done. Under `beads` nothing happens at merge time by design — the next `/pick` reconciles the bead closed. No cleanup command in any tier.
 

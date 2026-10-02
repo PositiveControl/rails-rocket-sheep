@@ -101,7 +101,7 @@ An issue fits when its acceptance criteria fit in ≤5 testable bullets. More th
 
 ## Feature branches
 
-A feature with more than one slice does not land on `main` one slice at a time. `/task_plan` for the first slice creates `feature/<slug>`, named after the design doc, and opens a draft PR from it to `main`. Every slice branches from that branch and its PR targets it. Each slice PR is reviewed by `/pr_review` run from a fresh session — a new context per pass, until a pass is clean, at most five — and you merge it there on that review rather than your own reading. The feature reaches `main` as one PR, reviewed by a human as a walk over the design doc's slice list and the slice reviews rather than as one enormous diff.
+A feature with more than one slice does not land on `main` one slice at a time. `/task_plan` for the first slice creates `feature/<slug>`, named after the design doc, and opens a draft PR from it to `main`. Every slice branches from that branch and its PR targets it. Each slice PR is reviewed by `/pr_review` run from a fresh session — a new context per pass, two passes at most, the second reviewing only the first's fixes — and you merge it there on that review rather than your own reading. The feature reaches `main` as one PR, reviewed by a human as a walk over the design doc's slice list and the slice reviews rather than as one enormous diff.
 
 Two consequences are easy to miss. GitHub's `Closes #n` only fires on a merge to the default branch, so slice PRs carry no `Closes` line and the feature PR carries one per landed slice: Done still means *in `main`*, on every tier. And doc placeholders belong to the feature, so a slice completes what it can and the "no Draft left behind" rule is enforced on the feature PR.
 
@@ -146,9 +146,9 @@ Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there �
 | `/pick` | Core | Entry door. Prioritized ready work; routes epic → `/feature_plan`, sized Todo → `/task_plan`, In Progress → `/implement`, Blocked → show blocker |
 | `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
-| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit |
+| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit; ends with a fresh-context `/pr_review --local`, two rounds at most |
 | `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR (with `Closes #n` where the tier uses it) → comments (G4) |
-| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session |
+| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session, and `--local` before a PR exists |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/rails_code_review` | Core | Rails-specific review against this stack's conventions |

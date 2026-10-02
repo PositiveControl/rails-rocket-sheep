@@ -1,6 +1,6 @@
 ---
 description: "Full-context PR review — someone else's, or your own slice from a fresh session"
-argument-hint: "<PR number>"
+argument-hint: "<PR number> | --local <base>"
 ---
 
 # PR Code Review
@@ -8,6 +8,17 @@ argument-hint: "<PR number>"
 Review a pull request and post feedback — another contributor's, or your own slice PR from a session that did not write it (see *Self-review of a slice*). Pass PR number as argument: `/pr_review 42`
 
 ## Instructions
+
+### Local mode: `/pr_review --local <base>`
+
+No PR yet — the pre-PR review `/implement` Step 5 runs in a fresh-context agent. Same review, different edges:
+
+- **Diff** = `git diff <base>...HEAD` (and `--name-only`) in place of `gh pr diff`; base-side files via `git show <base>:<path>`. `<base>` is a remote branch (`git fetch` it first) or, in round 2, a SHA.
+- **Skip** Step 1 (read the task file for the issue in the branch name instead), Step 4 (no comments exist), Steps 10–11.
+- **Every blocker states a failure scenario**: this input or state → this wrong result, at `file:line`. Can't write one → it goes under **Questions for the author**, not **Blocking issues**. The calling agent checks each finding against the code before it commits a fix; a scenario is what it checks.
+- The prompt may list settled findings — dropped, or changed on purpose in an earlier round. Leave them out unless you think the ruling or the change is wrong: then list it under **Questions for the author** with your reason.
+- **Step 9** → its summary, minus *Existing feedback summary*, is your final message to the calling agent. Ask the user nothing and post nothing. Nothing to report → say so plainly: `No blockers, suggestions or nitpicks.`
+- Read-only: no edits, commits or pushes. The calling agent owns the fixes.
 
 ### Step 1: Fetch PR context
 
@@ -255,13 +266,16 @@ After posting, display:
   URL: <review URL>
 ```
 
-Then name what runs next. Someone else's PR → nothing; the author picks it up. A self-review pass with blocking findings → `/pr_comment_resolver <PR_NUMBER>` in the authoring session, then another pass from a new session. A self-review pass with none → land the slice, below.
+Then name what runs next. Someone else's PR → nothing; the author picks it up. Self-review pass 1 with blockers or suggestions → `/pr_comment_resolver <PR_NUMBER>` in the authoring session, then pass 2 from a new session. Pass 1 with none, or pass 2 done → land the slice, below.
 
 ## Self-review of a slice
 
 A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed by its own author running this command from a **new session with no memory of writing the code**, once per pass. The context that wrote a diff shares its blind spots; a fresh one does not. Why the slice merges on this review and the feature on a human's is `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
 
-- **Pass loop.** Run this command. The authoring session addresses what it posts with `/pr_comment_resolver`. Run it again from another new session — Step 4 reads the earlier passes, so each one builds on the last instead of repeating it. Stop when a pass reports **no blocking findings**. Stop at **five passes** regardless and hand the diff to a human to read: five rounds without convergence is a design problem, not a review problem.
+- **Two passes at most.** More feed on each other: a later pass finds bugs inside an earlier pass's fixes, or undoes them.
+  - **Pass 1** reviews the slice. The authoring session verifies every finding against the code before fixing it — a reviewer is not the spec — and takes the ones it judges wrong to the developer (*Fix it* / *Drop it*); the developer's ruling is final. It addresses the rest with `/pr_comment_resolver`. Blocker and suggestion fixes land with a test that fails without them, as in `/implement` Step 5; nitpicks are fixed together or dropped, and never trigger pass 2.
+  - **Pass 2** runs once, from another new session, and only when pass 1 left fixed blockers or suggestions. It reviews only those fixes: the diff from the commit pass 1 reviewed (its review's `commit_id`) to `HEAD`, plus wherever the fixes reach — callers, shared state, tests they changed or deleted. Step 4 hands it pass 1 and the replies, so a dropped finding stays dropped.
+  - **No pass 3.** Pass 2's confirmed blockers and suggestions go to the developer with the proposed fix (*Fix it* / *Drop it*), and fixes land under the same test rule. Then land the slice.
 - **Post as COMMENT.** GitHub refuses APPROVE and REQUEST_CHANGES on your own PR. Open the review body with `Self-review pass <N>` so the feature-PR reviewer can count them.
 - **Land it from this session.** A clean pass is what merges a slice — you run it, on the strength of the review rather than your own reading:
 
