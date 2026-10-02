@@ -29,7 +29,7 @@ rails new myapp --database=postgresql \
 - **Patterns before the agent arrives.** `ApplicationService` with a Result type,
   `ApplicationForm`, `ApplicationComponent`, `Data`-based registries, and a fixed
   budget of directories under `app/` so the catalogue names its own limit.
-- **A workflow, not just advice.** 24 slash commands from "what should I do next"
+- **A workflow, not just advice.** 25 slash commands from "what should I do next"
   to a merged PR, with review gates, mirrored to Claude Code and Cursor.
 - **Gates that do not depend on the agent cooperating.** An agent will eventually
   miss a rule, so the rules a machine can check are checked. `bin/gates` runs from a
@@ -126,7 +126,7 @@ choice, is in [Comparison](docs/comparison.md).
 | [Getting Started](docs/getting-started.md) | Prerequisites, first run, the first ten minutes in both modes |
 | [What's Included](docs/whats-included.md) | Every gem and file the template adds, and why |
 | [Working With AI Agents](docs/working-with-ai-agents.md) | How the conventions are structured, and how to extend them |
-| [The Agent Workflow](docs/workflow.md) | The 24 slash commands, the gates, sizing rules, setup |
+| [The Agent Workflow](docs/workflow.md) | The 25 slash commands, the gates, sizing rules, setup |
 | [Agent Guardrails](docs/agent-guardrails.md) | Permissions and hooks: enforcement, not just conventions |
 | [Deployment](docs/deployment.md) | Kamal from zero to a deployed app on a fresh VPS |
 | [Staying Current](docs/staying-current.md) | Updating a generated app, and adopting the layer into an app that isn't one |

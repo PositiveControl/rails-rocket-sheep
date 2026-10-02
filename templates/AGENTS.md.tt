@@ -58,6 +58,7 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `pr_submit` | Local suite → docs resolved → PR → review comments |
 | `pr_review` | Full-context diff review; also the self-review pass on a slice, from a fresh session |
 | `pr_qa` | Guided manual QA pass, structured report |
+| `qa_walkthrough` | Script that drives a browser through a change for the reviewer |
 | `rails_code_review` | Rails-specific review against this stack's conventions |
 | `update_docs` | Deep doc pass; keeps the index honest |
 | `segue`, `segue_resume`, `segue_close`, `segue_merge`, `segue_kill` | Isolated discussion thread with findings-only merge-back |

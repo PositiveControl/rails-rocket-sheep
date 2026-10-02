@@ -69,6 +69,8 @@ policies and the conditionals in the views.
 
 ### Step 5: Run the pass with the tester
 
+The branch carries a walkthrough (`script/qa/<name>.rb`, from `/qa_walkthrough`) → run it first, unattended (`QA_AUTO=1 QA_HEADLESS=1 bin/qa-walkthrough <name>`), and start the pass from its screenshots in `tmp/qa_walkthrough/<name>/`; its header comment names what it does not walk, which is where the hands-on part begins.
+
 Work one area at a time. As results come back, track each case as pass, fail,
 partial, or blocked, ask the targeted follow-up when an answer is ambiguous, and
 help separate a real bug from expected behaviour from an unclear requirement.

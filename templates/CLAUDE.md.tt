@@ -169,6 +169,12 @@ bin/test test/models/user_test.rb:42  # Specific line
 ```
 
 System tests are separate: `bin/rails test:system`.
+<% unless API_MODE -%>
+
+Every branch with a user-facing change ships a reviewer walkthrough (`script/qa/`,
+`bin/qa-walkthrough`; `docs/system/qa_walkthrough.md`) unless the developer skips it —
+`/task_plan` plans the steps, `/pr_submit` gates on them.
+<% end -%>
 
 How to write one — layering, fixtures, VCR, assertions — is `docs/rules/testing.md`.
 
@@ -279,7 +285,7 @@ docs/                       # names are load-bearing
 ├── sop/                    # Procedures / how-tos
 └── qa/                     # Manual test guides
 
-.claude/commands/           # 24 workflow slash commands (tracked, shared)
+.claude/commands/           # 25 workflow slash commands (tracked, shared)
 .llm/
 ├── tasks/                  # Task files — local scratch, gitignored
 └── threads/                # Segue threads — local scratch, gitignored

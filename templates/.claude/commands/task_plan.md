@@ -41,7 +41,7 @@ Create `.llm/tasks/<issue_number>_<snake_case_slug>.md` from `.llm/tasks/task_te
 - **Background/Context**: synthesized from issue, comments, design doc, exploration
 - **Requirements & Acceptance Criteria**: from the issue (in scope AND out of scope explicit)
 - **Base**: `main`, unless the issue body, its parent, or the design doc names a feature branch `feature/<slug>` — then that. Every later command diffs and opens the PR against this line
-- **Next Actions**: concrete implementation steps — files to modify, approach, test strategy
+- **Next Actions**: concrete implementation steps — files to modify, approach, test strategy. **Last action is always the QA walkthrough** (`docs/system/qa_walkthrough.md`): which `step`s the change adds to `script/qa/<feature>.rb` (or a new script), or the one-line reason there is nothing to show (no user-facing change; API-only app). `/pr_submit` Step 3b checks this landed
 - **References**: issue, parent, design doc, key source files
 
 Conventions live in `CLAUDE.md` — the task file references it, never copies rules.
@@ -53,6 +53,7 @@ Conventions live in `CLAUDE.md` — the task file references it, never copies ru
 3. **Files to change**: each file + brief change description
 4. **New tests**: coverage to add
 5. **Size forecast**: estimated added lines and files vs the 200–1,500 / 25 target — over → propose a split now
+5b. **Walkthrough**: the steps the change adds to the QA walkthrough, or why it has nothing to show — the developer can strike it here
 6. **Risks/Questions**: anything needing clarification
 7. **Flagged decisions**: architecture choices or new patterns (ALWAYS need user approval)
 

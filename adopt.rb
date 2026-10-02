@@ -129,6 +129,7 @@ empty_directory "docs/qa"
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/vocabulary.md"
+copy_template_file "docs/system/qa_walkthrough.md" unless API_MODE
 
 # One decision per file, numbered, newest last. Globbed for the same reason the
 # rules are: adding a decision must not mean editing a manifest, or the ADR that

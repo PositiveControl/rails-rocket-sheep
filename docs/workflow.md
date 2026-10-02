@@ -1,10 +1,10 @@
 # The Agent Workflow
 
-Every generated app ships with 24 slash commands that drive work from "what should I do next" through to a merged PR. This is the piece that turns the conventions in `CLAUDE.md` from advice into a process.
+Every generated app ships with 25 slash commands that drive work from "what should I do next" through to a merged PR. This is the piece that turns the conventions in `CLAUDE.md` from advice into a process.
 
 Full spec, diagrams, and gate definitions live in the generated app's `WORKFLOW.md`. This page is the orientation.
 
-Each command declares a one-line description and, where it takes one, an argument hint. Claude Code and Cursor render those in their command pickers, so the set is browsable without opening 24 files.
+Each command declares a one-line description and, where it takes one, an argument hint. Claude Code and Cursor render those in their command pickers, so the set is browsable without opening 25 files.
 
 ---
 

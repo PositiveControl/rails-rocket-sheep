@@ -76,6 +76,19 @@ Docs ship with the PR — reviewers review them with the code.
 4. **Verify the index**: check for duplicate entries and links to files that don't exist; fix any found
 5. Commit doc changes as their own commit
 
+### Step 3b: QA walkthrough — every branch, unless the developer skips it
+
+Reviewers get a guided walkthrough with the code (`docs/system/qa_walkthrough.md`). This step runs on every PR; the only way past it is the developer's explicit skip. An API-only app has no pages to walk: skip with the one-line reason.
+
+1. **Does the branch already carry it?** `git diff --name-only origin/<BASE>..HEAD | grep '^script/qa/'` — the plan's walkthrough step landed during `/implement` → run it once unattended (`QA_AUTO=1 QA_HEADLESS=1 bin/qa-walkthrough <name>`, no `✗`) and move on.
+2. **Otherwise decide what it would show.** List the user-facing surfaces the diff touches: `git diff --name-only origin/<BASE>..HEAD | grep -E '^app/(views|components|controllers|javascript|helpers)/'`. Nothing user-facing (model, service, job, rake, docs only) → the default is skip, and say so in one line in the PR body ("No walkthrough: no user-facing change").
+3. **Something user-facing → ask the developer, one round, with create as the recommended default:**
+   - *Create the walkthrough now (recommended)* — run `/qa_walkthrough <issue>` (it extends the parent feature's script when one exists, otherwise starts one for this branch), then return here
+   - *Skip: covered by an existing walkthrough* — name the script; add the branch's steps to it only if they are missing
+   - *Skip: not worth a walkthrough* — the developer's call; one line in the PR body says so
+   No answer possible (a non-interactive run) → create; never skip silently.
+4. The walkthrough commit rides with the PR. Mention `bin/qa-walkthrough <name>` in the Test plan.
+
 ### Step 4: Push and create/update PR
 
 Push branch:
@@ -117,6 +130,7 @@ gh pr create --base <BASE> --title "{{PR_TITLE_PREFIX}} | <ISSUE_NUMBER> | <Shor
 ## Test plan
 - [ ] CI pipeline passes
 - [ ] <specific test scenarios from the task file's acceptance criteria>
+- [ ] `bin/qa-walkthrough <name>` walks the change (or: No walkthrough — <reason from Step 3b>)
 
 EOF
 )"
@@ -213,6 +227,7 @@ When the PR is clean, present:
   Checks: Fast checks passing (scan_ruby, scan_js, lint)
   Test: Running in CI (already passed locally)
   Docs: placeholders resolved, index verified
+  Walkthrough: bin/qa-walkthrough <name> (<n> steps) | skipped: <reason>
   Reviews: <summary of any reviews>
 ```
 

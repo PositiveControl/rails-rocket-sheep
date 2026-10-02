@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Guided UI walkthrough for a reviewer: bin/qa-walkthrough <name>
+# <name> is a file in script/qa/. Needs bin/dev running (or QA_HOST set).
+# QA_AUTO=1 QA_HEADLESS=1 runs unattended and leaves a screenshot per step in
+# tmp/qa_walkthrough/<name>/. See lib/qa_walkthrough.rb.
+cd "$(dirname "$0")/.." || exit 1
+
+if [ -z "$1" ] || [ ! -f "script/qa/$1.rb" ]; then
+  echo "usage: bin/qa-walkthrough <name>"
+  echo "available:"
+  for script in script/qa/*.rb; do
+    [ -f "$script" ] && echo "  $(basename "$script" .rb)"
+  done
+  exit 1
+fi
+
+exec bin/rails runner "script/qa/$1.rb"

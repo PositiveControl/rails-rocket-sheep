@@ -277,6 +277,7 @@ exists to create.
 | `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
 | `/test_fix` | Either | The suite is already red; triage and a local fix are bounded work |
 | `/rails_code_review` | Either | Reads the branch and reports. It posts nothing |
+| `/qa_walkthrough` | Either | Writes a script locally and runs it against your own server. Nothing leaves the machine; `/pr_submit` decides whether it was needed |
 | `/pr_fix_ci` | Either, up to a point | Reading a failed run and fixing locally is fair game; pushing the fix is yours |
 
 **Either** means an agent may follow the file when the situation calls for it, and
