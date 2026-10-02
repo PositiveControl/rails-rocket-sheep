@@ -274,7 +274,12 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
 
 - **Two passes at most.** More feed on each other: a later pass finds bugs inside an earlier pass's fixes, or undoes them.
   - **Pass 1** reviews the slice. The authoring session verifies every finding against the code before fixing it — a reviewer is not the spec — and takes the ones it judges wrong to the developer (*Fix it* / *Drop it*); the developer's ruling is final. It addresses the rest with `/pr_comment_resolver`. Blocker and suggestion fixes land with a test that fails without them, as in `/implement` Step 5; nitpicks are fixed together or dropped, and never trigger pass 2.
-  - **Pass 2** runs once, from another new session, and only when pass 1 left fixed blockers or suggestions. It reviews only those fixes: the diff from the commit pass 1 reviewed (its review's `commit_id`) to `HEAD`, plus wherever the fixes reach — callers, shared state, tests they changed or deleted. Step 4 hands it pass 1 and the replies, so a dropped finding stays dropped.
+  - **Pass 2** runs once, from another new session, and only when pass 1 left fixed blockers or suggestions. It reviews only those fixes: the diff from the commit pass 1 reviewed (its review's `commit_id`) to `HEAD`, plus wherever the fixes reach — callers, shared state, tests they changed or deleted. Step 4 hands it pass 1 and the replies, so a dropped finding stays dropped. In place of Step 2's `gh pr diff`:
+
+    ```bash
+    SHA=$(gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews --jq '[.[] | select(.body | startswith("Self-review pass 1"))][0].commit_id')
+    gh pr checkout <PR_NUMBER> && git diff "$SHA"..HEAD
+    ```
   - **No pass 3.** Pass 2's confirmed blockers and suggestions go to the developer with the proposed fix (*Fix it* / *Drop it*), and fixes land under the same test rule. Then land the slice.
 - **Post as COMMENT.** GitHub refuses APPROVE and REQUEST_CHANGES on your own PR. Open the review body with `Self-review pass <N>` so the feature-PR reviewer can count them.
 - **Land it from this session.** A clean pass is what merges a slice — you run it, on the strength of the review rather than your own reading:
