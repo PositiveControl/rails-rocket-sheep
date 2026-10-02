@@ -220,12 +220,25 @@ gem_group :development do
   gem "letter_opener_web", "~> 3.0"
 end
 
+# Rails puts the two system-test gems in :test; the walkthrough needs them in
+# development too. Bundler refuses the same gem in two groups, so the stock block
+# goes first — anchored on its `group :test` line, because the gems we add below
+# are the same two lines and a looser match would strip them as well. A Rails
+# release that rewords the block fails loudly at bundle install.
+gsub_file "Gemfile", /group :test do\n  # Use system testing.*\n  gem "capybara"\n  gem "selenium-webdriver"\nend\n/, "" unless API
+
 gem_group :development, :test do
   gem "pry"
   gem "pry-rails"
   gem "bullet"
   gem "rubocop-rails-omakase", require: false  # Linting
   gem "brakeman", require: false               # Security analysis
+  gem "flay", require: false                   # Copy-paste detection (bin/flay)
+  unless API
+    # Also drive a headed browser for reviewer walkthroughs (bin/qa-walkthrough)
+    gem "capybara"
+    gem "selenium-webdriver"
+  end
 end
 
 gem_group :test do
@@ -578,6 +591,23 @@ end
 # Generator override: stock fixtures emit two identical placeholder records,
 # which violate any unique index (notably Devise's email) on first test run.
 copy_template_file "lib/templates/test_unit/model/fixtures.yml"
+
+# Duplication gate: fails on Ruby the branch copies that its base does not
+# have. Needs the flay gem, so it is code, not the alignment layer.
+copy_template_file "bin/flay"
+chmod "bin/flay", 0755
+copy_template_file "test/bin/flay_test.rb"
+copy_template_file ".github/workflows/flay.yml"
+
+# Reviewer walkthroughs: a script per change drives a browser through the pages
+# it touched — docs/system/qa_walkthrough.md. Runs inside `rails runner`, so it
+# is code, not the alignment layer; adopt.rb ships the command that writes one.
+unless API
+  copy_template_file "lib/qa_walkthrough.rb"
+  copy_template_file "bin/qa-walkthrough"
+  chmod "bin/qa-walkthrough", 0755
+  create_file "script/qa/.gitkeep", ""
+end
 
 # Idempotent seed creating an admin user with a generated password. Replaces
 # the empty db/seeds.rb Rails ships, so a fresh app has something to log in as.

@@ -29,6 +29,7 @@ templates, no components, and no Pagy:
 | `bullet` | dev, test | N+1 query detection |
 | `rubocop-rails-omakase` | dev, test | Linting, DHH's config |
 | `brakeman` | dev, test | Security static analysis |
+| `flay` | dev, test | Copy-paste detection, gated by `bin/flay` |
 | `vcr`, `webmock` | test | Record and replay HTTP in tests |
 | `slowpoke-rb` | test | Reports tests slower than a threshold after each run; zero dependencies |
 
@@ -119,7 +120,12 @@ app's problem envelope rather than answering in a second format.
 | `test/integration/seo_test.rb` | Asserts meta description, canonical URL, JSON-LD, sitemap, robots.txt |
 | `test/components/*_test.rb` | Unit tests for the four shipped components |
 | `.github/workflows/lighthouse.yml` | Weekly Lighthouse CI audit |
+| `bin/flay` | Fails on Ruby the branch copies (verbatim, or a method or class renamed) that its base lacks; pre-existing duplication passes |
+| `test/bin/flay_test.rb` | Drives `bin/flay` against a throwaway git repo |
+| `.github/workflows/flay.yml` | Runs `bin/flay` on every PR against the PR's own base |
 | `.github/lighthouse-budget.json` | Performance budget |
+| `lib/qa_walkthrough.rb` | Reviewer walkthroughs: a `script/qa/` script per change drives a browser through the pages it touched, spotlighting and captioning each — a demonstration, not a test (web mode only) |
+| `bin/qa-walkthrough` | Runs one; `QA_AUTO=1 QA_HEADLESS=1` leaves a screenshot per step in `tmp/qa_walkthrough/` |
 
 ### SEO
 
@@ -150,7 +156,7 @@ app's problem envelope rather than answering in a second format.
 
 | File | Purpose |
 |---|---|
-| [`.claude/commands/*.md`](../templates/.claude/commands/) | 24 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
+| [`.claude/commands/*.md`](../templates/.claude/commands/) | 25 slash commands driving `/pick` → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → merge |
 | [`.claude/skills/rails-conventions/SKILL.md`](../templates/.claude/skills/rails-conventions/SKILL.md) | One skill, and it is a pointer at `docs/rules/INDEX.md` — it makes the routing model-invocable, so an agent that starts editing a controller on its own initiative still passes through the index. Carries no rule content and no routing table, so there is nothing in it to fall out of step |
 | [`WORKFLOW.md`](../templates/WORKFLOW.md) | Lifecycle spec: diagrams, the four gates, sizing rules, contract slots |
 | [`.llm/README.md`](../templates/.llm/README.md) | Index of committed docs, so agents find existing docs before writing duplicates |
@@ -178,6 +184,7 @@ Worth knowing, because these are the surprises:
 8. **Pagy is pre-wired.** `Pagy::Method` in `ApplicationController`; nav helpers live on the `@pagy` object.
 9. **Development mail is captured**, not sent. `letter_opener_web` at `/letter_opener`.
 10. **Development uses Solid Cable, not `:async`**, so WebSocket behaviour matches production.
+11. **Capybara and Selenium load in development too**, not just `:test`, so `bin/qa-walkthrough` can drive a browser from `rails runner`.
 
 ---
 

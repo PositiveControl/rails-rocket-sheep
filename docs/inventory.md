@@ -13,7 +13,7 @@ flowchart TB
   subgraph AGENT ["Agent alignment layer"]
     CM["CLAUDE.md<br/>conventions + anti-patterns"]
     WF["WORKFLOW.md<br/>lifecycle spec"]
-    CMD[".claude/commands/<br/>24 slash commands"]
+    CMD[".claude/commands/<br/>25 slash commands"]
     IDX[".llm/README.md<br/>doc index"]
     TSK[".llm/tasks/<br/>resumable task files"]
   end
@@ -58,7 +58,7 @@ flowchart TB
 |---|---|---|
 | `CLAUDE.md` conventions | ✅ | Short-form rules, pattern budget, Slim pitfalls; detail lives in the two pattern docs. Stamped with the template commit it was generated from |
 | Pattern reference docs | ✅ | `docs/rules/` — 56 single-rule files, 39 shipped in web mode and 41 in API mode. `INDEX.md` routes by path, `SYMPTOMS.md` by symptom or id |
-| Workflow commands | ✅ | 24 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `templates/bin/lint-docs` |
+| Workflow commands | ✅ | 25 commands, `/pick` → merge. One documented shape ([writing-commands](writing-commands.md)) and a stated invocation split (`WORKFLOW.md`, "Who invokes what"), both checked by `templates/bin/lint-docs` |
 | `WORKFLOW.md` spec | ✅ | Lifecycle diagrams, gates, sizing, contract slots |
 | Doc canon | ✅ | 4 dirs, names load-bearing (commands read/write them). Terms defined once in `docs/system/vocabulary.md` |
 | Doc index (`.llm/README.md`) | ✅ | Was referenced by 3 commands but missing — now shipped <!-- lint-docs:ignore -->|
@@ -66,6 +66,9 @@ flowchart TB
 | `/workflow_setup` wizard | ✅ | Stack + CI tokens pre-filled; asks only repo/board/naming |
 | Project `.claude/settings.json` | ✅ | Allowlist + deny rules; credentials blocked from context |
 | Hooks | ✅ | RuboCop on Ruby edits, Slim bracket check, Draft-placeholder Stop hook |
+| Reviewer walkthroughs | ✅ | `lib/qa_walkthrough.rb` + `bin/qa-walkthrough` (generation only, web mode): a script per change drives a browser through the pages it touched. `/qa_walkthrough` writes one; `/task_plan` plans it and `/pr_submit` Step 3b gates on it. The human pass stays `/pr_qa` |
+| Duplication gate | ✅ | `bin/flay` + `.github/workflows/flay.yml` (generation only): fails on copied Ruby a PR adds against its own base. Run by `/run_lint` and `/pr_submit` |
+| Pre-PR review | ✅ | `/implement` Step 5: a new-context agent runs `/pr_review --local`, this session verifies each finding, the developer rules on disagreements, fixes land with a failing-first test. Two rounds at most; round 2 reviews only round 1's fixes |
 | Subagent definitions | ❌ | No `.claude/agents/` — see gap 4 |
 | Model-invocable conventions | ✅ | One skill, `.claude/skills/rails-conventions/`, pointing at `docs/rules/INDEX.md`. Closes the one cost [ADR 0001](../.agents/adr/0001-plain-markdown-commands-not-skills.md) accepted and could not mitigate: routing that only fires when something tells the agent to read the index first. Carries no rule content and no routing table ([ADR 0010](../.agents/adr/0010-skills-are-a-generated-overlay-over-the-rule-index.md)) |
 | Cross-tool parity | ✅ | `AGENTS.md` + commands table, `.cursor/rules/conventions.mdc`, commands mirrored to `.cursor/commands/` |
@@ -263,7 +266,7 @@ Not gaps to fill — things to be honest about.
 
 **Jira and Linear buyers still aren't served.** The three tiers cover GitHub Projects, GitHub Issues via beads, and no tracker at all — but a shop whose issues live in Jira gets the fourteen tracker-independent commands and nothing else. That was a deliberate call (the thread ID doesn't survive the move; see [workflow](workflow.md)), but the sales page must say so rather than letting buyers discover it.
 
-**24 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 24 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
+**25 commands is a lot to learn.** The chain is self-navigating, which mitigates it, but the first-run experience is a directory of 25 unfamiliar files. A single "start here" path — `/workflow_setup` then `/pick` — is documented but easy to miss.
 
 **Template generation is version-coupled.** The template patches specific Rails files by matching their content. Rails 8.1 or 9 could break generation. Already-generated apps are unaffected, but the product needs re-verification against each Rails release, and that's ongoing maintenance nobody is scheduled to do.
 

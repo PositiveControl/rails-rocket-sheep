@@ -37,7 +37,7 @@ flowchart TB
   PK -- "sized Todo issue" --> TP
   subgraph R2 [" "]
     direction LR
-    IM["/implement — code + tests — commit per logical unit"]
+    IM["/implement — code + tests — commit per logical unit — fresh-eyes review"]
     G3{"G3 — suite green"}
     PS["/pr_submit — local suite + docs resolved — PR with Closes #35;n"]
     RV["review — /pr_review · /pr_qa · /pr_comment_resolver"]
@@ -274,9 +274,10 @@ exists to create.
 | `/domain_model` | Either | Challenges a term and writes what you settle. An agent may open one on a word doing two jobs; the definitions are still yours to agree |
 | `/diagnose` | Either | Builds a loop, probes locally, fixes what the loop proves. Same bounded shape as `/test_fix` |
 | `/resolve_conflicts` | Either | The merge is already stopped on your machine; resolving and committing is local. Pushing the result is yours |
-| `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
+| `/run_lint` | Either | Reads the diff, runs RuboCop and `bin/flay`, fixes locally. Nothing leaves the machine |
 | `/test_fix` | Either | The suite is already red; triage and a local fix are bounded work |
 | `/rails_code_review` | Either | Reads the branch and reports. It posts nothing |
+| `/qa_walkthrough` | Either | Writes a script locally and runs it against your own server. Nothing leaves the machine; `/pr_submit` decides whether it was needed |
 | `/pr_fix_ci` | Either, up to a point | Reading a failed run and fixing locally is fair game; pushing the fix is yours |
 
 **Either** means an agent may follow the file when the situation calls for it, and
@@ -320,7 +321,7 @@ A feature with more than one slice lands on a feature branch, not on `main`. Eac
 - **Closing issues.** GitHub's `Closes #n` fires only on a merge to the default branch, so a slice PR carries no `Closes` line. The feature PR body carries `Closes #<sub>` for every slice that has landed plus `Closes #<parent>`, and is regenerated on each slice merge. Done therefore still means *in `main`*, on every tier: a slice sits in Up for Review from its merge into the feature branch until the feature merges. `/pick` reconciles `beads` and `labels` only against PRs whose base was `main`.
 - **Docs.** Placeholders belong to the feature. A slice completes the ones its work fills in and leaves the rest; the "no `Status: Draft` left behind" rule is enforced on the feature PR.
 - **Staying current.** After each slice merges, merge `origin/main` into the feature branch so the final merge is small. Conflicts there are `/resolve_conflicts`.
-- **Review.** Each slice PR is reviewed by `/pr_review` run from a **fresh session** — a new context per pass, until a pass reports nothing blocking, at most five — and you merge it from that session on the strength of the clean pass. The feature PR is reviewed by a human as an acceptance-criteria walk over the design doc's slice list, reading the posted passes rather than re-reading the whole diff. Why the line sits there: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
+- **Review.** Each slice PR is reviewed by `/pr_review` run from a **fresh session** — a new context per pass, two passes at most, the second reviewing only the first's fixes — and you merge it from that session on the strength of those passes. The feature PR is reviewed by a human as an acceptance-criteria walk over the design doc's slice list, reading the posted passes rather than re-reading the whole diff. Why the line sits there: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
 
 ## Command inventory
 
@@ -329,9 +330,9 @@ A feature with more than one slice lands on a feature branch, not on `main`. Eac
 | `/pick` | Core | Entry door: prioritized ready work + context trees; routes epic/unshaped → `/feature_plan`, sized Todo → `/task_plan`, In Progress → `/implement`, Blocked → show blocker. Enforces sizing at the door |
 | `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → board Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
-| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit |
+| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit; ends with a fresh-context `/pr_review --local`, two rounds at most |
 | `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR with `Closes #n` → comments (G4) |
-| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session |
+| `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session, and `--local` before a PR exists |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |
 | `/update_docs` | Core | On-demand deep doc pass; keeps the index honest |
 | `/grill` | Optional | Interview a design in rounds; empty frontier before a gate, not a substitute for it |

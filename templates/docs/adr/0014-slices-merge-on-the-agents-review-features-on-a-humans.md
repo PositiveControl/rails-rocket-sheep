@@ -20,10 +20,17 @@ reads.
 **Decision:**
 A multi-slice feature lands on `feature/<slug>`. Each slice is a PR into that
 branch, reviewed by `/pr_review` run from a **fresh session** — a context with no
-memory of writing the code — once per pass, until a pass reports nothing blocking,
-at most five. GitHub refuses APPROVE on one's own PR, so each pass posts as COMMENT
-and stays on the PR as evidence. The developer merges the slice from that session
-on the strength of the clean pass, without reading the diff themselves.
+memory of writing the code — once per pass, two passes at most: the second runs
+only when the first's fixes need it, and reviews only those fixes. GitHub refuses
+APPROVE on one's own PR, so each pass posts as COMMENT and stays on the PR as
+evidence. The developer merges the slice from that session on the strength of
+those passes, without reading the diff themselves.
+
+The cap was five passes, until a pass came back clean. It is two because
+until-clean loops feed on their own fixes: later passes found bugs inside earlier
+passes' fixes, or undid them, and a fix test that passed with and without its fix
+pinned nothing. So each fix now lands with a test shown to fail without it, and
+what the second pass still finds goes to the developer rather than to a third.
 
 The feature reaches `main` as one PR, and that review is a human's: an
 acceptance-criteria walk over the design doc's slice list, reading the posted
@@ -43,7 +50,7 @@ every tier, exactly as before.
 - (+) `bin/pr-stack` and the stacking rules are gone; there is nothing to keep
   linear
 - (-) Line-level review is now the agent's, and a fresh context is one opinion, not
-  a second person. The independence is real but bounded; the cap of five passes is
+  a second person. The independence is real but bounded; the cap of two passes is
   where that bound is admitted
 - (-) The human reviews at feature scope and will catch fewer line-level faults than
   they would have per slice. That trade is the decision

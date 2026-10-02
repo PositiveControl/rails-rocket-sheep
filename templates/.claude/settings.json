@@ -5,6 +5,7 @@
       "Bash(bin/rubocop:*)",
       "Bash(bin/brakeman:*)",
       "Bash(bin/gates:*)",
+      "Bash(bin/qa-walkthrough:*)",
       "Bash(bin/rails routes:*)",
       "Bash(bin/rails db:migrate:*)",
       "Bash(bin/rails db:prepare:*)",

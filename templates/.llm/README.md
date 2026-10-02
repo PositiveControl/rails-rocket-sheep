@@ -39,6 +39,7 @@ How things currently work. Architecture state, not intentions.
 <!-- system:start -->
 - [Models](../docs/system/models.md) — model reference
 - [Vocabulary](../docs/system/vocabulary.md) — what each workflow and doc term means here
+- [QA walkthroughs](../docs/system/qa_walkthrough.md) — the reviewer script per change, and how to run one
 <!-- system:end -->
 
 ## ADRs — `docs/adr/`

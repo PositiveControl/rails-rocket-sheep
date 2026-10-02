@@ -54,10 +54,11 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `domain_model` | Sharpen the vocabulary; write settled terms and decisions down |
 | `feature_plan` | Explore → design doc → sized sub-issues + doc placeholders |
 | `task_plan` | Design doc → task file + implementation plan → branch |
-| `implement` | Idempotent resume: load task file, execute, commit per logical unit |
+| `implement` | Idempotent resume: load task file, execute, commit per logical unit, fresh-eyes review |
 | `pr_submit` | Local suite → docs resolved → PR → review comments |
-| `pr_review` | Full-context diff review; also the self-review pass on a slice, from a fresh session |
+| `pr_review` | Full-context diff review; also the self-review pass on a slice, from a fresh session, and `--local` before a PR exists |
 | `pr_qa` | Guided manual QA pass, structured report |
+| `qa_walkthrough` | Script that drives a browser through a change for the reviewer |
 | `rails_code_review` | Rails-specific review against this stack's conventions |
 | `update_docs` | Deep doc pass; keeps the index honest |
 | `segue`, `segue_resume`, `segue_close`, `segue_merge`, `segue_kill` | Isolated discussion thread with findings-only merge-back |
@@ -66,7 +67,7 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `test_fix` | Fix failing tests |
 | `diagnose` | Hard bug or slow path: build a loop that goes red, then fix what it proves |
 | `resolve_conflicts` | Finish a conflicted merge or rebase, and prove the tree green |
-| `run_lint` | Lint and auto-fix |
+| `run_lint` | Lint, auto-fix, and flag copied code |
 | `workflow_setup` | One-time wizard: repo, board, naming, CI checks |
 
 Run `workflow_setup` once before first use.

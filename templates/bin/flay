@@ -1,0 +1,95 @@
+#!/usr/bin/env ruby
+# Fail when the branch adds verbatim-duplicated Ruby that BASE does not have.
+#
+# Usage: bin/flay                     # working tree vs origin/main
+#        BASE=origin/feature/<slug> bin/flay   # a slice, against its feature branch
+#        bundle exec flay app lib     # raw whole-repo report, no gate
+#
+# rubocop (omakase) has no clone detection: its Lint/Duplicate* cops each look
+# at one expression, and no Metrics cops are enabled. flay hashes the AST of
+# every node above a mass threshold and groups structural matches across files,
+# but its own output is a report, not a gate: it always exits 0 and the
+# whole-repo score moves with every unrelated edit. So this script diffs flay's
+# (structural hash, file) occurrences between BASE and HEAD and reports only
+# occurrences BASE lacks: existing duplication is tolerated, removing a copy
+# passes, adding one shows up.
+#
+# A group fails the run when it is IDENTICAL (same code, literals included) or
+# when it is a Similar :defn/:defs/:class/:module — a method or class copied
+# and renamed, possibly with a literal changed. Both are copy-paste, and the fix
+# is to call the existing copy or extract it. Other Similar groups (an `if`, a
+# block, a rescue with the same shape) only warn: they are mostly logger
+# one-liners and stock `respond_to` blocks, with the odd real repeated guard
+# clause. Read them; do not chase them.
+#
+# A file that already duplicated something and is then edited in lockstep with
+# its copies gets a new hash and shows up with every copy marked "+". That is
+# pre-existing debt the branch just touched; extract it or split the edit out.
+# Renames of files holding duplicated code show up the same way.
+require "bundler/setup"
+require "flay"
+require "tmpdir"
+
+DIRS = %w[app lib].freeze
+BASE = ENV.fetch("BASE", "origin/main")
+MASS = Integer(ENV.fetch("FLAY_MASS", 16))
+COPY_UNITS = %i[defn defs class module].freeze
+
+def scan(dir)
+  Dir.chdir(dir) do
+    expander = PathExpander.new(DIRS.select { File.directory?(_1) }, "**/*.rb")
+    files = expander.filter_files(expander.process, Flay::DEFAULT_IGNORE)
+    flay = Flay.new(mass: MASS, timeout: 60)
+    flay.process(*files.sort)
+    flay.analyze
+    flay
+  end
+end
+
+def occurrences(flay)
+  flay.hashes.flat_map { |hash, nodes| nodes.map { [ hash, _1.file ] } }.tally
+end
+
+def print_group(flay, hash, added)
+  nodes = flay.hashes[hash]
+  kind = flay.identical[hash] ? "IDENTICAL" : "Similar"
+  puts
+  puts "#{kind} code in #{nodes.first.sexp_type.inspect} (mass = #{flay.masses[hash]})"
+  nodes.sort_by { [ _1.file, _1.line ] }.each do |node|
+    puts "  #{added.key?([ hash, node.file ]) ? '+' : ' '} #{node.file}:#{node.line}"
+  end
+end
+
+# Fetch whatever BASE names, not only main: CI passes the PR's own base (see
+# .github/workflows/flay.yml), and actions/checkout leaves a feature branch
+# unfetched — a missing ref reads as an empty BASE tree, which reports
+# every duplicate in the repo as added.
+base_ref = BASE.delete_prefix("origin/")
+system("git fetch -q origin #{base_ref} 2>/dev/null") if BASE.start_with?("origin/")
+
+before = Dir.mktmpdir do |tmp|
+  present = `git ls-tree --name-only #{BASE} -- #{DIRS.join(' ')}`.split
+  system("git archive #{BASE} #{present.join(' ')} | tar -x -C #{tmp}", exception: true) unless present.empty?
+  occurrences(scan(tmp))
+end
+
+flay = scan(Dir.pwd)
+added = occurrences(flay).select { |key, count| count > before.fetch(key, 0) }
+copies, shapes = added.keys.map(&:first).uniq.sort_by { -flay.masses[_1] }.partition do |hash|
+  flay.identical[hash] || COPY_UNITS.include?(flay.hashes[hash].first.sexp_type)
+end
+
+unless shapes.empty?
+  puts "flay: #{shapes.size} similar block(s) added vs #{BASE} (warning only; reuse if it is the same idea)"
+  shapes.each { print_group(flay, _1, added) }
+  puts
+end
+
+if copies.empty?
+  puts "flay: no copied code added vs #{BASE}"
+  exit 0
+end
+
+puts "flay: #{copies.size} copied block(s) added vs #{BASE}. Call the existing copy or extract the shared code."
+copies.each { print_group(flay, _1, added) }
+exit 1

@@ -44,9 +44,35 @@ Rules in force:
 - **Segue valve**: rabbit hole, plan contradiction, or theory-war debugging → suggest `/segue <question>` instead of burning the session
 - Remove all debugging code before finishing
 
-### Step 5: Done check
+### Step 5: Fresh-eyes review
 
-All acceptance criteria met, tests green, working tree committed:
+Acceptance criteria met and tests green → before the PR, a second agent that has seen none of this session reviews the branch, and this session addresses what it finds. The agent that wrote the code is the worst reviewer of it: it reads what it meant, not what it wrote.
+
+Two rounds at most. More passes feed on each other: a later pass finds bugs inside an earlier pass's fixes, or undoes them.
+
+1. **Commit everything.** The reviewer reads `HEAD`, not your working tree.
+2. **Spawn a new reviewer with an empty context** — in Claude Code the Agent tool with `subagent_type: "general-purpose"`, never `fork` (a fork inherits this context, which defeats the point), and never round 1's reviewer resumed. Prompt, and nothing more — no summary of the change, no hints at what to look for:
+   - **Round 1** reviews the branch, with `<base>` = `origin/<BASE>` from the task file's `Base:` line:
+     ```
+     Working directory: <this worktree's absolute path>. Run /pr_review --local <base>.
+     Read-only: no edits, commits, pushes or GitHub posts. Return the review summary as your final message.
+     ```
+   - **Round 2** reviews only round 1's fixes: `<base>` = the SHA `HEAD` was at when round 1 reviewed it. Add to the prompt: `These commits fix an earlier review. Also read wherever they touch the rest of the code — callers, shared state, tests they changed or deleted.` plus the settled list (item 6).
+3. **Verify every finding before touching code.** A reviewer is not the spec. For each one: read the cited code, check the claim holds (the failure scenario reproduces, the convention exists in `docs/rules/` or the codebase, the missing test really is missing), and decide *legitimate* or *not*.
+4. **Surface disagreements.** Findings you judge not legitimate go to the developer in one question — per finding, the claim, your evidence against it (`file:line`), and the options *Fix it* / *Drop it*. Never drop a finding silently. The developer's ruling is final.
+5. **Fix what is legitimate.**
+   - **Blockers and suggestions** — one logical unit per commit, as in Step 4. Each lands with a test that fails without it: revert the fix, run the test, see it fail, restore. A test that passes both ways pins nothing. No such test is possible → say why in the commit message.
+   - **Nitpicks** — list them, then fix them together in one commit or drop them. They never trigger another round.
+6. **Settled list** — for round 2's prompt: `Dropped: <finding> — <developer's reason>` and `Changed on purpose in round 1: <what, where>`, so a fresh reviewer neither raises a dropped finding again nor asks for a fix to be undone.
+7. **When to stop.** Round 1 has no confirmed blockers or suggestions → done. Otherwise round 2 runs once, over the fixes. Its confirmed blockers and suggestions go to the developer with your proposed fix (*Fix it* / *Drop it*); fixes land under item 5's test rule. There is no round 3.
+
+Done → append one dated line to the progress log: `Pre-PR review: <n> rounds — <n> fixed, <n> dropped by developer`.
+
+No way to spawn an agent with an empty context → ask the developer to run `/pr_review --local <base>` in a new session and paste its summary back. Never review your own work in its place.
+
+### Step 6: Done check
+
+All acceptance criteria met, tests green, pre-PR review done, working tree committed:
 
 ```
 All acceptance criteria met. Run: /pr_submit <ISSUE_NUMBER>
@@ -60,3 +86,4 @@ Criteria remain → keep looping or report the blocker.
 - Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number or `bd-<hash>`
 - Test runner: `bin/test` (specific file: `bin/test <path-to-test-file>`), system: `bin/rails test:system`
 - Sizing: PR target 200–1,500 added lines / ≤25 files
+- Pre-PR review: `/pr_review --local <base>` in a new-context agent, two rounds at most (Step 5)

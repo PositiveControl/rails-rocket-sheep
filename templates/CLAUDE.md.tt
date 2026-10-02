@@ -26,6 +26,7 @@ bin/rails db:migrate # Run migrations
 bin/rails db:queries # Record the SQL shapes the suite emits; review the new ones
 bin/rubocop          # Run linter
 bin/brakeman         # Security analysis
+bin/flay             # Copied Ruby this branch adds vs origin/main (BASE= for a slice)
 ```
 
 ## Tech Stack
@@ -146,7 +147,7 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   bullets. Forecast passes 1,500 lines mid-implementation → stop, split, land the
   current slice
 - Multi-slice features land on `feature/<slug>`. A slice is reviewed by `/pr_review`
-  run from a fresh session until a pass is clean, and merged there on that review;
+  run from a fresh session, two passes at most, and merged there on that review;
   the feature PR gets the human review. Spec: `WORKFLOW.md`, *Feature branches*;
   why: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`
 - `/segue` is the escape valve — isolate a tangent, merge findings back without
@@ -169,6 +170,12 @@ bin/test test/models/user_test.rb:42  # Specific line
 ```
 
 System tests are separate: `bin/rails test:system`.
+<% unless API_MODE -%>
+
+Every branch with a user-facing change ships a reviewer walkthrough (`script/qa/`,
+`bin/qa-walkthrough`; `docs/system/qa_walkthrough.md`) unless the developer skips it —
+`/task_plan` plans the steps, `/pr_submit` gates on them.
+<% end -%>
 
 How to write one — layering, fixtures, VCR, assertions — is `docs/rules/testing.md`.
 
@@ -279,7 +286,7 @@ docs/                       # names are load-bearing
 ├── sop/                    # Procedures / how-tos
 └── qa/                     # Manual test guides
 
-.claude/commands/           # 24 workflow slash commands (tracked, shared)
+.claude/commands/           # 25 workflow slash commands (tracked, shared)
 .llm/
 ├── tasks/                  # Task files — local scratch, gitignored
 └── threads/                # Segue threads — local scratch, gitignored
