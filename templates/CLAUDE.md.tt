@@ -26,6 +26,7 @@ bin/rails db:migrate # Run migrations
 bin/rails db:queries # Record the SQL shapes the suite emits; review the new ones
 bin/rubocop          # Run linter
 bin/brakeman         # Security analysis
+bin/flay             # Copied Ruby this branch adds vs origin/main (BASE= for a slice)
 ```
 
 ## Tech Stack

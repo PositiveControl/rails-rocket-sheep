@@ -274,7 +274,7 @@ exists to create.
 | `/domain_model` | Either | Challenges a term and writes what you settle. An agent may open one on a word doing two jobs; the definitions are still yours to agree |
 | `/diagnose` | Either | Builds a loop, probes locally, fixes what the loop proves. Same bounded shape as `/test_fix` |
 | `/resolve_conflicts` | Either | The merge is already stopped on your machine; resolving and committing is local. Pushing the result is yours |
-| `/run_lint` | Either | Reads the diff, runs RuboCop, fixes locally. Nothing leaves the machine |
+| `/run_lint` | Either | Reads the diff, runs RuboCop and `bin/flay`, fixes locally. Nothing leaves the machine |
 | `/test_fix` | Either | The suite is already red; triage and a local fix are bounded work |
 | `/rails_code_review` | Either | Reads the branch and reports. It posts nothing |
 | `/qa_walkthrough` | Either | Writes a script locally and runs it against your own server. Nothing leaves the machine; `/pr_submit` decides whether it was needed |

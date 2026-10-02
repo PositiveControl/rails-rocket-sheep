@@ -1,0 +1,22 @@
+name: Flay
+
+# bin/flay fails on Ruby the PR copies (verbatim, or a method or class copied
+# and renamed) that its base does not already have. Pre-existing duplication is
+# not the PR's debt. The base is the PR's own: a slice targets feature/<slug>,
+# which lacks main's later commits, and against main every file main has moved
+# on from would re-hash and its old duplication be charged to the slice.
+on:
+  pull_request:
+
+jobs:
+  flay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: .ruby-version
+          bundler-cache: true
+      - run: bin/flay
+        env:
+          BASE: origin/${{ github.base_ref }}

@@ -67,7 +67,7 @@ that posts, pushes, moves a board, or stands at a gate is the human's to invoke.
 | `test_fix` | Fix failing tests |
 | `diagnose` | Hard bug or slow path: build a loop that goes red, then fix what it proves |
 | `resolve_conflicts` | Finish a conflicted merge or rebase, and prove the tree green |
-| `run_lint` | Lint and auto-fix |
+| `run_lint` | Lint, auto-fix, and flag copied code |
 | `workflow_setup` | One-time wizard: repo, board, naming, CI checks |
 
 Run `workflow_setup` once before first use.

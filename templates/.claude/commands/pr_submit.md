@@ -29,6 +29,12 @@ git fetch origin <BASE> && git diff-tree -r --no-commit-id --name-only origin/<B
 ```
 Lint errors found → correct them. Can't auto-correct → halt, suggest manual fixes.
 
+**Duplication** — fails on Ruby the branch copies that `<BASE>` lacks (skip when there is no `bin/flay`):
+```bash
+BASE=origin/<BASE> bin/flay
+```
+Copied → call the existing copy or extract it. Similar shape → a warning; reuse it if it is the same idea.
+
 **Static analysis** — security scan:
 ```bash
 bin/brakeman -q --no-pager
@@ -190,23 +196,23 @@ Replace `<ISSUE_NUMBER>` (or `<ID>`) with the value from `$ARGUMENTS`.
 
 ### Step 6: Wait for fast CI checks
 
-Poll only the fast CI checks: the fast checks (scan_ruby, scan_js, lint). These complete in ~1-2 minutes. Do NOT wait for `test` — the full test suite was already run locally in Step 2.
+Poll only the fast CI checks: the fast checks (scan_ruby, scan_js, lint, flay). These complete in ~1-2 minutes. Do NOT wait for `test` — the full test suite was already run locally in Step 2.
 
 **Important:** The `gh pr checks` command uses these JSON fields: `name`, `state`, `link`, `workflow`. It does NOT have a `conclusion` field — use `state` only (values: `PENDING`, `SUCCESS`, `FAILURE`, `SKIPPED`).
 
 ```bash
-gh pr checks --json name,state,link --jq '.[] | select(["scan_ruby","scan_js","lint"] | index(.name)) | "\(.name): \(.state)"'
+gh pr checks --json name,state,link --jq '.[] | select(["scan_ruby","scan_js","lint","flay"] | index(.name)) | "\(.name): \(.state)"'
 ```
 
 Polling loop:
-1. Fetch check status for the fast checks (scan_ruby, scan_js, lint) only
+1. Fetch check status for the fast checks (scan_ruby, scan_js, lint, flay) only
 2. If any of these is `PENDING` or `IN_PROGRESS`, wait 30 seconds and re-check
-3. If all three are terminal (SUCCESS/FAILURE), proceed to triage
+3. If all four are terminal (SUCCESS/FAILURE), proceed to triage
 4. After 5 minutes of polling, proceed with whatever status is available
 
 **If there are CI failures:**
-1. Identify which job(s) failed: one of scan_ruby, scan_js, lint
-2. For lint failures: run the linter locally, fix issues, commit, and push
+1. Identify which job(s) failed: one of scan_ruby, scan_js, lint, flay
+2. For lint or flay failures: run `/run_lint` locally, fix issues, commit, and push
 3. For security-scan failures: investigate and fix the security issue
 4. Ignore `CodeQL` / `Analyze` checks — these are informational and not blocking
 
@@ -224,7 +230,7 @@ When the PR is clean, present:
 ✓ PR #<NUMBER> is ready for review
   URL: <PR_URL>
   Branch: <BRANCH_NAME> → <BASE>
-  Checks: Fast checks passing (scan_ruby, scan_js, lint)
+  Checks: Fast checks passing (scan_ruby, scan_js, lint, flay)
   Test: Running in CI (already passed locally)
   Docs: placeholders resolved, index verified
   Walkthrough: bin/qa-walkthrough <name> (<n> steps) | skipped: <reason>
@@ -254,11 +260,11 @@ PR merged! Automation handles issue close, board → Done, and branch deletion.
 - Branch convention: `{{BRANCH_PREFIX}}/<issue_number>/<slug>`
 - Base: the task file's `Base:` line — `main`, or `feature/<slug>` for a slice of a multi-slice feature; no `Closes` on a slice PR
 - Tracker tier: `{{TRACKER}}`
-- Fast CI checks (poll these): scan_ruby, scan_js, lint
+- Fast CI checks (poll these): scan_ruby, scan_js, lint, flay
 - Slow CI checks (skip polling, ran locally): test
 - Informational checks (ignore): CodeQL / Analyze
 - CI check `state` values: PENDING, IN_PROGRESS, SUCCESS, FAILURE, SKIPPED (no `conclusion` field)
-- Local pre-push checks: bin/gates, bin/rubocop --force-exclusion (changed files), bin/brakeman -q --no-pager, bin/test, bin/rails test:system, bin/rails db:queries
+- Local pre-push checks: bin/gates, bin/rubocop --force-exclusion (changed files), bin/flay (copied code vs `<BASE>`), bin/brakeman -q --no-pager, bin/test, bin/rails test:system, bin/rails db:queries
 - Pre-existing test failures: system tests may have failures on main — only fix failures introduced by the branch
 - Issue label for review: "{{REVIEW_LABEL}}"
 - Project ID: {{PROJECT_ID}} · Status field ID: {{STATUS_FIELD_ID}}

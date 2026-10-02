@@ -161,7 +161,7 @@ Tier `beads` keeps issues outside GitHub, so the issue forms don't apply there â
 | `/pr_comment_resolver` | Optional | Work through review comments |
 | `/pr_fix_ci` | Optional | Diagnose and fix a failing CI run |
 | `/test_fix` | Optional | Fix failing tests |
-| `/run_lint` | Optional | Lint and auto-fix |
+| `/run_lint` | Optional | Lint, auto-fix, and flag copied code |
 | `/workflow_setup` | Setup | One-time wizard: tracker tier, repo, board, naming, CI checks |
 
 ---

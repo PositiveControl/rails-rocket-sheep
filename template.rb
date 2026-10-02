@@ -233,6 +233,7 @@ gem_group :development, :test do
   gem "bullet"
   gem "rubocop-rails-omakase", require: false  # Linting
   gem "brakeman", require: false               # Security analysis
+  gem "flay", require: false                   # Copy-paste detection (bin/flay)
   unless API
     # Also drive a headed browser for reviewer walkthroughs (bin/qa-walkthrough)
     gem "capybara"
@@ -590,6 +591,13 @@ end
 # Generator override: stock fixtures emit two identical placeholder records,
 # which violate any unique index (notably Devise's email) on first test run.
 copy_template_file "lib/templates/test_unit/model/fixtures.yml"
+
+# Duplication gate: fails on Ruby the branch copies that its base does not
+# have. Needs the flay gem, so it is code, not the alignment layer.
+copy_template_file "bin/flay"
+chmod "bin/flay", 0755
+copy_template_file "test/bin/flay_test.rb"
+copy_template_file ".github/workflows/flay.yml"
 
 # Reviewer walkthroughs: a script per change drives a browser through the pages
 # it touched — docs/system/qa_walkthrough.md. Runs inside `rails runner`, so it
