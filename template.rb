@@ -297,6 +297,11 @@ inject_into_file "config/application.rb", after: "class Application < Rails::App
       # Template engine follows config.generators.template_engine, which
       # slim-rails sets to :slim.
       config.view_component.generate.sidecar = true
+
+      # lib/qa_walkthrough.rb requires capybara, a development/test gem.
+      # bin/qa-walkthrough autoloads it; eager-loading it would make production
+      # boot raise LoadError wherever the bundle leaves out the test group.
+      Rails.autoloaders.main.do_not_eager_load(Rails.root.join("lib/qa_walkthrough.rb"))
     RUBY
   end
 
