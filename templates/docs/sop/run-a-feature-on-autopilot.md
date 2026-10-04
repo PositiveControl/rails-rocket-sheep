@@ -34,11 +34,12 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    and filed issues carry it, and `/workflow_setup` creates it. Check:
 
    ```bash
-   gh label list --repo <org>/<repo> --search autopilot
+   gh label list --repo <org>/<repo> --search autopilot --json name --jq '.[] | select(.name == "autopilot") | .name'
    ```
 
-   Nothing listed means the setup ran before it did that. Create it with
-   `gh label create autopilot --repo <org>/<repo> --force`.
+   The search also matches a name that only contains the word; the `--jq`
+   keeps the exact one. Nothing printed means the setup ran before it did
+   that. Create it with `gh label create autopilot --repo <org>/<repo> --force`.
 
 6. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
    updates install only the alignment layer and never touch `config/`, so an
