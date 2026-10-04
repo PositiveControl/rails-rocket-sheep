@@ -5,3 +5,11 @@
 tmp/
 .claude/settings.local.json
 CLAUDE.local.md
+
+# Agent scratch, as adopt.rb ignores it in an app: task files and segue threads
+# are per-developer state, and an untracked one would fail bin/autopilot's
+# clean-tree checks after every step.
+.llm/tasks/*
+!.llm/tasks/task_template.md
+.llm/threads/*
+!.llm/threads/.gitkeep
