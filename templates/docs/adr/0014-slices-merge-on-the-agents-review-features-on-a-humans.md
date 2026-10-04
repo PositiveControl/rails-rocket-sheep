@@ -59,3 +59,21 @@ every tier, exactly as before.
   step makes it large
 - (-) Two agents on sibling slices collide in the feature branch, not on `main`.
   That is where the collision belongs, and it is still a collision
+
+**Amended 2026-10-03: what the rounds found.** A tally over a 13-slice feature in
+an adopting app (`docs/system/workflow-optimizations.md`, item 9, *Fewer review rounds*)
+split each slice's four reviews into two kinds:
+- **Whole-diff reviews.** The local round 1 and self-review pass 1 found 22 and 14
+  real bugs. Pass 1 still found a new real bug, missed by both local rounds, in 9
+  of the 13 slices.
+- **Fix-only reviews.** Local round 2 and pass 2 found only bugs that the
+  previous round's fixes had introduced, or gaps those fixes left.
+
+Two changes follow:
+- **One local round for a slice.** Pass 1 re-reads round 1's fixes as part of the
+  whole diff. A PR into the default branch keeps two local rounds, because no
+  agent pass follows it.
+- **The "only when the first's fixes need it" rule is checked, not trusted.** Each
+  pass's body carries a `**Findings:**` line, and pass 2 runs only when pass 1
+  counted a blocker or suggestion. Under autopilot the driver reads that line
+  (ADR 0016), so nitpick and log commits no longer trigger a second pass.
