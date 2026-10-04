@@ -364,21 +364,21 @@ MODE_OF_ROUTER = MODES.flat_map { |mode, files| files.map { |file| [ file, mode 
 mode_rule_counts = MODES.keys.to_h { |mode| [ mode, rule_modes.count { |_, ms| ms.include?(mode) } ] }
 # Two checks read the whole repo here. They read what git tracks or would track,
 # not the raw tree: tmp/ holds an autopilot step's PR body and review JSON, and
-# scratch that says "the 10 commands" is not a doc. Without git (a template # lint-docs:ignore
-# downloaded as an archive), the whole tree. Dotted paths are skipped either way,
-# as the glob's `**` always has: .agents/ is a record of what was true then.
+# scratch that says "the 10 commands" is not a doc. Without an answer from git — # lint-docs:ignore
+# no git, no repository, or an outer repository that ignores this one and so
+# lists nothing — the whole tree. Dotted paths are skipped either way, as the
+# glob's `**` always has: .agents/ is a record of what was true then.
 def repo_files(*exts)
   @repo_files ||= begin
     out, status = Open3.capture2("git", "-C", ROOT, "ls-files", "-z", "--cached", "--others", "--exclude-standard",
                                  err: File::NULL)
-    if status.success?
-      out.split("\0").reject { |f| f.split("/").any? { |part| part.start_with?(".") } }
-         .map { |f| File.join(ROOT, f) }.select { |f| File.file?(f) }
-    else
-      :none
-    end
+    listed = status.success? ? out.split("\0") : []
+    listed.reject { |f| f.split("/").any? { |part| part.start_with?(".") } }
+          .map { |f| File.join(ROOT, f) }.select { |f| File.file?(f) }
+  rescue Errno::ENOENT
+    []
   end
-  return Dir.glob(File.join(ROOT, "**/*.{#{exts.join(',')}}")) if @repo_files == :none
+  return Dir.glob(File.join(ROOT, "**/*.{#{exts.join(',')}}")) if @repo_files.empty?
 
   @repo_files.select { |f| exts.include?(File.extname(f).delete(".")) }
 end

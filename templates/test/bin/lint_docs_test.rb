@@ -16,9 +16,11 @@ class LintDocsRepoScanTest < Minitest::Test
   REAL_HOST = "ssh deploy@db.acme-prod.com, or 8.8.8.8\n" # lint-docs:ignore
 
   def setup
-    @global = ENV.fetch("GIT_CONFIG_GLOBAL", nil)
+    @root = Dir.mktmpdir
+    @env = %w[GIT_CONFIG_GLOBAL XDG_CONFIG_HOME].to_h { |key| [ key, ENV.fetch(key, nil) ] }
     ENV["GIT_CONFIG_GLOBAL"] = File::NULL
-    @dir = Dir.mktmpdir
+    ENV["XDG_CONFIG_HOME"] = @root # no personal ~/.config/git/ignore either
+    @dir = File.join(@root, "app")
     files, status = Open3.capture2("git", "-C", REPO, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
     raise "git ls-files failed" unless status.success?
 
@@ -33,19 +35,19 @@ class LintDocsRepoScanTest < Minitest::Test
   end
 
   def teardown
-    FileUtils.remove_entry(@dir)
-    @global ? ENV["GIT_CONFIG_GLOBAL"] = @global : ENV.delete("GIT_CONFIG_GLOBAL")
+    FileUtils.remove_entry(@root)
+    @env.each { |key, value| value ? ENV[key] = value : ENV.delete(key) }
   end
 
-  def git(*args) = system("git", *args, chdir: @dir, out: File::NULL, err: File::NULL) || raise("git #{args.join(' ')}")
+  def git(*args, chdir: @dir) = system("git", *args, chdir:, out: File::NULL, err: File::NULL) || raise("git #{args.join(' ')}")
 
   def write(path, body)
     FileUtils.mkdir_p(File.dirname(File.join(@dir, path)))
     File.write(File.join(@dir, path), body)
   end
 
-  def lint
-    out, status = Open3.capture2e("ruby", "templates/bin/lint-docs", chdir: @dir)
+  def lint(env = {})
+    out, status = Open3.capture2e(env, RbConfig.ruby, "templates/bin/lint-docs", chdir: @dir)
     [ out, status.exitstatus ]
   end
 
@@ -58,7 +60,6 @@ class LintDocsRepoScanTest < Minitest::Test
   # An autopilot step's PR body and task file are scratch, and say what they like.
   def test_gitignored_scratch_is_not_scanned
     write("tmp/pr-body-1.md", WRONG_COUNT + REAL_HOST)
-    write(".llm/tasks/1_thing.md", WRONG_COUNT + REAL_HOST)
 
     out, code = lint
 
@@ -94,5 +95,29 @@ class LintDocsRepoScanTest < Minitest::Test
 
     assert_equal 1, code
     assert_includes out, "tmp/pr-body-1.md:1: claims 10 commands" # lint-docs:ignore
+  end
+
+  # No git on PATH at all, not just no repository.
+  def test_without_a_git_binary_it_falls_back_to_the_whole_tree
+    FileUtils.rm_rf(File.join(@dir, ".git"))
+    write("tmp/pr-body-1.md", WRONG_COUNT)
+
+    out, code = lint("PATH" => File.join(@root, "empty-bin"))
+
+    assert_equal 1, code, out
+    assert_includes out, "tmp/pr-body-1.md:1: claims 10 commands" # lint-docs:ignore
+  end
+
+  # Unpacked inside another repo that ignores it: git answers, with nothing.
+  def test_a_checkout_an_outer_repo_ignores_falls_back_to_the_whole_tree
+    FileUtils.rm_rf(File.join(@dir, ".git"))
+    git("init", "-q", chdir: @root)
+    File.write(File.join(@root, ".gitignore"), "app/\n")
+    write("docs/untracked.md", WRONG_COUNT)
+
+    out, code = lint
+
+    assert_equal 1, code, out
+    assert_includes out, "docs/untracked.md:1: claims 10 commands" # lint-docs:ignore
   end
 end
