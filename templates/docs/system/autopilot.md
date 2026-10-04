@@ -12,7 +12,6 @@ were not asked.
 What stays human: **G1** (approving the design, which is also where autopilot is
 switched on) and **the merge of the feature PR into `main`**. Why the line sits
 there: [ADR 0016](../adr/0016-an-accepted-design-may-run-itself.md).
-Design: [Autopilot](../plans/2026-10-02-autopilot-design.md).
 
 **Split in two.** What a command reads while it runs as a step (activation, the
 policy by gate id, log entries, whose comment is whose, halting) is in
