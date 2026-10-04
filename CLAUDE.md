@@ -208,12 +208,15 @@ guard, allowlist and commands from there
   the hooks, `bin/gates`, `bin/autopilot` and the settings, with token values from
   `.claude/workflow.config.md`, and appends this repo's checks to the autopilot
   allowlist. A second run writes nothing. Commit what it changed with the
-  `templates/` change it came from.
+  `templates/` change it came from. An autopilot step never syncs, since the
+  sync rewrites the guard's own wiring, so after a run lands, sync by hand on
+  the feature branch.
 - **Paths a command names that do not exist at the root:**
   - `docs/rules/…` → `templates/docs/rules/…`, read-only reference. This repo is
     not a Rails app, so most rules apply only to `templates/app/` and the like.
   - `docs/adr/` → `.agents/adr/` for decisions about the generator,
-    `templates/docs/adr/` for decisions about generated apps.
+    `templates/docs/adr/` for decisions about generated apps. The two number
+    separately, so both have a 0016: match on the filename, not the number.
   - `docs/system/`, `docs/sop/` → `templates/docs/…`.
 - **The binstubs are stand-ins.** `bin/test` is this repo's suite: the entry
   scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`, and

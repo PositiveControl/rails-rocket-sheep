@@ -103,6 +103,3 @@ Bash(printenv:*)
 
 # dogfood — appended by bin/dogfood-sync: the template repo's own checks
 Bash(templates/bin/lint-docs:*)
-Bash(ruby -c:*)
-Bash(ruby templates/bin/doc-tokens:*)
-Bash(ruby templates/test/bin/:*)

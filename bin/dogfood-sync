@@ -41,13 +41,13 @@ VERBATIM = [
 ].freeze
 
 ALLOWLIST = ".claude/autopilot-allowed-tools.txt"
-# What an autopilot step here runs in place of a Rails app's checks.
+# What an autopilot step here runs in place of a Rails app's checks that the
+# template's list does not already allow (`Bash(ruby:*)` covers the rest).
+# Not bin/dogfood-sync: it writes the guard's own wiring, so a sync is the
+# developer's, after a run.
 DOGFOOD_TOOLS = <<~TXT
   # dogfood — appended by bin/dogfood-sync: the template repo's own checks
   Bash(templates/bin/lint-docs:*)
-  Bash(ruby -c:*)
-  Bash(ruby templates/bin/doc-tokens:*)
-  Bash(ruby templates/test/bin/:*)
 TXT
 
 BOARD_TOKENS = /\A(PROJECT_|STATUS_)/
