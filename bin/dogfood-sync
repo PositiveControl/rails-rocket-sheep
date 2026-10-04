@@ -1,0 +1,131 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# bin/dogfood-sync — re-render this repo's own copy of the alignment layer from
+# templates/.
+#
+# The root .claude/, .cursor/commands/, bin/{gates,hooks,autopilot}, WORKFLOW.md
+# and friends are output, not source: an autopilot worktree needs them tracked
+# (.agents/adr/0016). Edit templates/, then run this. Token values come from
+# .claude/workflow.config.md, the same table /workflow_setup wrote; this file
+# keeps no second copy of them.
+#
+#   bin/dogfood-sync          write, and list what changed
+#
+# Refuses with exit 1 under AUTOPILOT=1, which bin/autopilot sets for every
+# step: it rewrites the guard's own wiring, so a sync is the developer's, after
+# a run. Otherwise exit 0, or 1 when a {{TOKEN}} has no value.
+
+require "fileutils"
+
+# The sync rewrites the guard's own wiring (settings, hooks, the driver, the
+# allowlist). Keeping it off the allowlist is not enough, since `ruby bin/…`
+# passes Bash(ruby:*), so a step is refused here too. bin/autopilot sets
+# AUTOPILOT=1 for every step.
+abort "bin/dogfood-sync: not inside an autopilot step; sync on the feature branch after the run" if ENV["AUTOPILOT"] == "1"
+
+ROOT = File.expand_path("..", __dir__)
+SRC = File.join(ROOT, "templates")
+CONFIG = File.join(ROOT, ".claude/workflow.config.md")
+
+# Rendered: every {{TOKEN}} filled. workflow_setup.md describes the tokens, so it
+# is copied as it is, as /workflow_setup leaves it.
+RENDERED = [
+  *Dir.glob("#{SRC}/.claude/commands/*.md").map { |path| path.delete_prefix("#{SRC}/") },
+  "WORKFLOW.md",
+  ".llm/tasks/task_template.md",
+  ".github/PULL_REQUEST_TEMPLATE.md",
+  "docs/qa/autopilot-report-template.md"
+].freeze
+VERBATIM = [
+  ".claude/commands/workflow_setup.md",
+  ".claude/settings.json",
+  "bin/gates",
+  "bin/hooks/post_edit",
+  "bin/hooks/session_end",
+  "bin/hooks/pre-push",
+  "bin/hooks/autopilot_guard",
+  "bin/autopilot"
+].freeze
+
+ALLOWLIST = ".claude/autopilot-allowed-tools.txt"
+# What an autopilot step here runs in place of a Rails app's checks that the
+# template's list does not already allow (`Bash(ruby:*)` covers the rest).
+# Not bin/dogfood-sync: it writes the guard's own wiring, so a sync is the
+# developer's, after a run.
+DOGFOOD_TOOLS = <<~TXT
+  # dogfood — appended by bin/dogfood-sync: the template repo's own checks
+  Bash(templates/bin/lint-docs:*)
+TXT
+
+BOARD_TOKENS = /\A(PROJECT_|STATUS_)/
+
+# `{{NAME}}` => value, from the config table's rows. The first backticked value
+# in the Value column is the value; an italic "(none …)" is empty; the board row
+# names no single token and fills every PROJECT_*/STATUS_* with its value.
+def tokens
+  rows = File.readlines(CONFIG).grep(/\A\|/).map { |line| line.split("|").map(&:strip)[1, 2] }
+  table = rows.each_with_object({}) do |(key, value), map|
+    next unless (name = key[/\A`\{\{([A-Z_]+)\}\}`\z/, 1])
+
+    map[name] = value.start_with?("*(none") ? "" : value[/`([^`]*)`/, 1]
+  end
+  board = rows.find { |key, _| key.start_with?("Board tokens") }&.last.to_s[/`([^`]*)`/, 1]
+  [ table, board ]
+end
+
+def render(text, table, board)
+  # An empty prefix drops its segment, title and table cell alike.
+  text = text.gsub(/\{\{PR_TITLE_PREFIX\}\} (\\)?\| /, "") if table["PR_TITLE_PREFIX"] == ""
+  text.gsub(/\{\{([A-Z_]+)\}\}/) do
+    name = Regexp.last_match(1)
+    table.fetch(name) { board if board && name.match?(BOARD_TOKENS) } || "{{#{name}}}"
+  end
+end
+
+def write(rel, content, mode, changed)
+  dest = File.join(ROOT, rel)
+  return if File.exist?(dest) && File.binread(dest) == content.b && (File.stat(dest).mode & 0o777) == mode
+
+  FileUtils.mkdir_p(File.dirname(dest))
+  File.binwrite(dest, content)
+  File.chmod(mode, dest)
+  changed << rel
+end
+
+table, board = tokens
+changed = []
+unfilled = []
+
+(RENDERED - VERBATIM).each do |rel|
+  out = render(File.read(File.join(SRC, rel)), table, board)
+  unfilled.concat(out.scan(/\{\{[A-Z_]+\}\}/).uniq.map { |token| "#{rel}: #{token}" })
+  [ rel, *(rel.start_with?(".claude/commands/") ? [ rel.sub(".claude/", ".cursor/") ] : []) ].each do |dest|
+    write(dest, out, 0o644, changed)
+  end
+end
+
+VERBATIM.each do |rel|
+  src = File.join(SRC, rel)
+  dests = rel.start_with?(".claude/commands/") ? [ rel, rel.sub(".claude/", ".cursor/") ] : [ rel ]
+  dests.each { |dest| write(dest, File.binread(src), File.stat(src).mode & 0o777, changed) }
+end
+
+write(ALLOWLIST, "#{File.read(File.join(SRC, ALLOWLIST)).chomp}\n\n#{DOGFOOD_TOOLS}", 0o644, changed)
+
+# A command the template no longer ships is gone from both copies.
+%w[.claude/commands .cursor/commands].each do |dir|
+  shipped = Dir.glob("#{SRC}/.claude/commands/*.md").map { |path| File.basename(path) }
+  Dir.glob("#{ROOT}/#{dir}/*.md").each do |path|
+    next if shipped.include?(File.basename(path))
+
+    File.delete(path)
+    changed << "#{dir}/#{File.basename(path)} (removed)"
+  end
+end
+
+puts changed.empty? ? "dogfood layer: in step with templates/" : changed.map { |rel| "  #{rel}" }.unshift("dogfood layer: updated").join("\n")
+unless unfilled.empty?
+  warn "no value in #{CONFIG.delete_prefix("#{ROOT}/")} for:\n#{unfilled.map { |line| "  #{line}" }.join("\n")}"
+  exit 1
+end

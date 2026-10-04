@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# bin/dev — nothing to serve. bin/autopilot starts bin/dev for walkthroughs; the
+# template repo has no app, so this waits until the driver stops it.
+# See CLAUDE.md, "Dogfood layer".
+trap 'exit 0' TERM INT
+while :; do sleep 60 & wait $!; done

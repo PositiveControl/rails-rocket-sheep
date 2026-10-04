@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# bin/test — this repo's suite, in the place an app's would be.
+#
+# The workflow commands and bin/autopilot call bin/test. This repo is the
+# template, not an app, so its suite is the template's own checks: the entry
+# scripts parse, the token figures are current, the docs agree with the tree,
+# and the template's plain-Ruby tests pass. Generating an app is CI's job
+# (bin/smoke-generate). See CLAUDE.md, "Dogfood layer".
+#
+#   bin/test                        everything
+#   bin/test templates/test/bin/x_test.rb …   only those test files
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [[ $# -gt 0 ]]; then
+  for file in "$@"; do ruby "$file"; done
+  exit 0
+fi
+
+echo "== entry scripts parse"
+for f in template.rb adopt.rb preamble.rb templates/bin/lint-docs templates/bin/doc-tokens \
+         templates/bin/rocket-sheep-update templates/bin/autopilot templates/bin/hooks/autopilot_guard \
+         bin/dogfood-sync; do
+  ruby -c "$f" > /dev/null
+done
+
+echo "== token figures"
+ruby templates/bin/doc-tokens --check
+
+echo "== docs lint"
+templates/bin/lint-docs
+
+# flay_test.rb runs bin/flay under Bundler, which needs an app's Gemfile. CI's
+# generated app runs it there.
+echo "== template tests"
+for t in templates/test/bin/*_test.rb; do
+  if [[ "$t" == */flay_test.rb ]]; then
+    echo "skip $t: needs an app's Gemfile (CI's generated app runs it)"
+    continue
+  fi
+  ruby "$t"
+done

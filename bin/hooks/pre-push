@@ -1,0 +1,10 @@
+#!/bin/sh
+# git pre-push hook — runs bin/gates before anything leaves this machine.
+#
+# Tool-neutral on purpose: the two Claude Code hooks beside this file fire only
+# in Claude Code, and CI fires only after the push. This one fires for every
+# editor, agent, and human. git finds it through `core.hooksPath bin/hooks`,
+# which adopt.rb sets when it installs the layer. A fresh clone sets it again
+# with that one line. Bypass once with `git push --no-verify`.
+
+exec bin/gates
