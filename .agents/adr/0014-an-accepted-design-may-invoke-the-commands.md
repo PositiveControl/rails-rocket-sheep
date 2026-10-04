@@ -12,7 +12,7 @@ What that ceiling bought was the checkpoint. Every gate — approving a plan, ru
 on a disputed finding, merging — had a person at it, because nothing could reach
 the gate without one.
 
-An adopting app (dopeempire) measured the cost. On a multi-slice feature whose
+An adopting app measured the cost. On a multi-slice feature whose
 design was already approved, most of the person's touches between G1 and the
 feature PR were approvals of things the design had settled, and a three-slice
 feature took a day at the keyboard. It built autopilot: the developer approves a

@@ -98,12 +98,12 @@ These are pre-filled for this stack. Show them and ask only whether anything dif
 
 No system test suite in this app yet → that's fine; `/pr_submit` already treats system tests as optional and selects them from the diff.
 
-CI checks (from detected workflow jobs): which are **fast** (lint/scan — poll after push) vs **slow** (full test suite — skip polling, it ran locally)? A generated app's workflows define these jobs, so propose them and drop any Step 1 did not find:
+CI checks (from detected workflow jobs): which are **fast** (lint/scan — poll after push) vs **slow** (full test suite — skip polling, it ran locally)? A generated app's workflows define these jobs, so propose them, drop any Step 1 did not find, and add any fast job Step 1 found that the table does not list:
 
 | Token | Default |
 |---|---|
-| `{{FAST_CI_CHECKS}}` | `scan_ruby, scan_js, lint, flay` |
-| `{{FAST_CI_CHECKS_JQ}}` | `"scan_ruby","scan_js","lint","flay"` |
+| `{{FAST_CI_CHECKS}}` | `scan_ruby, scan_js, lint, flay, gates` |
+| `{{FAST_CI_CHECKS_JQ}}` | `"scan_ruby","scan_js","lint","flay","gates"` |
 | `{{SLOW_CI_CHECKS}}` | `test` |
 
 No fast checks at all → fill `{{FAST_CI_CHECKS}}` with `none` and `{{FAST_CI_CHECKS_JQ}}` with nothing, and note that `/pr_submit` will skip CI polling.
