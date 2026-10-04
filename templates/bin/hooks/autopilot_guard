@@ -1,0 +1,148 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Claude Code PreToolUse hook — the autopilot guard.
+#
+# Under AUTOPILOT=1, which only bin/autopilot sets, it denies what a step must
+# never do, whatever the allowlist and the policy say: merge, push to main or
+# force, ready the feature PR, close an issue, rebase a PR onto another base,
+# touch credentials or CI workflows, write a destructive migration, or rewire
+# this guard. docs/system/autopilot.md (Guard) is the spec.
+#
+# It matches what appears anywhere in a command, never its prefix: the
+# allowlist has entries that run arbitrary code (`ruby`, `bundle exec`,
+# `gh api`, `find -exec`), so `ruby -e 'system("gh pr merge 70")'` must be
+# caught as surely as `gh pr merge 70`.
+#
+# Contract: the tool call arrives as JSON on stdin. Exit 2 blocks it and sends
+# stderr to the agent; exit 0 lets it through. Without AUTOPILOT=1 it always
+# exits 0. Under it, a call it cannot read is denied: a guard that fails open
+# is no guard.
+#
+# The driver's own merges, edits and comments run outside any step, so they
+# never reach this hook.
+
+require "json"
+
+exit 0 unless ENV["AUTOPILOT"] == "1"
+
+module AutopilotGuard
+  MERGE = "only the driver merges, after checking the base (gate `merge`)"
+  DESTRUCTIVE = /\b(remove_columns?|remove_reference|drop_table|drop_join_table|rename_column|rename_table)\b/
+  GUARDED_PATHS = %r{config/credentials|\.github/workflows/}
+  # The driver too: its merge check is part of the wall.
+  WIRING = %r{\.claude/settings[^/\s]*\.json|bin/hooks/|\.claude/autopilot-allowed-tools\.txt|bin/autopilot\b}
+  MAIN = "main is the developer's"
+  GIT = /\bgit(?:\s+-[cC]\s+\S+|\s+--?[\w-]+(?:=\S+)?)*\s+/
+  # A gh api call that writes: a non-GET method, or fields (which make it a POST).
+  GH_API_WRITE = /\bgh\s+api\b(?=[^;&|\n]*(\s(-X|--method)[\s=]*(POST|PUT|PATCH|DELETE)\b|\s(-f|-F|--field|--raw-field|--input)\b))/i
+
+  # main as what a GitHub API write acts on: a `branches/main` path, or a
+  # branch, base, head or ref field set to it (`-f base=main`, `"base": "main"`).
+  # Not main named in prose, such as a PR reply's body.
+  MAIN_TARGET = %r{\bbranches/main\b|\b(branch|base|head|ref)['"]?\s*[=:]\s*['"]?(refs/heads/)?main\b}
+
+  # [pattern, why], matched against the whole Bash command.
+  COMMAND_RULES = [
+    [ /\bgh\s+pr\s+merge\b/, "`gh pr merge`: #{MERGE}" ],
+    [ %r{pulls/[^/\s"']+/merge\b}, "the pull request merge endpoint: #{MERGE}" ],
+    [ /\bmergePullRequest\b/, "the GraphQL merge mutation: #{MERGE}" ],
+    [ /\bgh\s+pr\s+ready\b|\bmarkPullRequestReadyForReview\b/, "readying a PR: the feature PR is readied by the driver when every slice has landed" ],
+    [ /\bgh\s+issue\s+close\b|\s(-[fF]|--field|--raw-field)[\s=]['"]?state=['"]?closed\b/, "closing an issue: issues close when the feature merges to main" ],
+    [ /\bgh\s+pr\s+edit\b[^;&|\n]*\s(--base|-B)\b|pulls\/\d+\b[^;&|\n]*\bbase=/, "changing a PR's base: a slice PR targets the feature branch" ],
+    [ %r{refs/heads/main\b}, "naming the main ref: #{MAIN}" ],
+    [ /#{GIT}(checkout|switch|worktree\s+add)\b[^;&|\n]*(\s|=)main\b/, "checking out main: #{MAIN}, and a plain `git push` from it would land there" ],
+    [ %r{\bgh\s+api\b(?=[^;&|\n]*(-X|--method)[\s=]*DELETE\b)[^;&|\n]*git/refs\b}i, "deleting a branch: branches move by push, and only forward" ],
+    [ /#{GH_API_WRITE}[^;&|\n]*#{MAIN_TARGET}/, "a GitHub API write that targets main: #{MAIN}" ],
+    [ %r{repos/[^\s"']+/merges\b|\bmergeBranch\b}, "the branch merge endpoint: #{MERGE}" ],
+    [ /\b(createCommitOnBranch|updateRefs?|deleteRef)\b/, "moving a branch through GraphQL: branches move by push, and only forward" ],
+    [ /\bforce=true\b|\bforce:\s*true\b/, "a forced ref update: history on the remote is never rewritten" ],
+    [ /\balias\.\S|\bremote\.\S+\.push\b|\bpush\.default\b/, "redefining git commands or push targets: a renamed push escapes the push rules" ],
+    [ GUARDED_PATHS, "naming `config/credentials*` or `.github/workflows/` in a command: off limits to a step" ],
+    [ WIRING, "naming the guard's own wiring (settings, bin/hooks/, the allowlist, bin/autopilot) in a command" ],
+    [ /\bg(enerate)?\s+migration\s+(remove|drop|rename)/i, "generating a destructive migration (halt list)" ]
+  ].freeze
+
+  module_function
+
+  def denial(payload)
+    input = payload.fetch("tool_input")
+    case payload.fetch("tool_name")
+    when "Bash" then command_denial(input.fetch("command").to_s) || on_main_denial(input["command"], payload["cwd"])
+    when "Edit", "Write", "MultiEdit", "NotebookEdit" then edit_denial(input)
+    end
+  end
+
+  def command_denial(command)
+    rule = COMMAND_RULES.find { |pattern, _| command.match?(pattern) }
+    return rule[1] if rule
+    return "a destructive migration under db/migrate (halt list)" if command.include?("db/migrate") && command.match?(DESTRUCTIVE)
+
+    push_denial(command)
+  end
+
+  # Every `git push` in the command (git's own options allowed in between, so
+  # a commit message that mentions pushing is not one), up to the next
+  # separator or quote.
+  def push_denial(command)
+    command.scan(/#{GIT}push\b([^;&|\n"')]*)/).flatten.each do |args|
+      return "a force push" if args.match?(/(\A|\s)(--force(-with-lease|-if-includes)?\b|-[a-zA-Z]*f[a-zA-Z]*\b)|(\A|\s)\+\S/)
+      return "deleting a remote branch" if args.match?(/(\A|\s)(--delete\b|-[a-zA-Z]*d[a-zA-Z]*\b)|(\A|\s):\S/)
+      return "a push to main: main is the developer's" if args.match?(%r{(\s|:|refs/heads/)main\b})
+    end
+    nil
+  end
+
+  # A bare `git push` or `git push origin HEAD` names no branch: from a
+  # checked-out main it pushes main.
+  #
+  # The push may run somewhere else: `git -C <dir> push`, or after a `cd`. A
+  # push from another checkout (the developer's own, say) is denied outright,
+  # and one that can't be placed is denied too.
+  def on_main_denial(command, cwd)
+    return unless command.match?(/#{GIT}push\b/) && cwd && Dir.exist?(cwd)
+
+    home = toplevel(cwd)
+    elsewhere = push_dirs(command).map { |dir| File.expand_path(dir, cwd) }.find { |dir| toplevel(dir) != home }
+    return "a push from outside this worktree (#{elsewhere}): a step pushes only its own branch" if elsewhere
+
+    branch = IO.popen([ "git", "-C", cwd, "symbolic-ref", "--short", "-q", "HEAD" ], err: File::NULL, &:read).strip
+    "a push from a checked-out main: #{MAIN}" if branch == "main"
+  end
+
+  # The `-C` directories of every git push, and every `cd` target before one.
+  def push_dirs(command)
+    command.scan(/#{GIT}push\b/).empty? ? [] : command.scan(/\bgit\s+(?:[^;&|\n]*?\s)?-C\s+(\S+)/).flatten + command.scan(/\bcd\s+([^\s;&|]+)/).flatten
+  end
+
+  def toplevel(dir)
+    return "" unless Dir.exist?(dir)
+
+    IO.popen([ "git", "-C", dir, "rev-parse", "--show-toplevel" ], err: File::NULL, &:read).strip
+  end
+
+  def edit_denial(input)
+    path = (input["file_path"] || input["notebook_path"]).to_s
+    return "editing `config/credentials*` or `.github/workflows/`: off limits to a step" if path.match?(GUARDED_PATHS)
+    return "editing the guard's own wiring (settings, bin/hooks/, the allowlist, bin/autopilot)" if path.match?(WIRING)
+    return unless path.include?("db/migrate/")
+
+    text = [ input["content"], input["new_string"], input["new_source"], *Array(input["edits"]).map { |e| e["new_string"] } ].join("\n")
+    "a destructive migration (halt list)" if text.match?(DESTRUCTIVE)
+  end
+end
+
+reason =
+  begin
+    AutopilotGuard.denial(JSON.parse($stdin.read))
+  rescue StandardError => e
+    "the guard could not read this tool call (#{e.class})"
+  end
+exit 0 unless reason
+
+warn <<~MSG
+  Denied by the autopilot guard: #{reason}.
+  This is a halt (gate `halt`). Do not look for another way to do it: stop, and
+  follow the halt protocol in docs/system/autopilot-steps.md (Halt).
+MSG
+exit 2

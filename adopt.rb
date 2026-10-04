@@ -238,6 +238,14 @@ copy_template_file "bin/hooks/session_end"
 chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
 
+# The autopilot guard: a PreToolUse hook that does nothing unless AUTOPILOT=1,
+# which only bin/autopilot sets, and then denies what a step must never do
+# (docs/system/autopilot.md, Guard). Its test carries the settings and
+# session_end tests too, so an update that changes the wiring changes them.
+copy_template_file "bin/hooks/autopilot_guard"
+chmod "bin/hooks/autopilot_guard", 0755
+copy_template_file "test/bin/autopilot_guard_test.rb"
+
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that
