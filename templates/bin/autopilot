@@ -1863,7 +1863,9 @@ module Autopilot
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,
     # Guard); a run without it is not started. Wired bare, as settings from
     # before #57 have it, or after `cd "$CLAUDE_PROJECT_DIR" &&`, so a session
-    # whose cwd has moved still finds it.
+    # whose cwd has moved still finds it. Those two exactly: a failing hook is
+    # non-blocking, so `false && <guard>` would pass a check by suffix and
+    # never run.
     def guard_wired?
       settings = JSON.parse(File.read(File.join(worktree, ".claude/settings.json")))
       wired = settings.dig("hooks", "PreToolUse").to_a.any? { |entry| entry["hooks"].to_a.any? { |hook| guard_command?(hook["command"].to_s) } }
@@ -1872,7 +1874,7 @@ module Autopilot
       false
     end
 
-    def guard_command?(command) = command == GUARD || command.end_with?("&& #{GUARD}")
+    def guard_command?(command) = [ GUARD, %(cd "$CLAUDE_PROJECT_DIR" && #{GUARD}) ].include?(command)
 
     def resolver_session
       @resolver == :resume ? "resumes /implement's session" : "new session, from tmp/autopilot/handoff-<issue>.md"

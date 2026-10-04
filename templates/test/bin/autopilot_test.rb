@@ -2416,16 +2416,23 @@ class AutopilotCLITest < Minitest::Test
     assert_equal 0, cli("foo", "--dry-run").call, @out.string
   end
 
-  # Something that merely ends in the path is not the guard.
-  def test_a_command_that_only_mentions_the_guard_is_not_wired
+  # Only the two shipped forms are the guard. Anything else ending in its path
+  # may never reach it, and a hook that fails is non-blocking: the run would
+  # go unguarded with preflight's blessing.
+  def test_a_command_other_than_the_two_shipped_forms_is_not_wired
     settings = File.join(@worktree, ".claude/settings.json")
-    fake = JSON.parse(File.read(settings)).tap do |s|
-      s["hooks"]["PreToolUse"].each { |entry| entry["hooks"].each { |hook| hook["command"] = "echo bin/hooks/autopilot_guard" } }
-    end
-    File.write(settings, JSON.generate(fake))
+    original = File.read(settings)
+    [ "echo bin/hooks/autopilot_guard", "false && bin/hooks/autopilot_guard",
+      'cd "$WRONG_DIR" && bin/hooks/autopilot_guard' ].each do |command|
+      fake = JSON.parse(original).tap do |s|
+        s["hooks"]["PreToolUse"].each { |entry| entry["hooks"].each { |hook| hook["command"] = command } }
+      end
+      File.write(settings, JSON.generate(fake))
+      @out = StringIO.new
 
-    assert_equal 1, cli("foo", "--dry-run").call
-    assert_match(/the guard is not wired/, @out.string)
+      assert_equal 1, cli("foo", "--dry-run").call, "#{command} passed preflight"
+      assert_match(/the guard is not wired/, @out.string)
+    end
   end
 
   # A bare `on` is consent (the spec accepts it), but the run has nowhere to
