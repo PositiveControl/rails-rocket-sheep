@@ -246,6 +246,11 @@ copy_template_file "bin/hooks/autopilot_guard"
 chmod "bin/hooks/autopilot_guard", 0755
 copy_template_file "test/bin/autopilot_guard_test.rb"
 
+# What an autopilot step may run without asking. bin/autopilot passes it to
+# `claude -p --permission-mode dontAsk`; it keeps an honest step from wandering,
+# and the guard is the wall.
+copy_template_file ".claude/autopilot-allowed-tools.txt"
+
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that
