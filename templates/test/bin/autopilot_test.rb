@@ -64,6 +64,48 @@ module AutopilotFixtures
     Autopilot.config = Autopilot::Config.read(CONFIG)
   end
 
+  BOARD_IDS = { "PROJECT_NAME" => "Shop", "PROJECT_ID" => "PVT_1", "STATUS_FIELD_ID" => "PVTSSF_1",
+                "STATUS_TODO" => "opt-todo", "STATUS_IN_PROGRESS" => "opt-doing", "STATUS_UP_FOR_REVIEW" => "opt-review",
+                "STATUS_DONE" => "opt-done", "STATUS_BLOCKED" => "opt-blocked" }.freeze
+
+  # The fixture's config on another tier; under github-projects, with the
+  # board IDs /workflow_setup would have recorded.
+  def tier!(tracker)
+    text = File.read(CONFIG).sub("| `TRACKER` | `labels` |", "| `TRACKER` | `#{tracker}` |")
+    BOARD_IDS.each { |key, value| text.sub!("| `#{key}` | `n/a` |", "| `#{key}` | `#{value}` |") } if tracker == "github-projects"
+    Autopilot.config = Autopilot::Config.new(text.scan(Autopilot::Config::ROW).to_h)
+  end
+
+  # `gh issue view --json body,projectItems,state`: the issue's card on the
+  # app's board, and one on another board that must not count.
+  def board_issue_json(deps, option:, name: nil)
+    items = [ { "status" => { "optionId" => "opt-x", "name" => "Done" }, "title" => "Other board" },
+              { "status" => { "optionId" => option, "name" => name }.compact, "title" => "Shop" } ]
+    body = "## Goal\nx\n\n## Dependencies\n#{deps}\n"
+    JSON.generate("body" => body, "projectItems" => items, "state" => "OPEN")
+  end
+
+  # The graphql lookup that finds the issue's item on the app's board.
+  def board_items_json(item)
+    nodes = [ { "id" => "PVTI_other", "project" => { "id" => "PVT_9" } }, { "id" => item, "project" => { "id" => "PVT_1" } } ]
+    JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => nodes } } } })
+  end
+
+  # `bd show <hash> --json`, as bd 0.61 prints it: an array of one. Real ids
+  # carry the database's prefix; a slice names them `bd-<hash>`.
+  def bead_json(hash, status:, labels: [], blocked_by: [])
+    deps = blocked_by.map { |dep| { "id" => "shop-#{dep}", "dependency_type" => "blocks" } } +
+           [ { "id" => "shop-epic1", "dependency_type" => "parent-child" } ]
+    JSON.generate([ { "id" => "shop-#{hash}", "title" => "Slice #{hash}", "status" => status, "labels" => labels, "dependencies" => deps } ])
+  end
+
+  BEAD_SLICES = <<~MD
+    ## Slices
+    - [x] bd-a1 — Cart store (PR #57)
+    - [ ] bd-b2 — Checkout
+    - [ ] bd-c3 — Receipts
+  MD
+
   # Feature PR #53's Slices list, verbatim as of 2026-10-02: #47 landed, #60
   # was inserted mid-list.
   SLICES = <<~MD
@@ -623,7 +665,7 @@ class AutopilotExpectTest < Minitest::Test
 
     @shell.on("git branch --show-current", "feat/48/top-down\n")
     labels("status:todo")
-    assert_match(/status:in-progress/, @expect.task_planned(48))
+    assert_match(/not In Progress \(it is todo\)/, @expect.task_planned(48))
 
     labels("status:in-progress")
     assert_nil @expect.task_planned(48)
@@ -765,7 +807,8 @@ class AutopilotRunTest < Minitest::Test
   class FakeFeature
     attr_reader :ticks, :merged
 
-    def initialize = (@ticks = []) && (@merged = {})
+    def initialize(shell = FakeShell.new) = (@shell = shell) && (@ticks = []) && (@merged = {})
+    def tracker = @tracker ||= Autopilot::Tracker.for(Autopilot.config, shell: @shell)
     def branch = "feature/foo"
     def log_path = "docs/plans/2026-10-02-foo-autopilot.md"
     def slug = "foo"
@@ -812,7 +855,7 @@ class AutopilotRunTest < Minitest::Test
     @shell = FakeShell.new
     @shell.on("git branch --show-current", "feat/48/top-down\n").on("git rev-parse --short HEAD", "abc1234\n")
     @state = Autopilot::State.new(File.join(Dir.mktmpdir, "state.json"))
-    @feature = FakeFeature.new
+    @feature = FakeFeature.new(@shell)
     @dir = Dir.mktmpdir
     FileUtils.mkdir_p(File.join(@dir, "docs/plans"))
     FileUtils.cp(File.expand_path("fixtures/autopilot/log.md", __dir__), File.join(@dir, @feature.log_path))
@@ -1275,6 +1318,37 @@ class AutopilotRunTest < Minitest::Test
     assert_match(/Halted on #48/, @notes.sent.last)
   end
 
+  def test_a_halt_under_github_projects_moves_the_card_to_blocked
+    tier!("github-projects")
+    @shell.on(/^gh api graphql -f query=\{ repository\(owner: "acme", name: "shop"\) \{ issue\(number: 48\)/, board_items_json("PVTI_48"))
+    @expect.needs(:task_plan, runs: 3)
+    script = happy_script.merge("task_plan" => [ step_doing(:task_plan), step_doing(:task_plan) ])
+
+    assert_raises(Autopilot::Halted) { run_with(script).slice(48) }
+
+    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_48 --field-id PVTSSF_1 --single-select-option-id opt-blocked")
+    refute @shell.ran?(/gh issue edit/), "no status labels on a board tier"
+    comment = @shell.calls.find { |c| c[:line].start_with?("gh issue comment 48") }[:line]
+    assert_includes comment, "#### HALT · `halt` · /task_plan 48"
+  end
+
+  def test_a_halt_under_beads_blocks_the_bead_and_posts_on_the_feature_pr
+    tier!("beads")
+    @expect.needs(:task_plan, runs: 3)
+    script = happy_script.merge("task_plan" => [ step_doing(:task_plan), step_doing(:task_plan) ])
+
+    error = assert_raises(Autopilot::Halted) { run_with(script).slice("bd-b2") }
+
+    assert_equal "bd-b2", error.issue
+    assert @shell.ran?("bd update b2 --status blocked")
+    assert @shell.ran?("bd label remove b2 lifecycle:up_for_review"), "a Blocked bead must not still read as up for review"
+    comment = @shell.calls.find { |c| c[:line].start_with?("gh pr comment 53") }&.fetch(:line)
+    assert comment, "there is no GitHub issue under beads: the entry goes on the feature PR"
+    assert_includes comment, "#### HALT · `halt` · /task_plan bd-b2"
+    assert_includes comment, "clear Blocked on bd-b2"
+    refute @shell.ran?(/^gh issue /)
+  end
+
   def test_a_halt_from_the_step_stops_at_once_without_a_retry
     halt = Autopilot::Step::Outcome.new(kind: :halt, gate: "G2", reason: "over the bound")
     script = happy_script.merge("task_plan" => [ halt ])
@@ -1352,7 +1426,7 @@ class AutopilotResumeTest < Minitest::Test
   HALT = <<~MD
     #### HALT · `halt` · /task_plan 60: no task file (after one retry)
     - **Where:** bin/autopilot on `feature/foo` at abc1234
-    - **Resume:** remove `status:blocked` from #60, then `bin/autopilot <slug>`
+    - **Resume:** answer under **Needs**, clear Blocked on #60 (docs/system/autopilot-steps.md, Tracker tiers), then `bin/autopilot foo`
   MD
 
   def setup
@@ -1463,7 +1537,7 @@ class AutopilotResumeTest < Minitest::Test
   def test_restores_in_progress_when_the_slice_branch_exists
     @shell.on(%r{git ls-remote --heads origin refs/heads/feat/60/\*}, "abc\trefs/heads/feat/60/storage\n")
     @shell.on(%r{gh pr list --repo acme/shop --head feat/60/storage --state open}, "[]")
-    @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: [ "ready for review" ]))
+    @resume.restore_state(Autopilot::Slice.new(issue: 60, state: nil))
 
     assert @shell.ran?(/gh issue edit 60 --repo acme\/shop --add-label status:in-progress/)
   end
@@ -1474,7 +1548,7 @@ class AutopilotResumeTest < Minitest::Test
     @shell.on(%r{git ls-remote --heads origin refs/heads/feat/60/\*}, "abc\trefs/heads/feat/60/storage\n")
     @shell.on(%r{gh pr list --repo acme/shop --head feat/60/storage --state open},
               JSON.generate([ { "number" => 71 } ]))
-    @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: []))
+    @resume.restore_state(Autopilot::Slice.new(issue: 60, state: nil))
 
     assert @shell.ran?(/gh issue edit 60 .*--add-label status:up-for-review/)
   end
@@ -1485,7 +1559,7 @@ class AutopilotResumeTest < Minitest::Test
     @shell.on(%r{git ls-remote --heads origin refs/heads/feat/60/\*}, "abc\trefs/heads/feat/60/storage\n")
     @shell.on(%r{gh pr list --repo acme/shop --head feat/60/storage --state open}, "HTTP 502", ok: false)
 
-    assert_raises(Autopilot::Error) { @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: [])) }
+    assert_raises(Autopilot::Error) { @resume.restore_state(Autopilot::Slice.new(issue: 60, state: nil)) }
     refute @shell.ran?(/gh issue edit/)
   end
 
@@ -1494,19 +1568,19 @@ class AutopilotResumeTest < Minitest::Test
   def test_restores_up_for_review_when_the_slice_already_merged
     @shell.on(/gh pr list .*--base feature\/foo --state merged/,
               JSON.generate([ { "number" => 71, "headRefName" => "feat/60/storage" } ]))
-    @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: []))
+    @resume.restore_state(Autopilot::Slice.new(issue: 60, state: nil))
 
     assert @shell.ran?(/gh issue edit 60 .*--add-label status:up-for-review/)
   end
 
   def test_restores_todo_when_the_slice_was_never_planned
-    @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: []))
+    @resume.restore_state(Autopilot::Slice.new(issue: 60, state: nil))
 
     assert @shell.ran?(/gh issue edit 60 .*--add-label status:todo/)
   end
 
   def test_leaves_a_status_label_alone
-    @resume.restore_label(Autopilot::Slice.new(issue: 60, labels: [ "status:in-progress" ]))
+    @resume.restore_state(Autopilot::Slice.new(issue: 60, state: "in-progress"))
 
     refute @shell.ran?(/gh issue edit/)
   end
@@ -1606,6 +1680,244 @@ class AutopilotResumeRealGitTest < Minitest::Test
 
     branch.change { |b| File.write(File.join(@worktree, LOG), "kept\n") && b.commit([ LOG ], "kept") }
     assert_equal "kept", git(@tmp, "--git-dir", @remote, "show", "feature/foo:#{LOG}")
+  end
+end
+
+# The two tiers beside labels (docs/system/autopilot-steps.md, Tracker
+# tiers): reading a slice's state, the resume check, restoring a cleared
+# slice, and where HALT entries are found. Marking Blocked is in
+# AutopilotRunTest, through a real halt.
+class AutopilotTrackerTiersTest < Minitest::Test
+  include AutopilotFixtures
+
+  LOG = "docs/plans/2026-10-02-foo-autopilot.md"
+
+  def setup
+    @root = design_repo
+    File.write(File.join(@root, LOG), "# Foo — autopilot log\n\n## Halts and pauses\n\n## Metrics\n")
+    @shell = FakeShell.new
+    @shell.on("git branch --show-current", "feature/foo\n")
+    @shell.on(/gh pr list .*--base feature\/foo --state merged/, "[]")
+  end
+
+  def teardown
+    FileUtils.remove_entry(@root)
+  end
+
+  def feature = @feature ||= Autopilot::Feature.new("foo", shell: @shell, root: @root)
+  def resume = Autopilot::Resume.new(feature: feature, shell: @shell, worktree: @root)
+  def slices_pr(body) = @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => body } ]))
+
+  # github-projects
+
+  def board!
+    tier!("github-projects")
+    slices_pr(SLICES)
+    @shell.on(/^gh api graphql -f query=\{ repository\(owner: "acme", name: "shop"\) \{ issue\(number: 60\)/, board_items_json("PVTI_60"))
+  end
+
+  def test_board_a_blocked_card_stops_the_run_at_its_slice
+    board!
+    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-blocked"))
+
+    slice = feature.next_slice
+
+    assert_equal 60, slice.issue
+    assert slice.blocked
+  end
+
+  def test_board_reads_the_card_on_this_apps_board_by_option_id
+    board!
+    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-doing"))
+
+    assert_equal "in-progress", feature.tracker.state(60)
+    refute feature.next_slice.blocked, "the other board's Done card does not count"
+  end
+
+  # A board whose option IDs were re-created since /workflow_setup ran still
+  # names its columns the way WORKFLOW.md does.
+  def test_board_falls_back_to_the_status_name
+    board!
+    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state",
+              board_issue_json("", option: "opt-unknown", name: "Up for Review"))
+
+    assert_equal "up-for-review", feature.tracker.state(60)
+  end
+
+  def test_board_dependencies_come_from_the_issue_body
+    board!
+    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#48 first.", option: "opt-todo"))
+    @shell.on("gh issue view 48 --repo acme/shop --json body,projectItems,state", board_issue_json("", option: "opt-todo"))
+
+    assert_equal 48, feature.next_slice.issue
+  end
+
+  # Clearing Blocked on a board means picking another Status; the driver puts
+  # the card where the slice really is.
+  def test_board_restores_a_cleared_card_to_where_the_slice_is
+    board!
+    @shell.on(%r{git ls-remote --heads origin refs/heads/feat/60/\*}, "abc\trefs/heads/feat/60/storage\n")
+    @shell.on(%r{gh pr list --repo acme/shop --head feat/60/storage --state open}, JSON.generate([ { "number" => 71 } ]))
+
+    resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
+
+    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_60 --field-id PVTSSF_1 --single-select-option-id opt-review")
+  end
+
+  def test_board_leaves_a_card_already_in_the_right_column
+    board!
+    resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
+
+    refute @shell.ran?(/gh project item-edit/)
+  end
+
+  def test_board_an_issue_missing_from_the_board_is_not_written
+    board!
+    @shell.on(/^gh api graphql -f query=\{ repository/, JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => [] } } } }))
+
+    refute feature.tracker.set(60, "blocked")
+    refute @shell.ran?(/gh project item-edit/)
+  end
+
+  def test_board_halts_are_read_from_the_issue
+    board!
+    halt = "#### HALT · `halt` · stuck\n- **Where:** bin/autopilot on `feat/60/x` at abc\n"
+    @shell.on(/gh issue view \d+ --repo acme\/shop --json comments/, JSON.generate("comments" => []))
+    @shell.on("gh issue view 60 --repo acme/shop --json comments", JSON.generate("comments" => [ { "body" => "#{halt}\n#{Autopilot::MARKER}" } ]))
+
+    assert_equal 1, resume.copy_halts
+  end
+
+  def test_board_probe_names_a_board_it_cannot_read
+    board!
+    @shell.on(/^gh api graphql -f query=\{ node\(id: "PVT_1"\)/, JSON.generate("data" => { "node" => nil }))
+
+    assert_match(/cannot read the board PVT_1 \(github-projects\)/, feature.tracker.probe)
+
+    @shell.on(/^gh api graphql -f query=\{ node\(id: "PVT_1"\)/, JSON.generate("data" => { "node" => { "id" => "PVT_1" } }))
+    assert_nil feature.tracker.probe
+  end
+
+  # beads
+
+  def beads!
+    tier!("beads")
+    slices_pr(BEAD_SLICES)
+  end
+
+  def test_beads_slices_are_bead_ids
+    beads!
+
+    assert_equal %w[bd-a1 bd-b2 bd-c3], feature.slices.map(&:issue)
+    assert_equal %w[bd-a1], feature.slices.select(&:done).map(&:issue)
+  end
+
+  def test_beads_a_blocked_bead_stops_the_run_at_its_slice
+    beads!
+    @shell.on("bd show b2 --json", bead_json("b2", status: "blocked", blocked_by: %w[a1]))
+
+    slice = feature.next_slice
+
+    assert_equal "bd-b2", slice.issue
+    assert slice.blocked
+  end
+
+  # bd's blocks edges are the dependencies; the epic's parent-child edge is not.
+  def test_beads_dependencies_come_from_blocks_edges
+    beads!
+    @shell.on("bd show b2 --json", bead_json("b2", status: "open", blocked_by: %w[c3]))
+    @shell.on("bd show c3 --json", bead_json("c3", status: "open", blocked_by: %w[a1]))
+
+    assert_equal "bd-c3", feature.next_slice.issue
+  end
+
+  def test_beads_state_reads_the_up_for_review_label_over_the_status
+    beads!
+    @shell.on("bd show b2 --json", bead_json("b2", status: "in_progress", labels: [ "lifecycle:up_for_review" ]))
+    assert_equal "up-for-review", feature.tracker.state("bd-b2")
+
+    @shell.on("bd show b2 --json", bead_json("b2", status: "in_progress"))
+    assert_equal "in-progress", feature.tracker.state("bd-b2")
+
+    @shell.on("bd show b2 --json", bead_json("b2", status: "open"))
+    assert_equal "todo", feature.tracker.state("bd-b2")
+  end
+
+  # Clearing Blocked is `bd update --status open`, which reads as Todo; the
+  # driver moves the bead on to where the slice really is.
+  def test_beads_restores_a_cleared_bead_with_a_pushed_branch_to_in_progress
+    beads!
+    @shell.on(%r{git ls-remote --heads origin refs/heads/feat/bd-b2/\*}, "abc\trefs/heads/feat/bd-b2/checkout\n")
+    @shell.on(%r{gh pr list --repo acme/shop --head feat/bd-b2/checkout --state open}, "[]")
+
+    resume.restore_state(Autopilot::Slice.new(issue: "bd-b2", state: "todo"))
+
+    assert @shell.ran?("bd update b2 --status in_progress")
+    assert @shell.ran?("bd label remove b2 lifecycle:up_for_review")
+  end
+
+  def test_beads_restores_a_slice_under_review_with_set_state
+    beads!
+    @shell.on(/gh pr list .*--base feature\/foo --state merged/, JSON.generate([ { "number" => 72, "headRefName" => "feat/bd-b2/checkout" } ]))
+
+    resume.restore_state(Autopilot::Slice.new(issue: "bd-b2", state: "todo"))
+
+    assert @shell.ran?("bd set-state b2 lifecycle=up_for_review")
+    refute @shell.ran?(/bd update/)
+  end
+
+  def test_beads_a_closed_bead_is_left_alone
+    beads!
+    resume.restore_state(Autopilot::Slice.new(issue: "bd-b2", state: "done"))
+
+    refute @shell.ran?(/^bd /)
+  end
+
+  # No GitHub issue: entries are on the feature PR, and read once for all.
+  def test_beads_halts_are_read_from_the_feature_pr
+    beads!
+    halt = "#### HALT · `halt` · stuck\n- **Where:** bin/autopilot on `feat/bd-b2/x` at abc\n"
+    @shell.on("gh pr view 53 --repo acme/shop --json comments",
+              JSON.generate("comments" => [ { "body" => "#{halt}\n#{Autopilot::MARKER}" }, { "body" => "Landed.\n\n#{Autopilot::MARKER}" } ]))
+
+    assert_equal 1, resume.copy_halts
+    assert_match(/#### HALT · `halt` · stuck/, File.read(File.join(@root, LOG)))
+    refute @shell.ran?(/^gh issue /)
+  end
+
+  def test_beads_a_landed_slice_is_ticked_without_a_closes_line
+    beads!
+
+    feature.tick("bd-b2", 71)
+
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    assert_includes body, "- [x] bd-b2 — Checkout (PR #71)\n"
+    refute_includes body, "Closes"
+  end
+
+  def test_beads_the_merged_pr_is_found_by_the_bead_branch
+    beads!
+    @shell.on(/gh pr list .*--base feature\/foo --state merged/,
+              JSON.generate([ { "number" => 70, "headRefName" => "feat/bd-b22/other" }, { "number" => 72, "headRefName" => "feat/bd-b2/checkout" } ]))
+
+    assert_equal 72, feature.merged_pr("bd-b2")["number"]
+  end
+
+  def test_beads_the_log_names_the_slice_by_its_bead_id
+    text = "## Slices\n\n## Metrics\n\n#### Dbd-b2-1 · `choice` · Card or invoice first?\n- **Reversible:** one-way\n"
+
+    out = Autopilot::Log.slice_section(text, issue: "bd-b2", title: "Checkout", pr: 71, sha: "5bc96eb", row: [ 1, 2, 1, 0, 0, "1m 0s", "$1.00" ])
+
+    assert_match(/^### bd-b2 — Checkout \(PR #71, merged 5bc96eb\)\n/, out)
+    assert_match(/#### Decisions\n\n#### Dbd-b2-1 · `choice`/, out)
+    assert_match(/one-way\*\* · Dbd-b2-1/, Autopilot::Log.read_this_first("## Read this first\n\n#{out}"))
+  end
+
+  def test_beads_probe_names_a_database_it_cannot_read
+    beads!
+    @shell.on("bd list --json --limit 1", "Error: no beads database found", ok: false)
+
+    assert_match(/bd cannot read the beads database \(beads\): Error: no beads database found/, feature.tracker.probe)
   end
 end
 
@@ -1894,15 +2206,25 @@ class AutopilotCLITest < Minitest::Test
     assert_empty @shell.lines.grep(MUTATING)
   end
 
-def test_preflight_refuses_a_run_without_the_workflow_config
-  FileUtils.rm(File.join(@worktree, ".claude/workflow.config.md"))
+  def test_preflight_refuses_a_run_without_the_workflow_config
+    FileUtils.rm(File.join(@worktree, ".claude/workflow.config.md"))
 
-  assert_equal 1, cli("foo").call
-  assert_match(/workflow\.config\.md has no `GITHUB_REPO` value/, @out.string)
-  refute @shell.ran?(/^gh /), "no gh call without a repo to name"
-end
+    assert_equal 1, cli("foo").call
+    assert_match(/workflow\.config\.md has no `GITHUB_REPO` value/, @out.string)
+    refute @shell.ran?(/^gh /), "no gh call without a repo to name"
+  end
 
-def test_a_run_without_the_guard_wired_is_not_started
+  def test_preflight_refuses_a_tier_it_cannot_read
+    File.write(File.join(@worktree, ".claude/workflow.config.md"),
+               File.read(CONFIG).sub("| `TRACKER` | `labels` |", "| `TRACKER` | `beads` |"))
+    @shell.on("bd list --json --limit 1", "Error: no beads database found", ok: false)
+
+    assert_equal 1, cli("foo").call
+    assert_match(/bd cannot read the beads database \(beads\)/, @out.string)
+    assert_empty @shell.lines.grep(MUTATING)
+  end
+
+  def test_a_run_without_the_guard_wired_is_not_started
     settings = File.join(@worktree, ".claude/settings.json")
     File.write(settings, JSON.generate(JSON.parse(File.read(settings)).tap { |s| s["hooks"].delete("PreToolUse") }))
 

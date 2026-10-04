@@ -110,6 +110,12 @@ Exit status:
 - `1`: not ready to run (preflight names every problem)
 - `2`: halted, blocked, stopped, or no open slice can start
 
+**What it reads.** The repo, the branch prefix, the tracker tier and, under
+`github-projects`, the board IDs, from `.claude/workflow.config.md`, the record
+`/workflow_setup` commits. The commands have those values filled in; the driver is
+code, so it reads them when it starts, and preflight refuses a run that is missing
+one, or that cannot read its tier.
+
 **Where it runs.** In `../<repo>-autopilot-<slug>`, beside the main checkout, so
 the developer's checkout and databases are never touched:
 
@@ -239,8 +245,9 @@ that is still open after it landed stops the run rather than looping on it.
 
 The feature PR's merge into `main` stays the developer's.
 
-**Halts the driver finds itself** follow [*Halt*](autopilot-steps.md#halt). It labels the issue
-blocked and posts the HALT entry on the issue, with the marker. It doesn't
+**Halts the driver finds itself** follow [*Halt*](autopilot-steps.md#halt). It marks the slice
+Blocked and posts the HALT entry off the slice branch, with the marker: on the
+issue, or on the feature PR under `beads` (`autopilot-steps.md`, *Tracker tiers*). It doesn't
 commit, because the branch checked out isn't necessarily one the entry belongs
 on.
 

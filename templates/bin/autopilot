@@ -30,7 +30,11 @@ require "time"
 module Autopilot
   CONSENT = /^\*\*Autopilot:\*\* on( —|$)/
   LOG_PATH = /^\*\*Autopilot:\*\* on — log: (\S+)/
-  SLICE_LINE = /^- \[( |x|X)\] #(\d+)/
+  # A slice is `#<n>` on the GitHub tiers and `bd-<hash>` under beads
+  # (docs/system/autopilot-steps.md, Tracker tiers). In the driver the first
+  # is an Integer and the second a String; ref turns either back into text.
+  SLICE_ID = /#\d+|bd-[\w.]+/
+  SLICE_LINE = /^- \[( |x|X)\] (#{SLICE_ID})/
 
   # The app's workflow settings as /workflow_setup recorded them, one
   # `| `TOKEN` | `value` |` row each. The commands have these filled in; the
@@ -73,6 +77,9 @@ module Autopilot
     def config = @config ||= Config.new({})
     def repo = config.repo
     def branch_prefix = config.branch_prefix
+
+    def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : text
+    def ref(id) = id.is_a?(Integer) ? "##{id}" : id.to_s
   end
 
   # Runs commands. Each command gets its own process group, so a timeout takes
@@ -177,17 +184,245 @@ module Autopilot
     end
   end
 
-  Slice = Struct.new(:issue, :done, :blocked, :labels, keyword_init: true)
+  Slice = Struct.new(:issue, :done, :blocked, :state, keyword_init: true)
+
+  # Every tracker read and write the driver makes, on the tier /workflow_setup
+  # chose: one class per column of docs/system/autopilot-steps.md, Tracker
+  # tiers. A state is one of STATES, "done", or nil when the tracker shows
+  # none. Writes report success and never raise, like the halt they serve:
+  # the halt still has to reach the developer.
+  module Tracker
+    STATES = %w[todo in-progress up-for-review blocked].freeze
+
+    def self.for(config, shell:)
+      { "github-projects" => Board, "beads" => Beads }.fetch(config.tracker, Labels).new(config, shell)
+    end
+
+    # HALT entries the driver or a step posted, without their marker.
+    def self.halt_entries(comments)
+      comments.filter_map do |comment|
+        body = comment["body"].to_s
+        body.sub(MARKER, "").strip + "\n" if body.start_with?("#### HALT") && body.include?(MARKER)
+      end
+    end
+
+    # The two tiers where a slice is a GitHub issue.
+    class GitHub
+      def initialize(config, shell)
+        @config = config
+        @shell = shell
+      end
+
+      # The feature PR's body carries `Closes #<n>` for each landed slice.
+      def closes? = true
+
+      # Nothing to probe: gh auth status covers it.
+      def probe = nil
+
+      def state(id) = item(id)[:state]
+
+      def title(id)
+        result = @shell.run("gh", "issue", "view", id.to_s, "--repo", Autopilot.repo, "--json", "title", "--jq", ".title")
+        raise Error, "cannot read issue ##{id}'s title: #{result.out.strip}" unless result.ok
+
+        result.out.strip
+      end
+
+      def post_halt(id, body, _feature_pr) = @shell.run("gh", "issue", "comment", id.to_s, "--repo", Autopilot.repo, "--body", body).ok
+
+      # [] when gh cannot say: the next run copies them instead.
+      def halts(id, _feature_pr)
+        result = @shell.run("gh", "issue", "view", id.to_s, "--repo", Autopilot.repo, "--json", "comments")
+        result.ok ? Tracker.halt_entries(JSON.parse(result.out)["comments"]) : []
+      rescue JSON::ParserError
+        []
+      end
+
+      private
+
+      def view(id, fields)
+        result = @shell.run("gh", "issue", "view", id.to_s, "--repo", Autopilot.repo, "--json", fields)
+        raise Error, "cannot read issue ##{id}: #{result.out.strip}" unless result.ok
+
+        JSON.parse(result.out)
+      rescue JSON::ParserError
+        raise Error, "cannot read issue ##{id}"
+      end
+
+      def dependencies(body)
+        section = body.to_s[/^## Dependencies\s*\n(.*?)(?=^## |\z)/m, 1].to_s
+        section.scan(/#(\d+)/).flatten.map(&:to_i).uniq
+      end
+    end
+
+    # `status:*` labels on the issue.
+    class Labels < GitHub
+      def item(id)
+        json = view(id, "body,labels,state")
+        names = json["labels"].map { |label| label["name"] }
+        { state: (STATES + [ "done" ]).find { |state| names.include?("status:#{state}") },
+          dependencies: dependencies(json["body"]) }
+      end
+
+      # Removing a label the issue does not have is a no-op.
+      def set(id, state)
+        others = (STATES - [ state ]).flat_map { |other| [ "--remove-label", "status:#{other}" ] }
+        @shell.run("gh", "issue", "edit", id.to_s, "--repo", Autopilot.repo, "--add-label", "status:#{state}", *others).ok
+      end
+
+      # Clearing Blocked removes the label, which leaves none; any other
+      # label is someone's decision and stays.
+      def restorable?(state) = state.nil?
+    end
+
+    # The Status field on the GitHub Projects board, with the IDs
+    # /workflow_setup recorded.
+    class Board < GitHub
+      OPTIONS = { "todo" => "STATUS_TODO", "in-progress" => "STATUS_IN_PROGRESS", "up-for-review" => "STATUS_UP_FOR_REVIEW",
+                  "blocked" => "STATUS_BLOCKED", "done" => "STATUS_DONE" }.freeze
+
+      def item(id)
+        json = view(id, "body,projectItems,state")
+        { state: status(card(json["projectItems"].to_a)), dependencies: dependencies(json["body"]) }
+      end
+
+      def set(id, state)
+        item = board_item(id) or return false
+
+        @shell.run("gh", "project", "item-edit", "--project-id", @config["PROJECT_ID"], "--id", item,
+                   "--field-id", @config["STATUS_FIELD_ID"], "--single-select-option-id", @config[OPTIONS.fetch(state)]).ok
+      end
+
+      # Clearing Blocked sets any other Status, so whatever it was set to is
+      # put right; a Done card is left alone.
+      def restorable?(state) = state != "done"
+
+      def probe
+        result = @shell.run("gh", "api", "graphql", "-f", "query={ node(id: \"#{@config['PROJECT_ID']}\") { id } }")
+        return if result.ok && JSON.parse(result.out).dig("data", "node")
+
+        "cannot read the board #{@config['PROJECT_ID']} (github-projects): #{result.out.strip.lines.first}"
+      rescue JSON::ParserError
+        "cannot read the board #{@config['PROJECT_ID']} (github-projects)"
+      end
+
+      private
+
+      # The card on this app's board, by name when the issue is on several.
+      def card(items)
+        items.find { |item| item["title"] == @config["PROJECT_NAME"] } || items.first
+      end
+
+      # By option ID, or by the Status name WORKFLOW.md gives each state.
+      def status(card)
+        option = card&.dig("status", "optionId")
+        name = card&.dig("status", "name").to_s.downcase.tr(" ", "-")
+        OPTIONS.find { |_, key| option && @config[key] == option }&.first || (OPTIONS.key?(name) ? name : nil)
+      end
+
+      def board_item(id)
+        org, name = Autopilot.repo.split("/", 2)
+        query = "{ repository(owner: \"#{org}\", name: \"#{name}\") { issue(number: #{id}) " \
+                "{ projectItems(first: 20) { nodes { id project { id } } } } } }"
+        result = @shell.run("gh", "api", "graphql", "-f", "query=#{query}")
+        return unless result.ok
+
+        nodes = JSON.parse(result.out).dig("data", "repository", "issue", "projectItems", "nodes").to_a
+        nodes.find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }&.fetch("id")
+      rescue JSON::ParserError
+        nil
+      end
+    end
+
+    # Beads: `bd` status plus the lifecycle:up_for_review label. A slice is
+    # `bd-<hash>`, the thread ID; bd itself takes the bare hash. There is no
+    # GitHub issue, so HALT entries go on the feature PR.
+    class Beads
+      UP_FOR_REVIEW = "lifecycle:up_for_review"
+      STATUSES = { "todo" => "open", "in-progress" => "in_progress", "blocked" => "blocked" }.freeze
+
+      def initialize(config, shell)
+        @config = config
+        @shell = shell
+      end
+
+      def closes? = false
+
+      def probe
+        result = bd("list", "--json", "--limit", "1")
+        "bd cannot read the beads database (beads): #{result.out.strip.lines.first}" unless result.ok
+      end
+
+      def item(id)
+        json = show(id)
+        deps = Array(json["dependencies"]).select { |dep| dep["dependency_type"] == "blocks" }
+        { state: state_of(json), dependencies: deps.map { |dep| "bd-#{dep['id'].to_s[/[^-]+\z/]}" } }
+      end
+
+      def state(id) = item(id)[:state]
+      def title(id) = show(id)["title"].to_s
+
+      # Each of the three statuses drops the up-for-review label, so a slice
+      # reads as one state and /pick never closes a Blocked bead.
+      def set(id, state)
+        return bd("set-state", bead(id), "lifecycle=up_for_review").ok if state == "up-for-review"
+
+        ok = bd("update", bead(id), "--status", STATUSES.fetch(state)).ok
+        bd("label", "remove", bead(id), UP_FOR_REVIEW)
+        ok
+      end
+
+      def restorable?(state) = state != "done"
+
+      def post_halt(id, body, feature_pr)
+        @shell.run("gh", "pr", "comment", feature_pr.to_s, "--repo", Autopilot.repo, "--body", body).ok
+      end
+
+      # Every HALT entry on the feature PR; the caller dedupes across slices.
+      def halts(_id, feature_pr)
+        result = @shell.run("gh", "pr", "view", feature_pr.to_s, "--repo", Autopilot.repo, "--json", "comments")
+        result.ok ? Tracker.halt_entries(JSON.parse(result.out)["comments"]) : []
+      rescue JSON::ParserError
+        []
+      end
+
+      private
+
+      def state_of(json)
+        return "done" if json["status"] == "closed"
+        return "blocked" if json["status"] == "blocked"
+        return "up-for-review" if Array(json["labels"]).include?(UP_FOR_REVIEW)
+
+        STATUSES.key(json["status"])
+      end
+
+      def show(id)
+        result = bd("show", bead(id), "--json")
+        raise Error, "cannot read #{id}: #{result.out.strip}" unless result.ok
+
+        json = JSON.parse(result.out)
+        json.is_a?(Array) ? json.first.to_h : json
+      rescue JSON::ParserError
+        raise Error, "cannot read #{id}"
+      end
+
+      def bead(id) = id.to_s.delete_prefix("bd-")
+      def bd(*args) = @shell.run("bd", *args)
+    end
+  end
 
   # What the design doc and the feature PR say about this feature.
   class Feature
     attr_reader :slug
 
-    def initialize(slug, shell:, root:)
+    def initialize(slug, shell:, root:, tracker: nil)
       @slug = slug
       @shell = shell
       @root = root
+      @tracker = tracker
     end
+
+    def tracker = @tracker ||= Tracker.for(Autopilot.config, shell: @shell)
 
     def branch = "feature/#{slug}"
 
@@ -214,7 +449,7 @@ module Autopilot
 
       pr["body"].to_s.lines.filter_map do |line|
         match = SLICE_LINE.match(line) or next
-        Slice.new(issue: match[2].to_i, done: match[1].casecmp?("x"))
+        Slice.new(issue: Autopilot.slice_id(match[2]), done: match[1].casecmp?("x"))
       end
     end
 
@@ -226,12 +461,11 @@ module Autopilot
       ticked = all.select(&:done).map(&:issue)
       listed = all.map(&:issue)
       all.reject(&:done).each do |slice|
-        issue = issue(slice.issue)
-        deps = dependencies(issue["body"]) & listed
+        item = tracker.item(slice.issue)
+        deps = item[:dependencies] & listed
         next unless (deps - ticked).empty?
 
-        labels = issue["labels"].map { |label| label["name"] }
-        return Slice.new(issue: slice.issue, done: false, blocked: labels.include?("status:blocked"), labels: labels)
+        return Slice.new(issue: slice.issue, done: false, blocked: item[:state] == "blocked", state: item[:state])
       end
       nil
     end
@@ -256,7 +490,7 @@ module Autopilot
     def tick(issue, slice_pr)
       reload
       body = pr.fetch("body").to_s
-      ticked = self.class.ticked(body, issue, slice_pr)
+      ticked = self.class.ticked(body, issue, slice_pr, closes: tracker.closes?)
       return if ticked == body
 
       file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
@@ -269,47 +503,29 @@ module Autopilot
     end
 
     # `- [ ] #n — title` becomes `- [x] #n — title (PR #p)`, and `Closes #n`
-    # goes after the last Closes line, or after the list. Running it twice
-    # changes nothing.
-    def self.ticked(body, issue, slice_pr)
+    # goes after the last Closes line, or after the list. Under beads there
+    # is no issue to close (`closes: false`). Running it twice changes nothing.
+    def self.ticked(body, issue, slice_pr, closes: true)
+      ref = Autopilot.ref(issue)
       lines = body.lines.map { |line| line.end_with?("\n") ? line : "#{line}\n" }
-      row = lines.index { |line| line.match?(/^- \[ \] ##{issue}(?!\d)/) }
+      row = lines.index { |line| line.match?(/^- \[ \] #{Regexp.escape(ref)}(?![\w.-])/) }
       if row
         line = lines[row].chomp.sub("- [ ]", "- [x]")
         line += " (PR ##{slice_pr})" unless line.include?("(PR ##{slice_pr})")
         lines[row] = "#{line}\n"
       end
-      return lines.join if lines.any? { |line| line.chomp == "Closes ##{issue}" }
+      return lines.join if !closes || lines.any? { |line| line.chomp == "Closes #{Autopilot.ref(issue)}" }
 
       after = lines.rindex { |line| line.start_with?("Closes #") }
       if after
-        lines.insert(after + 1, "Closes ##{issue}\n")
+        lines.insert(after + 1, "Closes #{Autopilot.ref(issue)}\n")
       elsif (last = lines.rindex { |line| SLICE_LINE.match?(line) })
-        lines.insert(last + 1, "\n", "Closes ##{issue}\n")
+        lines.insert(last + 1, "\n", "Closes #{Autopilot.ref(issue)}\n")
       end
       lines.join
     end
 
-    def title(number)
-      result = @shell.run("gh", "issue", "view", number.to_s, "--repo", Autopilot.repo, "--json", "title", "--jq", ".title")
-      raise Error, "cannot read issue ##{number}'s title: #{result.out.strip}" unless result.ok
-
-      result.out.strip
-    end
-
-    def issue(number)
-      result = @shell.run("gh", "issue", "view", number.to_s, "--repo", Autopilot.repo, "--json", "body,labels,state")
-      raise Error, "cannot read issue ##{number}: #{result.out.strip}" unless result.ok
-
-      JSON.parse(result.out)
-    end
-
-    private
-
-    def dependencies(body)
-      section = body.to_s[/^## Dependencies\s*\n(.*?)(?=^## |\z)/m, 1].to_s
-      section.scan(/#(\d+)/).flatten.map(&:to_i).uniq
-    end
+    def title(id) = tracker.title(id)
   end
 
   # One `claude -p` process: a single command, in the autopilot worktree, with
@@ -502,9 +718,9 @@ module Autopilot
       branch = current_branch
       return "on #{branch}, not #{Autopilot.branch_prefix}/#{issue}/…" unless branch.start_with?("#{Autopilot.branch_prefix}/#{issue}/")
 
-      # /pr_submit moves the slice on to up-for-review; planning still holds.
-      labels = @feature.issue(issue)["labels"].map { |label| label["name"] }
-      "##{issue} is not status:in-progress" unless labels.intersect?(%w[status:in-progress status:up-for-review])
+      # /pr_submit moves the slice on to Up for Review; planning still holds.
+      state = @feature.tracker.state(issue)
+      "#{Autopilot.ref(issue)} is not In Progress (it is #{state || 'in no state'})" unless %w[in-progress up-for-review].include?(state)
     end
 
     def implemented(issue)
@@ -707,8 +923,8 @@ module Autopilot
   end
 
   # What a rerun owes the developer after a halt (docs/system/autopilot.md):
-  # HALT entries posted on an issue reach the log, and a cleared slice gets its
-  # status label back.
+  # HALT entries posted off the slice branch reach the log, and a cleared
+  # slice gets its state back.
   class Resume
     SECTION = "## Halts and pauses\n"
 
@@ -723,7 +939,7 @@ module Autopilot
     def copy_halts
       log = File.join(@worktree, @feature.log_path)
       # Every slice, ticked ones too: a halt while finishing is filed on the last.
-      posted = @feature.slices.flat_map { |slice| posted_halts(slice.issue) }.uniq
+      posted = @feature.slices.flat_map { |slice| @feature.tracker.halts(slice.issue, @feature.pr&.fetch("number")) }.uniq
       return 0 if new_entries(posted, File.read(log)).empty?
 
       FeatureBranch.new(feature: @feature, shell: @shell, worktree: @worktree).change do |branch|
@@ -734,15 +950,19 @@ module Autopilot
         next 0 if entries.empty?
 
         File.write(log, text.include?(SECTION) ? text.sub(SECTION, "#{SECTION}\n#{entries.join("\n")}") : "#{text}\n#{SECTION}\n#{entries.join("\n")}")
-        branch.commit([ @feature.log_path ], "Copy #{entries.size} HALT #{entries.size == 1 ? 'entry' : 'entries'} from issues into the autopilot log")
+        branch.commit([ @feature.log_path ], "Copy #{entries.size} HALT #{entries.size == 1 ? 'entry' : 'entries'} into the autopilot log")
         entries.size
       end
     end
 
-    def restore_label(slice)
-      return if slice.labels.to_a.any? { |label| label.start_with?("status:") }
+    # A cleared slice, put back where it really is. Under labels that is a
+    # slice with no status label; on the other tiers, any state the developer
+    # set while clearing Blocked.
+    def restore_state(slice)
+      return unless @feature.tracker.restorable?(slice.state)
 
-      @shell.run("gh", "issue", "edit", slice.issue.to_s, "--repo", Autopilot.repo, "--add-label", status_for(slice.issue))
+      wanted = status_for(slice.issue)
+      @feature.tracker.set(slice.issue, wanted) unless wanted == slice.state
     end
 
     private
@@ -752,30 +972,18 @@ module Autopilot
     # progress, neither means todo.
     def status_for(issue)
       branch = git("ls-remote", "--heads", "origin", "refs/heads/#{Autopilot.branch_prefix}/#{issue}/*")[%r{refs/heads/(\S+)}, 1]
-      return @feature.merged_pr(issue) ? "status:up-for-review" : "status:todo" unless branch
+      return @feature.merged_pr(issue) ? "up-for-review" : "todo" unless branch
 
       result = @shell.run("gh", "pr", "list", "--repo", Autopilot.repo, "--head", branch, "--state", "open", "--json", "number")
       raise Error, "cannot list PRs for #{branch}: #{result.out.strip}" unless result.ok
 
-      JSON.parse(result.out).any? ? "status:up-for-review" : "status:in-progress"
+      JSON.parse(result.out).any? ? "up-for-review" : "in-progress"
     rescue JSON::ParserError
       raise Error, "cannot read the PR list for #{branch}"
     end
 
     # An entry is already logged when its heading and Where line are.
     def new_entries(posted, text) = posted.reject { |entry| text.include?(entry.lines.first(2).join) }
-
-    def posted_halts(issue)
-      result = @shell.run("gh", "issue", "view", issue.to_s, "--repo", Autopilot.repo, "--json", "comments")
-      return [] unless result.ok
-
-      JSON.parse(result.out)["comments"].filter_map do |comment|
-        body = comment["body"].to_s
-        body.sub(MARKER, "").strip + "\n" if body.start_with?("#### HALT") && body.include?(MARKER)
-      end
-    rescue JSON::ParserError
-      []
-    end
 
     def git(*args) = @shell.run("git", *args, chdir: @worktree).out.strip
   end
@@ -795,8 +1003,8 @@ module Autopilot
     # the commands appended them.
     def slice_section(text, issue:, title:, pr:, sha:, row:)
       lines, entries = take_entries(text.lines, issue)
-      heading = "### ##{issue} — #{title} (PR ##{pr}, merged #{sha})\n"
-      at = lines.index { |line| line.match?(/^### ##{issue}(?!\d)/) }
+      heading = "### #{Autopilot.ref(issue)} — #{title} (PR ##{pr}, merged #{sha})\n"
+      at = lines.index { |line| line.match?(/^### #{Regexp.escape(Autopilot.ref(issue))}(?![\w.-])/) }
       if at
         lines[at] = heading
       else
@@ -829,10 +1037,10 @@ module Autopilot
     # One row per step: consecutive attempts at the same step are one row,
     # their retries and pauses counted.
     def metrics(text, issue, usage)
-      lines = text.lines.reject { |line| line.start_with?("| ##{issue} |") }
+      lines = text.lines.reject { |line| line.start_with?("| #{Autopilot.ref(issue)} |") }
       at = section_end(lines, "## Metrics") or raise Error, "the autopilot log has no ## Metrics section"
       rows = step_rows(usage).map do |step|
-        "| ##{issue} | `#{step[:step]}` | #{duration(step[:seconds])} | #{usd(step[:usd])} | #{step[:retries]} | #{step[:pauses]} |\n"
+        "| #{Autopilot.ref(issue)} | `#{step[:step]}` | #{duration(step[:seconds])} | #{usd(step[:usd])} | #{step[:retries]} | #{step[:pauses]} |\n"
       end
       unless lines.any? { |line| line.start_with?("| Slice | Step |") }
         rows.unshift("| Slice | Step | Wall time | Usage | Retries | Pauses |\n", "|---|---|---|---|---|---|\n")
@@ -919,10 +1127,10 @@ module Autopilot
         end
         next if skip
 
-        slice = line[/^### (#\d+)/, 1] if line.start_with?("### ")
+        slice = line[/^### (#{SLICE_ID})/, 1] if line.start_with?("### ")
         if line.start_with?("#### ")
           subsection = line.chomp
-          items << entry_item(text.lines.drop(i)) if line.match?(/^#### (D\d+-\d+|HALT) /)
+          items << entry_item(text.lines.drop(i)) if line.match?(/^#### (D(?:\d+|bd-[\w.]+)-\d+|HALT) /)
         elsif line.start_with?("- ") && subsection == "#### Dropped review findings"
           items << { rank: "dropped", line: "- **dropped** · #{slice} · #{line[2..].strip}" }
         elsif line.start_with?("- ") && subsection == "#### Issues filed"
@@ -951,7 +1159,7 @@ module Autopilot
       entries = []
       current = nil
       lines.each do |line|
-        if line.match?(/^#### D#{issue}-\d+ /)
+        if line.match?(/^#### D#{Regexp.escape(issue.to_s)}-\d+ /)
           current = [ line ]
           entries << current
         elsif current && !line.match?(HEADING) && !line.start_with?("<!--")
@@ -1090,13 +1298,13 @@ module Autopilot
 
     def placeholders(slices)
       Dir.glob(File.join(@worktree, "docs/**/*.md")).sort.filter_map do |file|
-        issue = File.read(file)[/^\*\*Status:\*\* Draft — created for #(\d+)/, 1]
-        file.delete_prefix("#{@worktree}/") if issue && slices.include?(issue.to_i)
+        ref = File.read(file)[/^\*\*Status:\*\* Draft — created for (#{SLICE_ID})/, 1]
+        file.delete_prefix("#{@worktree}/") if ref && slices.map { |slice| Autopilot.ref(slice) }.include?(ref)
       end
     end
 
     def placeholders_left(drafts)
-      left = drafts.select { |path| File.exist?(File.join(@worktree, path)) && File.read(File.join(@worktree, path)).include?("**Status:** Draft — created for #") }
+      left = drafts.select { |path| File.exist?(File.join(@worktree, path)) && File.read(File.join(@worktree, path)).include?("**Status:** Draft — created for ") }
       return "still Draft: #{left.join(', ')}" if left.any?
 
       status = @shell.run("git", "status", "--porcelain", chdir: @worktree).out
@@ -1136,7 +1344,7 @@ module Autopilot
       @state.set(issue, "author", implemented.session_id) if implemented
       @state.set(issue, "author_summary", implemented.result) if implemented&.result
       ensure_step("pr_submit", issue, issue) { @expect.submitted(issue) }
-      @expect.slice_pr(issue)&.fetch("number") or raise Error, "the PR for ##{issue} is gone right after /pr_submit"
+      @expect.slice_pr(issue)&.fetch("number") or raise Error, "the PR for #{Autopilot.ref(issue)} is gone right after /pr_submit"
     end
 
     # Pass 1 from a new session; the resolver in another, from a handoff;
@@ -1176,11 +1384,11 @@ module Autopilot
       task = task_file(issue)&.delete_prefix("#{@worktree}/")
       earlier = Array(@state.get(issue, "resolver_summaries"))
       text = <<~MD
-        # Handoff: /pr_comment_resolver #{pr} for ##{issue}
+        # Handoff: /pr_comment_resolver #{pr} for #{Autopilot.ref(issue)}
 
         You are a new session. /implement wrote this slice in another one; this is what it would have remembered.
 
-        - Slice: ##{issue}, PR ##{pr} into `#{@feature.branch}`
+        - Slice: #{Autopilot.ref(issue)}, PR ##{pr} into `#{@feature.branch}`
         - Task file: #{task || 'none found under .llm/tasks/'} (the plan, acceptance criteria and implementation notes)
         - What changed: `git log --oneline origin/#{@feature.branch}..HEAD` and `gh pr diff #{pr}`
 
@@ -1240,7 +1448,7 @@ module Autopilot
       runs = out.scan(%r{/actions/runs/(\d+)}).flatten.uniq
       return if runs.empty?
 
-      @notifier.notify("##{issue}: CI is red on PR ##{pr} (#{failing(out)}); rerunning its failed jobs once.")
+      @notifier.notify("#{Autopilot.ref(issue)}: CI is red on PR ##{pr} (#{failing(out)}); rerunning its failed jobs once.")
       timed(issue, "CI rerun, PR ##{pr}") do
         runs.all? do |run|
           @shell.run("gh", "run", "watch", run, "--repo", Autopilot.repo, timeout: CHECKS_TIMEOUT)
@@ -1269,7 +1477,7 @@ module Autopilot
       end
       @feature.tick(issue, merged.fetch("number"))
       sha = merged.dig("mergeCommit", "oid").to_s[0, 7]
-      @notifier.notify("##{issue} landed: PR ##{merged['number']} merged into #{@feature.branch} as #{sha}.")
+      @notifier.notify("#{Autopilot.ref(issue)} landed: PR ##{merged['number']} merged into #{@feature.branch} as #{sha}.")
     end
 
     # The slice's heading, header row, metrics and pauses, from the PR and the
@@ -1286,7 +1494,7 @@ module Autopilot
       return if text == before
 
       File.write(path, text)
-      branch.commit([ @feature.log_path ], "Record ##{issue} in the autopilot log")
+      branch.commit([ @feature.log_path ], "Record #{Autopilot.ref(issue)} in the autopilot log")
     end
 
     # Fixed and dropped, from /implement's `Pre-PR review:` line.
@@ -1352,24 +1560,23 @@ module Autopilot
       until_time = outcome.reset_at || (@clock.now + PAUSE_FALLBACK)
       @state.append(issue, "pauses", { "step" => "/#{command} #{arg}", "at" => @clock.now.iso8601,
                                        "until" => until_time.iso8601 })
-      @notifier.notify("Paused on ##{issue} (/#{command}): #{outcome.reason}. Resuming at #{until_time.iso8601}.")
+      @notifier.notify("Paused on #{Autopilot.ref(issue)} (/#{command}): #{outcome.reason}. Resuming at #{until_time.iso8601}.")
       @clock.sleep_until(until_time)
     end
 
     # The step already followed the halt protocol; tell the developer and stop.
     def stop(issue, gate, reason)
-      @notifier.notify("Halted on ##{issue} (gate `#{gate}`): #{reason}")
+      @notifier.notify("Halted on #{Autopilot.ref(issue)} (gate `#{gate}`): #{reason}")
       raise Halted.new(gate, reason, issue)
     end
 
     # A halt the driver found itself: the protocol is ours to follow. No branch
-    # is ours to commit on here, so the entry goes on the issue, and the next
-    # run copies it into the log (docs/system/autopilot-steps.md, Halt, step 3).
+    # is ours to commit on here, so the entry goes on the issue (the feature PR
+    # under beads), and the next run copies it into the log
+    # (docs/system/autopilot-steps.md, Halt, step 3, and Tracker tiers).
     def halt(issue, reason, gate: "halt")
-      @shell.run("gh", "issue", "edit", issue.to_s, "--repo", Autopilot.repo, "--add-label", "status:blocked",
-                 "--remove-label", "status:todo", "--remove-label", "status:in-progress",
-                 "--remove-label", "status:up-for-review")
-      @shell.run("gh", "issue", "comment", issue.to_s, "--repo", Autopilot.repo, "--body", halt_entry(issue, gate, reason))
+      @feature.tracker.set(issue, "blocked")
+      @feature.tracker.post_halt(issue, halt_entry(issue, gate, reason), @feature.pr&.fetch("number"))
       stop(issue, gate, reason)
     end
 
@@ -1381,7 +1588,7 @@ module Autopilot
         - **Where:** bin/autopilot on #{branch.empty? ? 'a detached HEAD' : "`#{branch}`"} at #{git('rev-parse', '--short', 'HEAD')}
         - **Uncommitted:** #{status.empty? ? 'clean' : status.lines.map(&:strip).join(', ')}
         - **Needs:** a look at why the step could not finish, then whatever it needs
-        - **Resume:** answer under **Needs**, remove `status:blocked` from ##{issue}, then `bin/autopilot <slug>`
+        - **Resume:** answer under **Needs**, clear Blocked on #{Autopilot.ref(issue)} (docs/system/autopilot-steps.md, Tracker tiers), then `bin/autopilot #{@feature.slug}`
 
         #{MARKER}
       MD
@@ -1552,6 +1759,9 @@ module Autopilot
       problems << "claude is not on PATH" unless sh("sh", "-c", "command -v claude").ok
       problems << "no allowlist at #{ALLOWLIST}" unless File.exist?(File.join(worktree, ALLOWLIST))
       problems << "the guard is not wired: .claude/settings.json needs #{GUARD} under PreToolUse" unless guard_wired?
+      # A tier the driver cannot read would end the run at the first slice.
+      tier = feature.tracker.probe
+      problems << tier if tier
       gates = sh("bin/gates", chdir: worktree)
       problems << "bin/gates is red:\n#{gates.out}" unless gates.ok
       problems
@@ -1581,7 +1791,7 @@ module Autopilot
       plan = %w[task_plan implement pr_submit].map { |cmd| step.argv(cmd, slice.issue).join(" ") }
       say(<<~PLAN, 0)
         Preflight: ready. Worktree #{worktree}, feature PR ##{feature.pr['number']}.
-        Next slice: ##{slice.issue}#{slice.blocked ? ' (BLOCKED: a run stops here)' : ''}
+        Next slice: #{Autopilot.ref(slice.issue)}#{slice.blocked ? ' (BLOCKED: a run stops here)' : ''}
         Steps, each a fresh process (skipped when its expectation already holds):
         #{plan.map { |line| "  #{line}" }.join("\n")}
           then /pr_review <PR> (new session), /pr_comment_resolver <PR> (#{resolver_session}),
@@ -1607,16 +1817,16 @@ module Autopilot
         @slice = feature.next_slice
         break unless @slice
         return blocked(@slice) if @slice.blocked
-        raise Error, "##{landed} is still open after it landed" if @slice.issue == landed
+        raise Error, "#{Autopilot.ref(landed)} is still open after it landed" if @slice.issue == landed
 
-        resume.restore_label(@slice)
+        resume.restore_state(@slice)
         server.start # only once there is something to run
         run.slice(@slice.issue)
         landed = @slice.issue
       end
       finish(resume)
     rescue Halted => e
-      say("Halted on ##{e.issue} (gate #{e.gate}): #{e.message}", 2)
+      say("Halted on #{Autopilot.ref(e.issue)} (gate #{e.gate}): #{e.message}", 2)
     rescue Error => e
       stopped(@slice, e.message)
     ensure
@@ -1631,11 +1841,11 @@ module Autopilot
       # A halt while finishing is filed on the last slice, ticked or not; it
       # holds the finish until the developer clears it.
       last = slices.last.issue
-      labels = feature.issue(last)["labels"].map { |label| label["name"] }
-      return blocked(Slice.new(issue: last, done: true, blocked: true)) if labels.include?("status:blocked")
+      state = feature.tracker.state(last)
+      return blocked(Slice.new(issue: last, done: true, blocked: true)) if state == "blocked"
 
       # Cleared after a halt while finishing: up for review again, like any landed slice.
-      resume.restore_label(Slice.new(issue: last, done: true, labels: labels))
+      resume.restore_state(Slice.new(issue: last, done: true, state: state))
 
       server.start
       run.finalize(slices.last.issue, slices.map(&:issue))
@@ -1643,15 +1853,15 @@ module Autopilot
     end
 
     def blocked(slice)
-      notifier.notify("##{slice.issue} is blocked; the run stops there. Its HALT entry says what is needed.")
-      say("##{slice.issue} is blocked. Read its HALT entry, answer it, remove status:blocked, and rerun.", 2)
+      notifier.notify("#{Autopilot.ref(slice.issue)} is blocked; the run stops there. Its HALT entry says what is needed.")
+      say("#{Autopilot.ref(slice.issue)} is blocked. Read its HALT entry, answer it, clear Blocked (docs/system/autopilot-steps.md, Tracker tiers), and rerun.", 2)
     end
 
     # gh down, a PR gone, git refusing: not a policy halt, so no label
     # changes; rerunning is the fix. The developer still hears about it, even
     # if posting the notice itself fails.
     def stopped(slice, message)
-      where = slice ? "##{slice.issue}" : "feature/#{@slug}"
+      where = slice ? "#{Autopilot.ref(slice.issue)}" : "feature/#{@slug}"
       begin
         notifier.notify("Stopped on #{where}: #{message}. Nothing was labelled; rerun bin/autopilot #{@slug} once it clears.")
       rescue StandardError
