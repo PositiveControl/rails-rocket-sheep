@@ -37,7 +37,7 @@ DRAFT = /^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i
 drafts =
   begin
     branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
-    exit 0 if branch == "HEAD" || branch.start_with?("feature/") || ENV["AUTOPILOT"] == "1"
+    exit 0 if branch == "HEAD" || branch.match?(%r{\Afeature/[^/]+\z}) || ENV["AUTOPILOT"] == "1"
     exit 0 if ENV["SKIP_DRAFT_CHECK"] == "1"
     slice_id = branch[%r{\A[^/]+/([^/]+)/}, 1]
 

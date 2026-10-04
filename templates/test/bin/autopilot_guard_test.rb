@@ -95,6 +95,14 @@ class SessionEndHookTest < Minitest::Test
     assert_equal 0, hook_status
   end
 
+  # A branch prefix of `feature` makes slice branches `feature/<id>/<slug>`;
+  # only the feature branch itself, `feature/<slug>`, is the feature PR's.
+  def test_a_slice_branch_under_a_feature_prefix_still_blocks
+    git("checkout", "-qb", "feature/5/thing")
+
+    assert_equal 2, hook_status
+  end
+
   # A developer's local opt-out (settings.local.json `env`), for drafts that
   # are legitimately open where they work, such as main during a feature.
   def test_skip_draft_check_says_nothing
