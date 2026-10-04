@@ -214,13 +214,13 @@ Replace `<ISSUE_NUMBER>` (or `<ID>`) with the value from `$ARGUMENTS`.
 **Important:** The `gh pr checks` command uses these JSON fields: `name`, `state`, `link`, `workflow`. It does NOT have a `conclusion` field — use `state` only (values: `PENDING`, `SUCCESS`, `FAILURE`, `SKIPPED`).
 
 ```bash
-gh pr checks --json name,state,link --jq '.[] | select([{{FAST_CI_CHECKS_JQ}}] | index(.name)) | "\(.name): \(.state)"'
+gh pr checks --json name,state,link --jq '.[] | select(.name as $n | [{{FAST_CI_CHECKS_JQ}}] | index($n)) | "\(.name): \(.state)"'
 ```
 
 Polling loop:
 1. Fetch check status for the fast checks ({{FAST_CI_CHECKS}}) only
 2. If any of these is `PENDING` or `IN_PROGRESS`, wait 30 seconds and re-check
-3. If all four are terminal (SUCCESS/FAILURE), proceed to triage
+3. If all of them are terminal (SUCCESS/FAILURE), proceed to triage
 4. After 5 minutes of polling, proceed with whatever status is available
 
 **If there are CI failures:**

@@ -133,7 +133,7 @@ gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/comments/<COMMENT_
 Poll fast CI checks — confirm fixes break nothing:
 
 ```bash
-gh pr checks $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json name,state,link --jq '.[] | select([{{FAST_CI_CHECKS_JQ}}] | index(.name)) | "\(.name): \(.state)"'
+gh pr checks $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json name,state,link --jq '.[] | select(.name as $n | [{{FAST_CI_CHECKS_JQ}}] | index($n)) | "\(.name): \(.state)"'
 ```
 
 Fast check fails after push → diagnose, fix before reporting.
