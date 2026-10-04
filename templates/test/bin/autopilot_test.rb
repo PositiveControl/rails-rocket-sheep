@@ -138,6 +138,15 @@ module AutopilotFixtures
 
   MD
 
+  # The driver reads the log as origin/feature/foo has it. A test stages that
+  # copy in `dir`, read at the moment the driver asks.
+  def serve_feature_branch_log(shell, dir)
+    shell.on(%r{^git show origin/feature/foo:\S+$}) do |line|
+      path = File.join(dir, line[/:(\S+)$/, 1])
+      File.exist?(path) ? Autopilot::Shell::Result.new(File.read(path), true, false) : Autopilot::Shell::Result.new("fatal: no such path", false, false)
+    end
+  end
+
   def issue_json(deps, labels: [ "status:todo" ])
     body = "Feature branch: feature/foo\n\n## Goal\nx\n\n## Dependencies\n#{deps}\n"
     JSON.generate("body" => body, "labels" => labels.map { |name| { "name" => name } }, "state" => "OPEN")
@@ -278,6 +287,7 @@ class AutopilotFeatureTest < Minitest::Test
   def setup
     @root = design_repo
     @shell = FakeShell.new
+    serve_feature_branch_log(@shell, @root)
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => SLICES } ]))
   end
 
@@ -335,6 +345,18 @@ class AutopilotFeatureTest < Minitest::Test
     File.write(log, File.read(log).sub(/^### #47 .*\n/, "### #47\n\n#### D47-1 · `choice` · /implement\n"))
 
     refute feature.slices.find { |slice| slice.issue == 47 }.done
+  end
+
+  # After a landing the worktree is back on the slice branch, whose log was
+  # cut before the driver wrote that slice's section. The feature branch's
+  # copy decides, or the run would stop on the slice it just landed.
+  def test_the_log_is_read_from_the_feature_branch_not_the_worktree
+    File.write(File.join(@root, "docs/plans/2026-10-02-foo-autopilot.md"), "# Foo — autopilot log\n\n## Slices\n")
+    @shell.on("git show origin/feature/foo:docs/plans/2026-10-02-foo-autopilot.md", LANDED)
+
+    assert_equal [ 44, 45, 56, 46, 47 ], feature.slices.select(&:done).map(&:issue)
+    fetch = @shell.calls.find { |call| call[:line] == "git fetch origin feature/foo" }
+    assert_equal @root, fetch && fetch[:chdir], "fetched first, so a section pushed since is seen"
   end
 
   def test_skips_a_slice_whose_dependency_is_still_open
@@ -1574,6 +1596,7 @@ class AutopilotResumeTest < Minitest::Test
     @root = design_repo
     File.write(File.join(@root, LOG), "# Foo — autopilot log\n\n## Halts and pauses\n\n## Metrics\n")
     @shell = FakeShell.new
+    serve_feature_branch_log(@shell, @root)
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => SLICES } ]))
     @shell.on("git branch --show-current", "feat/60/storage\n")
     @shell.on(/gh pr list .*--base feature\/foo --state merged/, "[]")
@@ -1587,8 +1610,16 @@ class AutopilotResumeTest < Minitest::Test
 
   def comments(*bodies) = JSON.generate("comments" => bodies.map { |body| { "body" => body } })
 
+  # Reading the slices fetches the feature branch for its log. That is a
+  # read, before the copy; what follows is the copy's own git.
+  def read_the_feature_first
+    @feature.slices
+    @shell.calls.clear
+  end
+
   def test_copies_a_halt_posted_on_an_issue_into_the_log_on_the_feature_branch
     @shell.on(/gh issue view 60 .*--json comments/, comments("#{HALT}\n#{Autopilot::MARKER}\n", "a person's note"))
+    read_the_feature_first
 
     assert_equal 1, @resume.copy_halts
 
@@ -1666,6 +1697,7 @@ class AutopilotResumeTest < Minitest::Test
   def test_a_detached_worktree_stops_the_copy_before_it_starts
     @shell.on(/gh issue view 60 .*--json comments/, comments("#{HALT}\n#{Autopilot::MARKER}\n"))
     @shell.on("git branch --show-current", "")
+    read_the_feature_first
 
     error = assert_raises(Autopilot::Error) { @resume.copy_halts }
 
@@ -1837,6 +1869,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
     @root = design_repo
     File.write(File.join(@root, LOG), "# Foo — autopilot log\n\n#{LANDED}## Halts and pauses\n\n## Metrics\n")
     @shell = FakeShell.new
+    serve_feature_branch_log(@shell, @root)
     @shell.on("git branch --show-current", "feature/foo\n")
     @shell.on(/gh pr list .*--base feature\/foo --state merged/, "[]")
   end
@@ -2259,6 +2292,7 @@ class AutopilotCLITest < Minitest::Test
     FileUtils.cp(File.expand_path("../../bin/hooks/autopilot_guard", __dir__), File.join(@worktree, "bin/hooks/autopilot_guard"))
     File.write(File.join(@worktree, "docs/plans/2026-10-02-foo-autopilot.md"), "# log\n\n#{LANDED}## Halts and pauses\n")
     @shell = FakeShell.new
+    serve_feature_branch_log(@shell, @worktree)
     @shell.on("git rev-parse --path-format=absolute --git-common-dir", "#{@root}/.git\n")
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => SLICES } ]))
     @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", issue_json("#47 first."))
