@@ -1239,6 +1239,9 @@ module Autopilot
     MAX_PAUSES = 12
     PAUSE_FALLBACK = 30 * 60
     CHECKS_TIMEOUT = 45 * 60
+    # Checks that report and never gate a merge, as /pr_review's Land it and
+    # /pr_submit treat them.
+    INFORMATIONAL = /\b(CodeQL|Analyze)\b/
     # `--no-ff` because a developer's `merge.ff=only` would otherwise refuse the
     # merge commit a diverged feature branch needs, and fail with no conflict.
     MERGE_MAIN = %w[git merge --no-edit --no-ff origin/main].freeze
@@ -1420,6 +1423,7 @@ module Autopilot
       end
       raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if checks.timed_out
 
+      checks = past_informational(issue, pr, checks) unless checks.ok
       unless checks.ok
         rerun = rerun_failed_jobs(issue, pr, checks.out)
         retried = " (still red after one rerun of its failed jobs)" unless rerun.nil?
@@ -1444,8 +1448,37 @@ module Autopilot
     # not stop a run that a second attempt would pass. True when every rerun
     # run went green; nil when the checks name no run to rerun. `--fail-fast` returns at the first failure, so each run
     # is waited out before its failed jobs can be rerun.
+    # `--fail-fast` stops at the first red check. When every red one is
+    # informational, the rest may still be pending: wait for them without
+    # it, and pass the gate when nothing else is red. Any other red, or checks
+    # gh cannot list, go on to the rerun as before.
+    def past_informational(issue, pr, checks)
+      return checks unless informational_only?(red_checks(pr))
+
+      rest = timed(issue, "CI wait, PR ##{pr}") do
+        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", timeout: CHECKS_TIMEOUT)
+      end
+      raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if rest.timed_out
+
+      Shell::Result.new(rest.out, rest.ok || informational_only?(red_checks(pr)), false)
+    end
+
+    # The names of the checks that failed or were cancelled; nil when gh
+    # cannot say. `gh pr checks` exits non-zero for red checks even with
+    # --json, so the output decides, not the status.
+    def red_checks(pr)
+      result = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--json", "name,bucket")
+      JSON.parse(result.out).select { |check| %w[fail cancel].include?(check["bucket"]) }.map { |check| check["name"].to_s }
+    rescue JSON::ParserError
+      nil
+    end
+
+    def informational_only?(red) = !red.nil? && red.any? && red.all? { |name| INFORMATIONAL.match?(name) }
+
+    # An informational check's run is not rerun: it never gates the merge,
+    # and a second red from it would halt a slice whose real checks passed.
     def rerun_failed_jobs(issue, pr, out)
-      runs = out.scan(%r{/actions/runs/(\d+)}).flatten.uniq
+      runs = out.lines.grep_v(INFORMATIONAL).join.scan(%r{/actions/runs/(\d+)}).flatten.uniq
       return if runs.empty?
 
       @notifier.notify("#{Autopilot.ref(issue)}: CI is red on PR ##{pr} (#{failing(out)}); rerunning its failed jobs once.")

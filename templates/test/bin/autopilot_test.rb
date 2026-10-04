@@ -978,6 +978,52 @@ class AutopilotRunTest < Minitest::Test
     refute @shell.ran?(/^gh pr merge/)
   end
 
+  CODEQL_RED = "CodeQL\tfail\t3m\thttps://github.com/o/r/actions/runs/500/job/9\n"
+
+  def checks_json(*buckets) = JSON.generate(buckets.map { |name, bucket| { "name" => name, "bucket" => bucket } })
+
+  # --fail-fast stops at CodeQL's red while the real checks still run. The
+  # driver waits them out without it and merges when only CodeQL is red, as
+  # /pr_review's Land it does.
+  def test_an_informational_red_alone_waits_out_the_rest_and_merges
+    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED, ok: false)
+    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test pass], %w[lint pass]), ok: false)
+
+    run_with(happy_script).slice(48)
+
+    assert @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/), "the rest waited for without --fail-fast"
+    refute @shell.ran?(/^gh run rerun/), "an informational check is never rerun"
+    assert @shell.ran?(/^gh pr merge 70/)
+  end
+
+  def test_an_informational_red_with_a_real_one_behind_it_is_rerun_without_it
+    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED + RED_RUN, ok: false)
+    answers = [ checks_json(%w[CodeQL fail], %w[test pending]), checks_json(%w[CodeQL fail], %w[test fail]) ]
+    @shell.on(/^gh pr checks 70 .*--json name,bucket/) { Autopilot::Shell::Result.new(answers.shift || answers.last, false, false) }
+    @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
+
+    assert_match(/still red after one rerun/, error.message)
+    assert @shell.ran?(/^gh run rerun 371 --failed/)
+    refute @shell.ran?(/^gh run rerun 500/), "CodeQL's run is not rerun"
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  def test_a_real_red_beside_an_informational_one_is_not_waited_past
+    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED + RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test fail]), ok: false)
+
+    run_with(happy_script).slice(48)
+
+    refute @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/)
+    assert @shell.ran?(/^gh run rerun 371 --failed/)
+    refute @shell.ran?(/^gh run rerun 500/)
+    assert @shell.ran?(/^gh pr merge 70/), "the rerun turned the real check green"
+  end
+
   def test_a_rerun_gh_refuses_halts_without_merging
     @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
     @shell.on(/^gh run rerun 371/, "run 371 cannot be rerun", ok: false)

@@ -192,9 +192,11 @@ pending or red, and that is an answer.
    - Its head must be the one the review cycle ended on, so nothing pushed after
      the last review rides in.
    - Every check must finish green, `test` included (`gh pr checks --watch
-     --fail-fast`, 45 minutes at most).
+     --fail-fast`, 45 minutes at most), except the informational ones
+     (`CodeQL` / `Analyze`), as in `/pr_review` *Land it*. When those are the only
+     red, the rest are waited out without `--fail-fast`, and are what counts.
 
-   A red check first gets one rerun of its run's failed jobs (`gh run rerun
+   Any other red check first gets one rerun of its run's failed jobs (`gh run rerun
    --failed`, after the run finishes), so a flaky test does not stop the
    feature; the driver notifies and logs a `CI rerun` row. A wrong base, a
    moved head, or a check still red after that rerun is a `halt`. Checks
