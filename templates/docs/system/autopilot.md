@@ -324,7 +324,8 @@ it. Under it, it denies:
 | A push from another checkout: `git -C <dir> push`, or a `cd` before it, into any directory outside this worktree, or one the guard can't place | The developer's own checkout sits beside the worktree |
 | A git alias, `remote.*.push` or `push.default` | A renamed or redirected push escapes the push rules |
 | `gh pr ready`, `markPullRequestReadyForReview` | The driver readies the feature PR when every slice has landed |
-| `gh issue close`, a `state=closed` field | Issues close when the feature merges to `main` |
+| `gh issue close`, a `state=closed` field. `bd close`, `bd delete`, `bd update --status closed` | Issues and beads close when the feature merges to `main` (`/pick` reconciles beads) |
+| `gh project delete`, `close`, `item-delete`, `item-archive`, `field-delete` | A step moves a card on the board, nothing more |
 | `gh pr edit --base` or `-B`, a `base=` PATCH | A slice PR targets the feature branch |
 | Any edit under `config/credentials*` or `.github/workflows/`, and any command naming them | The halt list. Reads go through the Read tool; the settings' deny list covers the keys |
 | A migration that removes, drops or renames a column, table or reference: written by an edit, written by a command, or generated (`rails g migration Remove…`) | The halt list |

@@ -134,6 +134,10 @@ class AutopilotGuardTest < Minitest::Test
     "git aliases" => [ %q(ruby -e 'system("git config alias.p \"push --force\"")'), %q(git -c alias.p='push --force' p),
                        "git config remote.origin.push +HEAD:refs/heads/x", "git config push.default current" ],
     "ready" => [ "gh pr ready 66" ],
+    "bead closes" => [ "bd close bd-a3f2", "bd delete acme-a3f2", "bd update a3f2 --status closed", "bd update a3f2 --status=closed",
+                       %q(ruby -e 'system("bd close a3f2")') ],
+    "board deletes" => [ "gh project item-delete 1 --owner o --id PVTI_1", "gh project delete 1 --owner o",
+                         "gh project close 1 --owner o", "gh project item-archive 1 --owner o --id PVTI_1" ],
     "close" => [ "gh issue close 61", "gh api -X PATCH repos/o/r/issues/61 -f state=closed",
                  %q(gh api -X PATCH repos/o/r/issues/61 -f "state=closed"), %q(gh api -X PATCH repos/o/r/issues/61 -f 'state=closed') ],
     "branch deletes" => [ "git push origin --delete feature/autopilot", "git push origin :feature/autopilot", "git push -d origin feat/1/x",
@@ -181,6 +185,8 @@ class AutopilotGuardTest < Minitest::Test
       "git fetch origin main", "git merge-base --is-ancestor origin/main HEAD", "git checkout -b feat/1/x origin/feature/x",
       "gh api repos/o/r/branches/main", "git log origin/main..HEAD",
       "gh issue list --state=closed", "gh api 'repos/o/r/issues?state=closed'",
+      "bd update a3f2 --status in_progress", "bd set-state a3f2 lifecycle=up_for_review", "bd show a3f2 --json",
+      "bd list --status closed", "gh project item-edit --project-id P --id I --field-id F --single-select-option-id O",
       # Main named in a reply's text, not as its target.
       %q(gh api -X POST repos/o/r/pulls/117/comments/4172007325/replies -f body="Addressed: the bug is already on main; filed #118"),
       %q(gh pr comment 117 --body "Fixed on main already")
