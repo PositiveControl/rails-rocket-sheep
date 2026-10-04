@@ -304,10 +304,10 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
   gh pr checks <PR_NUMBER> --watch
   ```
 
-  Then edit the feature PR body (`gh pr list --head feature/<slug>`, then `gh pr edit <FEATURE_PR> --body-file`): tick this slice under **Slices** and add `Closes #<issue>` beneath the list — not under tier `beads`, which has no GitHub issue. Then bring the feature branch up to date so the final merge stays small:
+  Then edit the feature PR body (`gh pr list --head feature/<slug>`, then `gh pr edit <FEATURE_PR> --body-file`): tick this slice under **Slices** — the only tick it gets, now that it has merged — and add `Closes #<issue>` beneath the list — not under tier `beads`, which has no GitHub issue. Then bring the feature branch up to date so the final merge stays small. `--no-ff`, because by now both branches have usually moved, and a `merge.ff=only` in the developer's git config refuses that merge without it:
 
   ```bash
-  git checkout feature/<slug> && git pull && git merge origin/main && git push
+  git checkout feature/<slug> && git pull && git merge --no-ff origin/main && git push
   ```
 
   Conflicts → `/resolve_conflicts`.

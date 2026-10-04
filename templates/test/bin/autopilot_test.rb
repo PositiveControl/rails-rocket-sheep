@@ -661,6 +661,16 @@ class AutopilotStepTest < Minitest::Test
     end
   end
 
+  # Under `merge.ff=only` a plain `git merge origin/main` into a feature branch
+  # that has moved too refuses with "Not possible to fast-forward"; the
+  # driver's MERGE_MAIN passes --no-ff for it, and so must every command.
+  def test_every_command_merges_main_with_no_ff
+    Dir[File.expand_path("../../.claude/commands/*.md", __dir__)].each do |path|
+      merges = shell_blocks(File.read(path)).scan(/\bgit merge\b[^;&|\n]*\borigin\/main\b/)
+      merges.each { |merge| assert_includes merge, "--no-ff", "#{File.basename(path)}: #{merge}" }
+    end
+  end
+
   # The lines of a markdown file's bash, sh and unlabelled fenced blocks.
   def shell_blocks(markdown)
     fence = nil
