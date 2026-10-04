@@ -160,13 +160,11 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   per command. No command invokes another one: "next: `/pr_submit`" is an
   instruction to you
 - **Autopilot** is the one exception. A multi-slice feature whose design doc says
-  `**Autopilot:** on` (consent given at G1) can run unattended: `bin/autopilot <slug>`
-  runs each step as a fresh `claude -p` in `../<repo>-autopilot-<slug>`, with its
-  own `*_autopilot` databases (`DB_SUFFIX`), and answers each gate from the policy
-  in `docs/system/autopilot-steps.md`. Commands follow their *Autopilot* paragraphs
-  only when `AUTOPILOT=1` is also set, which only the driver does. Operator steps:
-  `docs/sop/run-a-feature-on-autopilot.md`; why:
-  `docs/adr/0016-an-accepted-design-may-run-itself.md`
+  `**Autopilot:** on` (consent given at G1) can be run by `bin/autopilot <slug>`,
+  which answers each gate from a policy. Commands follow their *Autopilot*
+  paragraphs only when `AUTOPILOT=1` is also set, which only the driver does.
+  How it works: `docs/system/autopilot.md`; running one:
+  `docs/sop/run-a-feature-on-autopilot.md`
 
 Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
 

@@ -303,7 +303,7 @@ it. Under it, it denies:
 | What | Why |
 |---|---|
 | `gh pr merge`, the `pulls/<n>/merge` endpoint, the `mergePullRequest` mutation | Only the driver merges, after checking the base (gate `merge`) |
-| A push to `main` (`main`, `HEAD:main`, `refs/heads/main`). Checking out `main` (or `worktree add` of it), and a plain `git push` from a checked-out `main`. The main ref named anywhere. Any `gh api` write that targets `main`: a `branches/main` path, or a `branch`, `base`, `head` or `ref` field set to it (a contents PUT with `branch=main`, say). `main` named in a write's text, such as a PR reply, passes | `main` is the developer's, and it has no branch protection to fall back on |
+| A push to `main` (`main`, `HEAD:main`, `refs/heads/main`). Checking out `main` (or `worktree add` of it), and a plain `git push` from a checked-out `main`. The main ref named anywhere. Any `gh api` write that targets `main`: a `branches/main` path, or a `branch`, `base`, `head` or `ref` field set to it (a contents PUT with `branch=main`, say). `main` named in a write's text, such as a PR reply, passes | `main` is the developer's, and it may have no branch protection to fall back on |
 | The branch-merge endpoint (`repos/…/merges`) and the GraphQL `mergeBranch`, `createCommitOnBranch`, `updateRef(s)` and `deleteRef` | Branches move by push, and only forward |
 | A force push: `--force`, `--force-with-lease`, `-f` in any flag group, a `+refspec`. A forced ref update (`force=true`) | History on the remote is never rewritten |
 | Deleting a remote branch: `git push --delete` or `-d`, a `:branch` refspec, a `DELETE` on `git/refs` | Deleting the feature branch would close the feature PR |
