@@ -43,10 +43,12 @@ module Autopilot
 
   # The app's workflow settings as /workflow_setup recorded them, one
   # `| `TOKEN` | `value` |` row each. The commands have these filled in; the
-  # driver is code, so it reads them at run time.
+  # driver is code, so it reads them at run time. Records written before the
+  # format was pinned also name the token as `{{TOKEN}}` and follow the value
+  # with a note; the value is the cell's first backticked span either way.
   class Config
     PATH = ".claude/workflow.config.md"
-    ROW = /^\|\s*`([A-Z][A-Z0-9_]*)`\s*\|\s*`([^`]*)`\s*\|/
+    ROW = /^\|\s*`(?:\{\{)?([A-Z][A-Z0-9_]*)(?:\}\})?`\s*\|\s*`([^`]*)`/
     TIERS = %w[labels github-projects beads].freeze
     REQUIRED = %w[TRACKER GITHUB_ORG GITHUB_REPO BRANCH_PREFIX].freeze
     BOARD = %w[PROJECT_ID STATUS_FIELD_ID STATUS_TODO STATUS_IN_PROGRESS STATUS_UP_FOR_REVIEW STATUS_BLOCKED].freeze

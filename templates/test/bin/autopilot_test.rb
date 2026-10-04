@@ -156,6 +156,24 @@ class AutopilotConfigTest < Minitest::Test
     assert_empty config.problems
   end
 
+  # The shape /workflow_setup wrote before the format was pinned: braced
+  # tokens, and notes after the value. Re-running the wizard can keep it.
+  def test_reads_a_record_in_the_older_shape
+    config = config(<<~MD)
+      | Token | Value |
+      |---|---|
+      | `{{TRACKER}}` | `labels` |
+      | `{{GITHUB_ORG}}` | `acme` (personal account — GraphQL uses `user(login:)`) |
+      | `{{GITHUB_REPO}}` | `shop` |
+      | `{{BRANCH_PREFIX}}` | `feat` → `feat/<id>/<slug>` |
+      | `{{PR_TITLE_PREFIX}}` | *(none — segment dropped)* |
+    MD
+
+    assert_equal "acme/shop", config.repo
+    assert_equal "feat", config.branch_prefix
+    assert_empty config.problems
+  end
+
   def test_a_missing_file_names_every_value_it_needs
     problems = Autopilot::Config.read("/nonexistent/workflow.config.md").problems
 
