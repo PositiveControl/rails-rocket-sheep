@@ -97,19 +97,25 @@ offers every change taken since for removal.
 - **Files renamed upstream** show up as an add plus a report of the old path.
 - **A conflict is a decision**, not a defect. The template does not know why you
   changed that rule; you do.
-- **Your own ADRs numbered below 0100 are yours to move.** The template's ADRs
-  take 0001–0099, and an app's own start at 0100 (`/domain_model` numbers them
-  that way). An app that numbered its own decisions in sequence before this rule
-  can end up with two files sharing a number after an update. The names differ,
-  so nothing conflicts and nothing warns. Check once:
+- **Your own ADRs numbered below 0100 are yours to move, all of them, once.** The
+  template's ADRs take 0001–0099, and an app's own start at 0100 (`/domain_model`
+  numbers them that way). An app that numbered its own decisions in sequence
+  before this rule holds some below 0100. An update can then land a second file
+  with one of those numbers. The names differ, so nothing conflicts and nothing
+  warns. Moving only today's duplicates is not enough, because the template's
+  next ADR takes the next number below 0100, which may be one of yours.
+
+  Your own are the ones the template does not ship. List them against the
+  checkout the update used (`tmp/rocket-sheep-template/`, or
+  `$ROCKET_SHEEP_TEMPLATE`):
 
   ```bash
-  ls docs/adr | cut -c1-4 | sort | uniq -d     # numbers used twice
+  comm -23 <(ls docs/adr | sort) <(ls tmp/rocket-sheep-template/templates/docs/adr | sort) | grep -E '^00[0-9]{2}-'
   ```
 
-  Rename each of your own to the next free number from 0100, in the same PR as
-  the update. Then fix the links to them: `grep -rn "<old number>" docs/
-  .llm/README.md CLAUDE.md`.
+  Rename each to the next free number from 0100, in the same PR as the update.
+  Then fix the links to them: `grep -rn "<old number>" docs/ .llm/README.md
+  CLAUDE.md`.
 
 ## When there is no stamp
 

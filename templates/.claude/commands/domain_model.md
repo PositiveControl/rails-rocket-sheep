@@ -63,7 +63,7 @@ One file per decision, next free number from 0100, four digits, slug from the ti
 ls docs/adr | grep -E '^0[1-9][0-9]{2}-' | tail -1   # highest of this app's own, increment it; none yet → 0100
 ```
 
-`docs/adr/0009-<slug>.md`. The shipped eight are the shape: an H1 naming the decision, then **Status**, **Context**, **Decision**, **Consequences** as `(+)` and `(-)` lines. Shorter is fine — three sentences carrying the context, the decision, and the cost accepted is a complete ADR. Longer is not: an ADR nobody finishes reading records nothing.
+`docs/adr/0100-<slug>.md` for the app's first. The shipped ones are the shape: an H1 naming the decision, then **Status**, **Context**, **Decision**, **Consequences** as `(+)` and `(-)` lines. Shorter is fine — three sentences carrying the context, the decision, and the cost accepted is a complete ADR. Longer is not: an ADR nobody finishes reading records nothing.
 
 **Rules say what to do; ADRs say why it was chosen.** The convention goes in `docs/rules/`, one per file with frontmatter; the reasoning and the accepted cost go here. A rule that argues with itself, or an ADR that tells you how to write the code, means the two got merged.
 
