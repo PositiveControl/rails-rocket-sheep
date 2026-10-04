@@ -11,9 +11,9 @@ and `/domain_model` writes the app's own at "next number".
 That works until the template adds an ADR after an app has added its own. The first
 adopter to hit it was the app autopilot was ported from: its own 0016 and 0017
 already existed when the autopilot ADR, its 0018, came back to the template as the
-template's next ADR, 0016. A three-way update would land a second `0016-*`. The file names differ, so
-nothing conflicts, and the numbering silently breaks: two decisions share a number,
-and "see ADR 0016" means two things.
+template's next ADR, 0016. A three-way update would land a second `0016-*`. The
+file names differ, so nothing conflicts, and the numbering silently breaks: two
+decisions share a number, and "see ADR 0016" means two things.
 
 This recurs with every template ADR an app has not seen yet.
 
