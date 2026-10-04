@@ -19,8 +19,11 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    first slice. If no slice has been planned yet, plan the first one by hand, or
    create the branch and draft PR as `/task_plan` Step 6 does.
 3. **The guard is wired.** `.claude/settings.json` has
-   `bin/hooks/autopilot_guard` under `PreToolUse`. A generated app has it, and
-   preflight refuses to start a run without it. An app that adopted the template
+   `cd "$CLAUDE_PROJECT_DIR" && bin/hooks/autopilot_guard` under `PreToolUse`, or
+   the bare `bin/hooks/autopilot_guard` of settings from before the `cd`. Either
+   counts, but only the first survives a session that leaves the root. A
+   generated app has it, and preflight refuses to start a run without it. An
+   app that adopted the template
    gets it from `bin/rocket-sheep-update`. If its own `settings.json` had
    diverged, the update leaves conflict markers there to resolve.
 4. **The workflow config is committed.** The driver reads the repo, branch
