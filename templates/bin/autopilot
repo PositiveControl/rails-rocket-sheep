@@ -1941,7 +1941,10 @@ module Autopilot
         @slice = feature.next_slice
         break unless @slice
         return blocked(@slice) if @slice.blocked
-        raise Error, "#{Autopilot.ref(landed)} is still open after it landed" if @slice.issue == landed
+        if @slice.issue == landed
+          raise Error, "#{Autopilot.ref(landed)} is still open after it landed: done needs it ticked on feature PR " \
+                       "##{feature.pr['number']} and its section in the log on origin/#{feature.branch}"
+        end
 
         resume.restore_state(@slice)
         server.start # only once there is something to run

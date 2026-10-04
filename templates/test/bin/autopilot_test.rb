@@ -2637,6 +2637,7 @@ class AutopilotCLITest < Minitest::Test
 
     assert_equal 2, cli("foo", run_factory: ->(**) { fake }).call
     assert_match(/#60 is still open after it landed/, @out.string)
+    assert_match(%r{ticked on feature PR #53 and its section in the log on origin/feature/foo}, @out.string, "says what is missing")
   end
 
   # A halt in finalize lands on the last slice, which is already ticked. The
