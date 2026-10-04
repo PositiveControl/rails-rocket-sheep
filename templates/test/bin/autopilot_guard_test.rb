@@ -201,6 +201,8 @@ class AutopilotGuardTest < Minitest::Test
       "gh issue list --state=closed", "gh api 'repos/o/r/issues?state=closed'",
       "bd update a3f2 --status in_progress", "bd set-state a3f2 lifecycle=up_for_review", "bd show a3f2 --json",
       "bd list --status closed", "bd show a3f2 --json --long", "bd update a3f2 -s in_progress", "gh project item-edit --project-id P --id I --field-id F --single-select-option-id O",
+      # A bead ID names `bd`, but is not the command.
+      %q(git commit -m "bd-a3f2dd: close the cart drawer on checkout"),
       # Main named in a reply's text, not as its target.
       %q(gh api -X POST repos/o/r/pulls/117/comments/4172007325/replies -f body="Addressed: the bug is already on main; filed #118"),
       %q(gh pr comment 117 --body "Fixed on main already")

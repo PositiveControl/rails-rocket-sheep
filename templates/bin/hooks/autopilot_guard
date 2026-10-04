@@ -51,7 +51,7 @@ module AutopilotGuard
     [ /\bgh\s+issue\s+close\b|\s(-[fF]|--field|--raw-field)[\s=]['"]?state=['"]?closed\b|\b(closeIssue|deleteIssue)\b/,
       "closing an issue: issues close when the feature merges to main" ],
     # Global flags may come first (`bd --db x close`), and `-s` is `--status`.
-    [ /\bbd\b[^;&|\n]*?\s(close|delete)\b|\bbd\b[^;&|\n]*?\supdate\b[^;&|\n]*\s(--status|-s)[\s=]+['"]?closed\b/,
+    [ /\bbd(?=\s)[^;&|\n]*?\s(close|delete)\b|\bbd(?=\s)[^;&|\n]*?\supdate\b[^;&|\n]*\s(--status|-s)[\s=]+['"]?closed\b/,
       "closing or deleting a bead: beads close when the feature merges to main, by /pick" ],
     [ /\bgh\s+project\s+(delete|close|item-delete|item-archive|field-delete)\b|
        \b(deleteProjectV2Item|archiveProjectV2Item|deleteProjectV2Field|deleteProjectV2)\b/x,

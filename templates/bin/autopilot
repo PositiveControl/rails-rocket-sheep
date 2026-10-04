@@ -554,7 +554,9 @@ module Autopilot
     # The line numbers a slice row may be on: under `## Slices`, up to the
     # next `## ` heading, so a checklist elsewhere in the body (a person's
     # "Before merge" list) is never read as a slice. A body with no Slices
-    # heading is read whole.
+    # heading is read whole, so there any checklist row can match: under beads,
+    # `- [ ] follow-up docs` reads as slice `bd-up`. The feature PR template
+    # always carries the heading.
     def self.slice_rows(lines)
       start = lines.index { |line| line.chomp == "## Slices" } or return (0...lines.size).to_a
       stop = (start + 1...lines.size).find { |i| lines[i].start_with?("## ") } || lines.size
