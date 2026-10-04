@@ -23,9 +23,9 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    the bare `bin/hooks/autopilot_guard` of settings from before the `cd`. Either
    counts, but only the first survives a session that leaves the root. A
    generated app has it, and preflight refuses to start a run without it. An
-   app that adopted the template
-   gets it from `bin/rocket-sheep-update`. If its own `settings.json` had
-   diverged, the update leaves conflict markers there to resolve.
+   app that adopted the template gets it from `bin/rocket-sheep-update`. If its
+   own `settings.json` had diverged, the update leaves conflict markers there to
+   resolve.
 4. **The workflow config is committed.** The driver reads the repo, branch
    prefix, tier and board IDs from `.claude/workflow.config.md`, which
    `/workflow_setup` writes. Commit it, so the worktree has it too; preflight
