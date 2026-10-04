@@ -16,6 +16,12 @@
 
 require "fileutils"
 
+# The sync rewrites the guard's own wiring (settings, hooks, the driver, the
+# allowlist). Keeping it off the allowlist is not enough, since `ruby bin/…`
+# passes Bash(ruby:*), so a step is refused here too. bin/autopilot sets
+# AUTOPILOT=1 for every step.
+abort "bin/dogfood-sync: not inside an autopilot step; sync on the feature branch after the run" if ENV["AUTOPILOT"] == "1"
+
 ROOT = File.expand_path("..", __dir__)
 SRC = File.join(ROOT, "templates")
 CONFIG = File.join(ROOT, ".claude/workflow.config.md")
