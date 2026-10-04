@@ -8,6 +8,9 @@
 #   bin/autopilot <slug> --dry-run   say what would run, change nothing
 #   bin/autopilot <slug> --usage     cost and cache use per step, from the state file
 #
+# Claude Code drives every step; `--cli codex|cursor` exits 1 and says what an
+# adapter for either would need.
+#
 # A feature is on autopilot when its design doc carries `**Autopilot:** on`,
 # written by /feature_plan at G1. Every rule this script applies (the policy,
 # the log, halt and pause, whose comment is whose) is defined in
@@ -1686,7 +1689,23 @@ module Autopilot
   # The command line: setup, preflight, dry run, and one slice per run.
   # Exit status: 0 done (or nothing to do), 1 not ready to run, 2 halted or blocked.
   class CLI
-    USAGE = "usage: bin/autopilot <slug> [--setup | --dry-run | --usage] [--resolver fresh|resume]"
+    USAGE = "usage: bin/autopilot <slug> [--setup | --dry-run | --usage] [--resolver fresh|resume] [--cli claude]"
+    CLIS = %w[claude codex cursor].freeze
+    # Why only Claude Code drives a step (docs/adr/0016-an-accepted-design-may-run-itself.md).
+    # A wrong adapter would be worse than none: the guard is the wall, and it
+    # is wired only where the harness runs it.
+    NO_ADAPTER = <<~MSG
+      bin/autopilot has no %<cli>s adapter: it drives Claude Code only.
+      A %<cli>s step would need, and nobody has verified that %<cli>s offers:
+        - a non-interactive mode that denies an unlisted tool rather than prompting
+          (claude -p --permission-mode dontAsk --allowedTools);
+        - a hook before every tool call that can deny it, for bin/hooks/autopilot_guard
+          (Claude Code's PreToolUse);
+        - a machine-readable result with the session id, cost and an error kind
+          (claude -p --output-format json).
+      Run the feature by hand in %<cli>s instead: each command's Autopilot paragraph
+      is plain markdown, and the commands work the same with a person at the keys.
+    MSG
     ALLOWLIST = ".claude/autopilot-allowed-tools.txt"
     GUARD = "bin/hooks/autopilot_guard"
 
@@ -1700,6 +1719,7 @@ module Autopilot
 
     def call
       mode = parse or return say(USAGE, 1)
+      return say(format(NO_ADAPTER, cli: @cli), 1) unless @cli == "claude"
       return setup if mode == :setup
       return usage if mode == :usage
 
@@ -1716,11 +1736,13 @@ module Autopilot
 
     def parse
       mode = :run
+      @cli = "claude"
       OptionParser.new do |o|
         o.on("--setup") { mode = :setup }
         o.on("--dry-run") { mode = :dry_run }
         o.on("--usage") { mode = :usage }
         o.on("--resolver MODE", %w[resume fresh]) { |v| @resolver = v.to_sym }
+        o.on("--cli NAME", CLIS) { |v| @cli = v }
       end.parse!(@argv)
       @slug = @argv.shift
       @slug && @argv.empty? ? mode : nil

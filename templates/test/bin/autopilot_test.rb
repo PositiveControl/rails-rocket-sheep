@@ -2228,6 +2228,28 @@ class AutopilotCLITest < Minitest::Test
     assert_equal :fresh, parts[:resolver]
   end
 
+  # Codex and Cursor have their own permission and hook models, unverified:
+  # a stub that says so beats an adapter that runs without the guard.
+  %w[codex cursor].each do |name|
+    define_method("test_cli_#{name}_fails_clearly_and_runs_nothing") do
+      assert_equal 1, cli("foo", "--cli", name).call
+
+      assert_match(/no #{name} adapter: it drives Claude Code only/, @out.string)
+      assert_match(/a hook before every tool call that can deny it/, @out.string)
+      assert_empty @shell.lines, "nothing is checked or run"
+    end
+  end
+
+  def test_cli_claude_is_the_default_and_runs
+    assert_equal 0, cli("foo", "--cli", "claude", "--dry-run").call
+    assert_match(/Next slice: #60/, @out.string)
+  end
+
+  def test_an_unknown_cli_is_a_usage_error
+    assert_equal 1, cli("foo", "--cli", "gemini").call
+    assert_match(/usage: bin\/autopilot/, @out.string)
+  end
+
   def test_an_unknown_resolver_mode_is_a_usage_error
     assert_equal 1, cli("foo", "--resolver", "sideways").call
     assert_match(/usage: bin\/autopilot/, @out.string)

@@ -105,6 +105,11 @@ bin/autopilot <slug> --usage     cost and cache use per step, from the state fil
 bin/autopilot <slug>             run it
 ```
 
+Claude Code drives every step. `--cli codex` and `--cli cursor` exit 1 and name
+what an adapter would need: a non-interactive mode that denies unlisted tools, a
+pre-tool hook for the guard, and a machine-readable result. Neither is verified,
+and an adapter without the guard would be worse than none (ADR 0016).
+
 Exit status:
 - `0`: finished, or nothing to do
 - `1`: not ready to run (preflight names every problem)
