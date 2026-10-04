@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# bin/rubocop — n/a here. The workflow commands call it in an app; this repo is the
+# template, and its checks are bin/test. See CLAUDE.md, "Dogfood layer".
+echo "bin/rubocop: n/a in the template repo (its checks are bin/test)"
