@@ -225,13 +225,18 @@ pending or red, and that is an answer.
    `Closes #<n>` after the last one.
 
 The tick goes last. A halt in step 3 leaves the slice open and blocked, so the
-rerun comes back to it. If it were ticked, the rerun would skip it, with
-`main` still unmerged.
+rerun comes back to it.
 
-A rerun finds a slice's PR already merged and does only steps 3 and 4. A slice
-that is still open after it landed stops the run rather than looping on it.
+**A slice is done when it is ticked and the log has its section**, the heading
+step 3 writes with the PR and the merge SHA. A command's bare `### #<n>`
+heading doesn't count. The driver trusts no tick alone. A slice ticked before
+the driver landed it is still open to the driver, whether it was ticked early
+or landed by hand. So is a dependency on it. A rerun finds a slice's PR already
+merged and does only steps 3 and 4, so an early tick costs a re-land, not a
+skipped one. A slice that is still open after it landed stops the run rather
+than looping on it.
 
-**Finishing**, once every slice is ticked, on the feature branch the same way:
+**Finishing**, once every slice is done, on the feature branch the same way:
 
 1. **Placeholders.** One `/update_docs <files>` step for the feature's Draft
    placeholders: the files under `docs/` whose status line reads
@@ -264,7 +269,7 @@ on.
    feature PR under `beads`) into the log on the feature branch, skipping any
    already there, then commits and pushes.
 2. It stops at a slice still Blocked. Once every slice is
-   ticked, that is the last one: a halt while finishing is filed there, and the
+   done, that is the last one: a halt while finishing is filed there, and the
    finish waits on it too.
 3. It gives a cleared slice its state back, on the app's tier
    (`autopilot-steps.md`, *Tracker tiers*):

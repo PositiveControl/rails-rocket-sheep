@@ -464,19 +464,26 @@ module Autopilot
       end
     end
 
+    # A slice is done when it is ticked and the log has the section the driver
+    # writes after landing it. A tick alone is not trusted: a slice ticked
+    # early, or landed by hand, comes back as open, and the run finishes
+    # landing it (Run#slice finds its PR already merged).
     def slices
       return [] unless pr
 
+      log = log_text
       lines = pr["body"].to_s.lines
       self.class.slice_rows(lines).filter_map do |i|
         match = self.class.slice_line(tracker).match(lines[i]) or next
-        Slice.new(issue: Autopilot.slice_id(match[2]), done: match[1].casecmp?("x"))
+        issue = Autopilot.slice_id(match[2])
+        Slice.new(issue: issue, done: match[1].casecmp?("x") && Log.landed?(log, issue))
       end
     end
 
-    # The first open slice whose dependencies inside the Slices list are all
-    # ticked. A blocked one is returned, flagged: the run stops there rather
-    # than build later slices on top of something a person has to settle.
+    # The first open slice whose dependencies inside the Slices list have all
+    # landed (#slices). A blocked one is returned, flagged: the run stops
+    # there rather than build later slices on top of something a person has
+    # to settle.
     def next_slice
       all = slices
       ticked = all.select(&:done).map(&:issue)
@@ -491,7 +498,18 @@ module Autopilot
       nil
     end
 
-    def reload = @pr = nil
+    def reload = @pr = @log_text = nil
+
+    # The log as the feature branch has it. Between landings the worktree is
+    # on the slice branch, whose copy was cut before the driver wrote that
+    # slice's section. A failed fetch leaves the last one fetched.
+    def log_text
+      @log_text ||= begin
+        @shell.run("git", "fetch", "origin", branch, chdir: @root)
+        shown = log_path && @shell.run("git", "show", "origin/#{branch}:#{log_path}", chdir: @root)
+        shown&.ok ? shown.out : ""
+      end
+    end
 
     # The slice's PR once it has merged into the feature branch. A rerun after
     # the merge picks up from there instead of submitting the slice again.
@@ -1033,6 +1051,13 @@ module Autopilot
 
     HEADING = /^\#{1,4} /
     RANKS = { "one-way" => 0, "costly" => 1 }.freeze
+
+    # Whether the driver has written the slice's section: its heading names the
+    # PR and the merge, which a command's bare `### #<issue>` does not.
+    def landed?(text, issue)
+      heading = /^### #{Regexp.escape(Autopilot.ref(issue))}(?![\w.-]).*\(PR #\d+, merged [^)]*\)$/
+      text.each_line.any? { |line| heading.match?(line.chomp) }
+    end
 
     # The slice's section under ## Slices: the full heading, the header row,
     # and every `#### D<issue>-` entry gathered under its Decisions, wherever
@@ -1916,7 +1941,10 @@ module Autopilot
         @slice = feature.next_slice
         break unless @slice
         return blocked(@slice) if @slice.blocked
-        raise Error, "#{Autopilot.ref(landed)} is still open after it landed" if @slice.issue == landed
+        if @slice.issue == landed
+          raise Error, "#{Autopilot.ref(landed)} is still open after it landed: done needs it ticked on feature PR " \
+                       "##{feature.pr['number']} and its section in the log on origin/#{feature.branch}"
+        end
 
         resume.restore_state(@slice)
         server.start # only once there is something to run

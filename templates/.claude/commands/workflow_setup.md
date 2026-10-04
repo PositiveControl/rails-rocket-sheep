@@ -31,7 +31,7 @@ This resolves `{{TRACKER}}` to one literal value. Every command branches on it, 
 |---|---|---|---|
 | GitHub Projects | `github-projects` | You have, or will create, a Projects v2 board | Board with 5 statuses |
 | beads | `beads` | GitHub Issues, no board — or you want real dependency semantics | `bd` + a running `dolt sql-server` |
-| Labels | `labels` | No tracker at all; smallest possible setup | Five labels, created here |
+| Labels | `labels` | No tracker at all; smallest possible setup | Five status labels, created here |
 
 Detect and propose rather than asking cold:
 
@@ -51,12 +51,15 @@ Then run only the branch for the chosen tier:
 
 **`github-projects`** — continue to Step 2a.
 **`beads`** — verify `bd` is on PATH and a database is reachable (`bd list --limit 1`). Failure means no `dolt sql-server` is running: point at `docs/sop/beads-setup.md` and stop rather than writing a tier that cannot work. Capture the issue prefix from `bd list` output (e.g. `tst-a3f2dd` → prefix `tst`).
-**`labels`** — create the five status labels now, then skip Step 2a entirely:
+**`labels`** — create the five status labels now, and the `autopilot` label, then skip Step 2a entirely:
 ```bash
 for s in todo in-progress up-for-review blocked done; do
   gh label create "status:$s" --repo <ORG>/<REPO> --force
 done
+gh label create autopilot --repo <ORG>/<REPO> --force
 ```
+
+The `autopilot` label is on the issues an autopilot run files and splits off (`docs/system/autopilot-steps.md`, *Tracker tiers*). `gh issue create --label autopilot` fails until it exists, so it is made here, before any feature runs.
 
 ### Step 2a: Ask — repository & board (tier `github-projects` only)
 
@@ -74,6 +77,12 @@ gh api graphql -f query='{ organization(login: "<ORG>") { projectV2(number: <N>)
 Needed: project ID, Status field ID, and option IDs for **Todo, In Progress, Up for Review, Done, Blocked**. Missing statuses → tell the user to add them to the board's Status field (UI), then re-fetch. A missing "Up for Review" or "Blocked" option is the most common gap.
 
 Personal (non-org) repos use `user(login: "<USER>")` instead of `organization(login: ...)` in every GraphQL query above and in the commands. Note this when filling tokens.
+
+Then create the `autopilot` label, for the same reason as under `labels`:
+
+```bash
+gh label create autopilot --repo <ORG>/<REPO> --force
+```
 
 ### Step 3: Ask — conventions
 

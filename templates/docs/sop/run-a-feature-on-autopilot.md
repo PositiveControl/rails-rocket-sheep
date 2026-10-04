@@ -31,11 +31,15 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    `/workflow_setup` writes. Commit it, so the worktree has it too; preflight
    names any value it is missing.
 5. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
-   and filed issues carry it:
+   and filed issues carry it, and `/workflow_setup` creates it. Check:
 
    ```bash
-   gh label create autopilot --repo <org>/<repo> --force
+   gh label list --repo <org>/<repo> --search autopilot --json name --jq '.[] | select(.name == "autopilot") | .name'
    ```
+
+   The search also matches a name that only contains the word; the `--jq`
+   keeps the exact one. Nothing printed means the setup ran before it did
+   that. Create it with `gh label create autopilot --repo <org>/<repo> --force`.
 
 6. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
    updates install only the alignment layer and never touch `config/`, so an
