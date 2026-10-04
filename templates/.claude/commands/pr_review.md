@@ -32,6 +32,8 @@ Show brief summary: PR title, author, base ← head, lines changed, file count.
 
 Author is you and the base is a feature branch → this is a **self-review pass**. Read *Self-review of a slice* below before Step 2; the steps are the same, the ending differs.
 
+A self-review pass checks whether autopilot is active, with `<BASE>` = `baseRefName` (`docs/system/autopilot-steps.md`, *Activation*). If it is, the *Autopilot* paragraphs below replace the questions they follow.
+
 Base ref is not `main` → the PR is a slice of a feature branch (see `WORKFLOW.md`, *Feature branches*). Review the diff against its **own base**, not `main`, or you'll flag code an earlier slice already landed. The base is `baseRefName` from the query above; every `main` below means that base.
 
 ### Step 2: Fetch the diff
@@ -180,6 +182,7 @@ Before posting anything to GitHub, present the full review to the user in this f
 
 **Overall assessment:** <approve / request changes / comment only>
 **Risk level:** <low / medium / high> — <one line explanation>
+**Findings:** <n> blocking, <n> suggestions, <n> nitpicks
 
 ### Existing feedback summary
 <Brief summary of what other reviewers have already flagged. Note any unresolved concerns.>
@@ -209,19 +212,21 @@ Ask the user:
 3. Whether to add or remove any comments
 4. What review action to take: APPROVE, REQUEST_CHANGES, or COMMENT — always COMMENT on your own PR (*Self-review of a slice*)
 
+**Autopilot (gate `post-review`):** ask nothing. Post the review exactly as written, as `COMMENT`, its body opening with `Self-review pass <N>`. `<N>` is one more than the number of reviews on the PR whose body already opens with `Self-review pass`. Count across every page, since GitHub returns 30 a page: `gh api --paginate repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews | jq -s '[add[] | select((.body // "") | startswith("Self-review pass"))] | length'`. The author must not soften its own review; the feature-PR reviewer reads it as written.
+
 ### Step 10: Post the review to GitHub
 
 Once the user confirms, submit the review using the GitHub API.
 
-**Important:** Use `--input -` with a heredoc to pass raw JSON. The `gh` CLI's `-f 'comments[0][path]=...'` syntax does NOT work for arrays — it creates a hash instead. Always use raw JSON for reviews with inline comments.
+**Important:** Pass raw JSON from a file: write it with the Write tool to `tmp/review-<PR_NUMBER>.json`, then `--input tmp/review-<PR_NUMBER>.json`. The `gh` CLI's `-f 'comments[0][path]=...'` syntax does NOT work for arrays — it creates a hash instead. Not a heredoc on standard input: permission rules don't match a heredoc, so an autopilot step's `dontAsk` denies it.
 
 Use `line` (file line number) and `side` ("RIGHT" for additions, "LEFT" for deletions) to position comments.
 
 **Review with inline comments:**
 
-```bash
-gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews -X POST \
-  --input - <<'EOF'
+`tmp/review-<PR_NUMBER>.json`:
+
+```json
 {
   "event": "<APPROVE|REQUEST_CHANGES|COMMENT>",
   "body": "<overall review summary>",
@@ -240,19 +245,21 @@ gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews -X POST \
     }
   ]
 }
-EOF
+```
+
+```bash
+gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews -X POST --input tmp/review-<PR_NUMBER>.json
 ```
 
 **Review without inline comments:**
 
-```bash
-gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews -X POST \
-  --input - <<'EOF'
+The same file and command, with only `event` and `body`:
+
+```json
 {
   "event": "<APPROVE|REQUEST_CHANGES|COMMENT>",
   "body": "<overall review summary>"
 }
-EOF
 ```
 
 ### Step 11: Report result
@@ -274,19 +281,24 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
 
 - **Two passes at most.** More feed on each other: a later pass finds bugs inside an earlier pass's fixes, or undoes them.
   - **Pass 1** reviews the slice. The authoring session verifies every finding against the code before fixing it — a reviewer is not the spec — and takes the ones it judges wrong to the developer (*Fix it* / *Drop it*); the developer's ruling is final. It addresses the rest with `/pr_comment_resolver`. Blocker and suggestion fixes land with a test that fails without them, as in `/implement` Step 5; nitpicks are fixed together or dropped, and never trigger pass 2.
-  - **Pass 2** runs once, from another new session, and only when pass 1 left fixed blockers or suggestions. It reviews only those fixes: the diff from the commit pass 1 reviewed (its review's `commit_id`) to `HEAD`, plus wherever the fixes reach — callers, shared state, tests they changed or deleted. Step 4 hands it pass 1 and the replies, so a dropped finding stays dropped. In place of Step 2's `gh pr diff`:
+  - **Pass 2** runs once, from another new session, and only when pass 1 left fixed blockers or suggestions. Under autopilot the driver decides from pass 1's `**Findings:**` line: zero blocking and zero suggestions → no pass 2, whatever the resolver pushed. It reviews only those fixes: the diff from the commit pass 1 reviewed (its review's `commit_id`) to `HEAD`, plus wherever the fixes reach — callers, shared state, tests they changed or deleted. Step 4 hands it pass 1 and the replies, so a dropped finding stays dropped. In place of Step 2's `gh pr diff`:
 
     ```bash
-    SHA=$(gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews --jq '[.[] | select(.body | startswith("Self-review pass 1"))][0].commit_id')
-    gh pr checkout <PR_NUMBER> && git diff "$SHA"..HEAD
+    gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/reviews --jq '[.[] | select(.body | startswith("Self-review pass 1"))][0].commit_id'
+    gh pr checkout <PR_NUMBER> && git diff <SHA>..HEAD
     ```
+
+    `<SHA>` is what the first command printed. Two commands, not a `SHA=$(…)` substitution, which an autopilot step's `dontAsk` denies.
   - **No pass 3.** Pass 2's confirmed blockers and suggestions go to the developer with the proposed fix (*Fix it* / *Drop it*), and fixes land under the same test rule. Then land the slice.
 - **Post as COMMENT.** GitHub refuses APPROVE and REQUEST_CHANGES on your own PR. Open the review body with `Self-review pass <N>` so the feature-PR reviewer can count them.
 - **Land it from this session.** A clean pass is what merges a slice — you run it, on the strength of the review rather than your own reading:
 
   ```bash
+  gh pr checks <PR_NUMBER> --watch --fail-fast
   gh pr merge <PR_NUMBER> --squash --delete-branch
   ```
+
+  The first command waits for CI on the head you are landing: `/pr_submit` skips that wait for a slice, so the review could start sooner. Red → do not merge. Run `/pr_fix_ci` in the authoring session, and review its fix as you would a pass-1 fix.
 
   Then edit the feature PR body (`gh pr list --head feature/<slug>`, then `gh pr edit <FEATURE_PR> --body-file`): tick this slice under **Slices** and add `Closes #<issue>` beneath the list — not under tier `beads`, which has no GitHub issue. Then bring the feature branch up to date so the final merge stays small:
 
@@ -296,6 +308,10 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
 
   Conflicts → `/resolve_conflicts`.
 - **Last slice landed** → resolve every remaining `Status: Draft` placeholder on the feature branch, `gh pr ready <FEATURE_PR>`, and hand it to a human. That review is an acceptance-criteria walk over the design doc's slice list, reading the posted passes and spot-checking where they disagree or fall silent — not a re-read of the whole diff.
+- **Autopilot.** This session posts its pass and stops. It does not merge, edit the feature PR, or ready it.
+  - **Merge (gate `merge`) and the last slice belong to the driver.** It checks the PR's base before it merges, which a prompt cannot promise.
+  - **Pass 1's and pass 2's rulings** are made by the authoring session, through `/pr_comment_resolver`, under gates `fix-drop` and `pass-2`. Nobody is asked.
+  - **Telling the agent's comments from a person's.** The passes post from the developer's own account, so the author login cannot tell who wrote what. Read the comments with `docs/system/autopilot-steps.md`, *Whose comment is it*.
 
 ## Review principles
 
@@ -314,3 +330,4 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
 - Review events: APPROVE, REQUEST_CHANGES, COMMENT
 - PR title convention: `{{PR_TITLE_PREFIX}} | <issue_number> | <description>`
 - Base for the diff: the PR's `baseRefName` — `main`, or a feature branch for a slice
+- Autopilot: `docs/system/autopilot-steps.md` — activation check, policy by gate id (`post-review`, `merge` here), whose comment is whose

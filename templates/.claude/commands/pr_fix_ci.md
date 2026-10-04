@@ -194,7 +194,7 @@ PR URL: <URL>
 ## Reference
 - GitHub username: Use `gh api user --jq .login` to get the current user's GitHub username
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
-- CI checks: scan_ruby, scan_js, lint (fast), test (slow)
+- CI checks: {{FAST_CI_CHECKS}} (fast), {{SLOW_CI_CHECKS}} (slow)
 - Informational checks (non-blocking): CodeQL / Analyze
 - CI check `state` values: PENDING, IN_PROGRESS, SUCCESS, FAILURE, SKIPPED
 - CI check URL format: `https://github.com/<org>/<repo>/actions/runs/<RUN_ID>/job/<JOB_ID>`

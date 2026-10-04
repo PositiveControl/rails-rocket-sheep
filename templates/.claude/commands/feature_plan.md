@@ -20,6 +20,8 @@ gh issue view $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json comments -
 
 Otherwise treat `$ARGUMENTS` as the problem statement.
 
+**Already designed?** If `$ARGUMENTS` names a feature whose design doc already says `Approved at G1`, and the developer is asking to put it on autopilot, this is a **G1 amendment**. Go straight to *Autopilot on an already-approved design* in Step 4b, and skip everything else. The design is settled, so do not explore or rewrite it.
+
 ### Step 2: Explore the codebase (high altitude)
 
 1. Search `docs/` for existing design docs, system docs, and gotchas in the affected area
@@ -45,6 +47,14 @@ Create `docs/plans/YYYY-MM-DD-<slug>-design.md` with sections:
 Present a short summary: problem, approach, slice list with size estimates, open questions. **Wait for explicit approval.** The design doc is a proposal; issues are commitment. Iterate until approved.
 
 Open questions the user cannot answer off the top of their head, or an approach resting on assumptions nobody has tested → suggest `/grill "<the feature>"` before asking for approval again. Arriving at the gate with an empty frontier is the point; the approval is still theirs.
+
+### Step 4b: Autopilot — multi-slice features only
+
+Once the design is approved, ask one more question: **run this feature on autopilot?** The default is **no**. Autopilot takes the slices from here to a ready feature PR with nobody at the keyboard, answering each gate from the policy in `docs/system/autopilot-steps.md` and recording every answer in an autopilot log. G1 (this gate) and the merge to `main` stay human.
+
+On **yes**, show the policy's defaults and the halt list, and ask for changes: an exception scoped to one slice's acceptance criteria, a stricter row, or none. Those changes are part of what was approved. Step 6b writes them down. A single-slice feature never runs on autopilot; its PR targets `main`, where the merge is human anyway.
+
+**Autopilot on an already-approved design.** `$ARGUMENTS` names a feature whose design doc already says `Approved at G1`, and the developer asks to put it on autopilot: this is a **G1 amendment**, and it is the only step that runs. Show the policy for the slices still open (from the feature PR's **Slices** list), take the developer's changes, and on approval write the flag line and the log as in Step 6b, committed on `feature/<slug>` and pushed, since that branch is where the driver reads them. Skip Steps 5 and 6: the issues and placeholders exist.
 
 ### Step 5: Create issues
 
@@ -101,11 +111,24 @@ gh issue create --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --title "<title>" --body "
 
 Per the design doc's **Docs impact** section, create placeholder files in `docs/sop/` and/or `docs/system/` (`**Status:** Draft — created for #<issue>`), and add them to the `.llm/README.md` index. A slice's `/pr_submit` completes the ones its work fills in; the feature PR to `main` is where the rest are completed or deleted — never left as drafts after the feature ships.
 
+### Step 6b: Autopilot log — only on a yes at Step 4b
+
+1. Under the design doc's `**Feature branch:**` line, write:
+   ```markdown
+   **Autopilot:** on — log: docs/plans/YYYY-MM-DD-<slug>-autopilot.md
+   ```
+2. Create that file from the template in `docs/system/autopilot.md` (*The autopilot log template*): the header, and *Policy accepted at G1*. Copy the whole policy table and halt list from `docs/system/autopilot-steps.md` (*Policy*) into it, apply the developer's changes from Step 4b in place, and list those changes (or "none"). The copy is this feature's policy from now on; later edits to the system doc do not reach it.
+3. Index it in `.llm/README.md` beside the design doc.
+
+It ships in the same commit as the design doc, and has to reach `main` before the first slice is planned: the feature branch is cut from `main`, and the activation check reads the design doc on the feature branch the slice is cut from. The run starts with `bin/autopilot <slug>`, not `/pick`.
+
 ### Next step
 
 ```
 Ready to start? Run: /pick   (or /task_plan <first-sub-issue>)
 ```
+
+On autopilot: `Ready to run. Start: bin/autopilot <slug>` (setup and resume: `docs/sop/run-a-feature-on-autopilot.md`).
 
 ## Reference
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
@@ -114,3 +137,4 @@ Ready to start? Run: /pick   (or /task_plan <first-sub-issue>)
 - Design docs: `docs/plans/YYYY-MM-DD-<slug>-design.md`
 - Sizing: PR 200–1,500 added lines / ≤25 files; acceptance criteria ≤5 bullets per issue
 - Issue node IDs: `gh issue view <n> --json id --jq .id`
+- Autopilot: `docs/system/autopilot-steps.md` — activation, policy; `docs/system/autopilot.md` — log template. Asked at Step 4b, multi-slice only, default no

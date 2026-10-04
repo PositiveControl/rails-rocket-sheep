@@ -98,13 +98,23 @@ These are pre-filled for this stack. Show them and ask only whether anything dif
 
 No system test suite in this app yet → that's fine; `/pr_submit` already treats system tests as optional and selects them from the diff.
 
-CI checks (from detected workflow jobs): which are **fast** (lint/scan — poll after push) vs **slow** (full test suite — skip polling, it ran locally)? A fresh app may have only the Lighthouse workflow, which is neither — in that case set fast checks to an empty list and note that `/pr_submit` will skip CI polling.
+CI checks (from detected workflow jobs): which are **fast** (lint/scan — poll after push) vs **slow** (full test suite — skip polling, it ran locally)? A generated app's workflows define these jobs, so propose them and drop any Step 1 did not find:
+
+| Token | Default |
+|---|---|
+| `{{FAST_CI_CHECKS}}` | `scan_ruby, scan_js, lint, flay` |
+| `{{FAST_CI_CHECKS_JQ}}` | `"scan_ruby","scan_js","lint","flay"` |
+| `{{SLOW_CI_CHECKS}}` | `test` |
+
+No fast checks at all → fill `{{FAST_CI_CHECKS}}` with `none` and `{{FAST_CI_CHECKS_JQ}}` with nothing, and note that `/pr_submit` will skip CI polling.
+
+Skip-suite paths (`{{SUITE_SKIP_PATHS}}`): an extended regex over changed paths. When every file a branch changes matches it, `/pr_submit` skips the local test suite, because nothing the Rails app loads has changed. Default `^(docs|\.llm)/|\.md$`. Add a directory only if the app never loads it, such as a native client in its own folder. Never add Slim, JS, config or YAML: each affects the suite.
 
 ### Step 5: Fill the tokens
 
 Replace every remaining `{{TOKEN}}` across `.claude/commands/*.md` **and `.cursor/commands/*.md`** — the two directories are mirrors and must stay identical:
 
-Always: `{{TRACKER}}` (the literal from Step 2), `{{GITHUB_ORG}}`, `{{GITHUB_REPO}}`, `{{BRANCH_PREFIX}}`, `{{PR_TITLE_PREFIX}}`, `{{REVIEW_LABEL}}`, `{{FAST_CI_CHECKS}}`, `{{FAST_CI_CHECKS_JQ}}` (quoted comma list, e.g. `"lint","scan"`), `{{SLOW_CI_CHECKS}}`
+Always: `{{TRACKER}}` (the literal from Step 2), `{{GITHUB_ORG}}`, `{{GITHUB_REPO}}`, `{{BRANCH_PREFIX}}`, `{{PR_TITLE_PREFIX}}`, `{{REVIEW_LABEL}}`, `{{FAST_CI_CHECKS}}`, `{{FAST_CI_CHECKS_JQ}}` (quoted comma list, e.g. `"lint","scan"`), `{{SLOW_CI_CHECKS}}`, `{{SUITE_SKIP_PATHS}}`
 
 Tier `github-projects` only: `{{PROJECT_NUMBER}}`, `{{PROJECT_NAME}}`, `{{PROJECT_ID}}`, `{{STATUS_FIELD_ID}}`, `{{STATUS_TODO}}`, `{{STATUS_IN_PROGRESS}}`, `{{STATUS_UP_FOR_REVIEW}}`, `{{STATUS_DONE}}`, `{{STATUS_BLOCKED}}`
 
@@ -150,7 +160,11 @@ Tier `github-projects` needs all four. Tiers `beads` and `labels` need only item
 
 ### Step 8: Finish
 
-Summarize what was written (config file, filled commands, `CLAUDE.md` section, automation settings, and anything left for a human). Then print exactly:
+Summarize what was written (config file, filled commands, `CLAUDE.md` section, automation settings, and anything left for a human).
+
+Mention autopilot once, in two lines. There is nothing to set here: it is switched on per feature, when `/feature_plan` asks at G1, and it runs only in Claude Code. Before the first run, read `docs/sop/run-a-feature-on-autopilot.md`. Branch protection (Step 7, item 3) is the backstop the autopilot guard lacks.
+
+Then print exactly:
 
 ```
 Setup complete. Reload commands in your agent tool, then run:

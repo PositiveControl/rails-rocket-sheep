@@ -1,12 +1,18 @@
 ---
 description: "Resolve an in-progress merge or rebase conflict, then prove it green"
+argument-hint: "[the branch being merged into, for the autopilot check]"
 ---
 
 # Resolve Conflicts
 
-Finish a merge or rebase that stopped on conflicts: resolve every hunk on the evidence of why each side changed, then prove the tree is still green. Fixing a *red CI run* is `/pr_fix_ci`; this is the conflicted working tree in front of you. Takes no argument: `/resolve_conflicts`.
+Finish a merge or rebase that stopped on conflicts: resolve every hunk on the evidence of why each side changed, then prove the tree is still green. Fixing a *red CI run* is `/pr_fix_ci`; this is the conflicted working tree in front of you. Run by hand, it takes no argument: `/resolve_conflicts`. The driver passes one (*Autopilot*, below).
 
 Always resolve. Never `git rebase --abort` or `git merge --abort` to escape — that throws away the work and the next attempt hits the same hunks.
+
+**Autopilot** — `bin/autopilot` runs this when `origin/main` conflicts with the feature branch it is bringing up to date, and passes that branch as the argument, because HEAD is detached. Check whether autopilot is active (`docs/system/autopilot-steps.md`, *Activation*) with `<BASE>` = the argument. If it is:
+- Each hunk where both intents could not coexist is a `choice` entry in the autopilot log, under the slice that just landed, with the trade-off step 3 names. Hunks that keep both sides need no entry.
+- Step 5 red after a fix, or a hunk you cannot settle from the evidence → `halt` (the halt list's *merge conflict `/resolve_conflicts` cannot prove green*).
+- Commit the merge and the log entries in step 6, and do not push: the driver runs `bin/test` itself, then pushes.
 
 1. See where you are:
 
@@ -32,9 +38,12 @@ Always resolve. Never `git rebase --abort` or `git merge --abort` to escape — 
 5. Prove it:
 
    ```bash
-   bin/rubocop --force-exclusion $(git diff --diff-filter=U --name-only --cached)
+   git diff --diff-filter=U --name-only --cached
+   bin/rubocop --force-exclusion <the files it listed>
    bin/test
    ```
+
+   Pass the files as arguments, not through `$(…)`, which an autopilot step's `dontAsk` denies.
 
    Failures caused by the merge are yours to fix here. Failures that pre-date it are `/test_fix`.
 
