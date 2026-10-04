@@ -33,7 +33,7 @@ Lint errors found → correct them. Can't auto-correct → halt, suggest manual 
 
 **Duplication** — fails on Ruby the branch copies that `<BASE>` lacks (skip when there is no `bin/flay`):
 ```bash
-BASE=origin/<BASE> bin/flay
+bin/flay origin/<BASE>
 ```
 Copied → call the existing copy or extract it. Similar shape → a warning; reuse it if it is the same idea.
 
