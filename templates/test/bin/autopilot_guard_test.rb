@@ -76,6 +76,20 @@ class SessionEndHookTest < Minitest::Test
     status.exitstatus
   end
 
+  # The Stop command as settings.json wires it, run as Claude Code runs it: by
+  # sh, from wherever the session's cwd has wandered to (#57).
+  def test_the_wired_stop_command_still_runs_from_a_subdirectory
+    FileUtils.mkdir_p(File.join(@dir, "bin/hooks"))
+    FileUtils.cp(HOOK, File.join(@dir, "bin/hooks/session_end"))
+    FileUtils.mkdir_p(File.join(@dir, "docs/system/deep"))
+    stop = ClaudeSettingsTest::SETTINGS.dig("hooks", "Stop", 0, "hooks", 0, "command")
+
+    _out, status = Open3.capture2e({ "AUTOPILOT" => nil, "SKIP_DRAFT_CHECK" => nil, "CLAUDE_PROJECT_DIR" => @dir },
+                                   "sh", "-c", stop, chdir: File.join(@dir, "docs/system/deep"), stdin_data: "{}")
+
+    assert_equal 2, status.exitstatus, "the Stop hook did not run, or did not see the draft, from a subdirectory"
+  end
+
   def test_a_slice_branch_with_its_own_draft_still_blocks
     git("checkout", "-qb", "feat/5/thing")
 
