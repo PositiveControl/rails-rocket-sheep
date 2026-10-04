@@ -298,7 +298,11 @@ A slice PR into a feature branch (`WORKFLOW.md`, *Feature branches*) is reviewed
   gh pr merge <PR_NUMBER> --squash --delete-branch
   ```
 
-  The first command waits for CI on the head you are landing: `/pr_submit` skips that wait for a slice, so the review could start sooner. Red → do not merge, unless the only red check is an informational one (`CodeQL` / `Analyze`, which `/pr_submit` and `/pr_fix_ci` also ignore). `--fail-fast` stops at the first red, so read the list it prints before deciding. Run `/pr_fix_ci` in the authoring session, and review its fix as you would a pass-1 fix.
+  The first command waits for CI on the head you are landing: `/pr_submit` skips that wait for a slice, so the review could start sooner. Red → do not merge: run `/pr_fix_ci` in the authoring session, and review its fix as you would a pass-1 fix. One exception: `--fail-fast` stops at the first red, and if every red check it lists is informational (`CodeQL` / `Analyze`, which `/pr_submit` and `/pr_fix_ci` also ignore), the rest may still be pending. Then wait again without it, and merge only when every other check is SUCCESS:
+
+  ```bash
+  gh pr checks <PR_NUMBER> --watch
+  ```
 
   Then edit the feature PR body (`gh pr list --head feature/<slug>`, then `gh pr edit <FEATURE_PR> --body-file`): tick this slice under **Slices** and add `Closes #<issue>` beneath the list — not under tier `beads`, which has no GitHub issue. Then bring the feature branch up to date so the final merge stays small:
 
