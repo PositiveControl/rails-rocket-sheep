@@ -67,12 +67,18 @@ plugin/                  Claude Code plugin: one command that runs `rails new --
                          marketplace is .claude-plugin/marketplace.json at the root.
 docs/                    Product documentation for buyers. Not shipped.
 README.md                Sales page. Not shipped.
+
+.claude/ .cursor/commands/ WORKFLOW.md .llm/ docs/plans/ docs/qa/
+bin/{gates,hooks,autopilot}  This repo's own copy of the alignment layer, rendered
+                         from templates/ by bin/dogfood-sync. Output, never source.
+bin/{test,dev,rubocop,brakeman,rails}  Stand-ins for an app's binstubs.
+                         See "Dogfood layer".
 ```
 
 **The distinction that matters:** anything under `templates/` is shipped and is read
 by an agent in someone else's app. At the root, `template.rb`, `adopt.rb` and
-`preamble.rb` are the generator; everything else there is for humans evaluating or
-buying this.
+`preamble.rb` are the generator; the dogfood layer is how this repo runs its own
+workflow; everything else there is for humans evaluating or buying this.
 
 ## How `template.rb` works
 
@@ -189,6 +195,44 @@ generates from it. Run it after touching
 count. A line that legitimately names a different count, or a path the command
 creates at runtime, carries a `lint-docs:ignore` marker.
 
+## Dogfood layer
+
+This repo runs its own workflow: `/pick` through `/pr_submit`, and
+`bin/autopilot`. The root copy of the alignment layer is **tracked**, because an
+autopilot worktree sees tracked files only and the driver reads its config,
+guard, allowlist and commands from there
+([ADR 0016](.agents/adr/0016-the-generator-repo-dogfoods-its-alignment-layer.md)).
+
+- **Never edit a root copy.** Edit `templates/`, then run `bin/dogfood-sync`. It
+  re-renders `.claude/commands/` (mirrored to `.cursor/commands/`), `WORKFLOW.md`,
+  the hooks, `bin/gates`, `bin/autopilot` and the settings, with token values from
+  `.claude/workflow.config.md`, and appends this repo's checks to the autopilot
+  allowlist. A second run writes nothing. Commit what it changed with the
+  `templates/` change it came from.
+- **Paths a command names that do not exist at the root:**
+  - `docs/rules/…` → `templates/docs/rules/…`, read-only reference. This repo is
+    not a Rails app, so most rules apply only to `templates/app/` and the like.
+  - `docs/adr/` → `.agents/adr/` for decisions about the generator,
+    `templates/docs/adr/` for decisions about generated apps.
+  - `docs/system/`, `docs/sop/` → `templates/docs/…`.
+- **The binstubs are stand-ins.** `bin/test` is this repo's suite: the entry
+  scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`, and
+  `templates/test/bin/*_test.rb` (not `flay_test.rb`, which needs an app's
+  Gemfile). `bin/dev` waits to be stopped. `bin/rubocop`, `bin/brakeman` and
+  `bin/rails` report n/a. Generating a probe app ("Testing a change") is still
+  the check for anything a generated app runs.
+- **A slice that changes the wiring's source can't run on autopilot.** The guard
+  denies a step any path containing `bin/autopilot`, `bin/hooks/`,
+  `.claude/settings*.json` or the allowlist, and that includes `templates/`. Plan
+  such a slice by hand.
+- **Starting a run:** `bin/autopilot <slug> --setup` runs `bundle install` and
+  `bin/rails db:prepare`, which this repo has no use for. Create the worktree with
+  `git worktree add ../rails-rocket-sheep-autopilot-<slug> feature/<slug>`
+  instead, then `bin/autopilot <slug> --dry-run`.
+- The hooks are live in interactive sessions too. While a feature's drafts are
+  open on `main`, `SKIP_DRAFT_CHECK=1` under `env` in
+  `.claude/settings.local.json` (gitignored) quiets the Stop hook.
+
 ## Conventions for editing this repo
 
 - **One fact, one file.** The whole doc architecture is built on it. Before adding
@@ -255,7 +299,9 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   command invocation"
   ([0014](.agents/adr/0014-an-accepted-design-may-invoke-the-commands.md)), and
   why the template's ADRs take 0001–0099 while an app numbers its own from 0100
-  ([0015](.agents/adr/0015-template-adrs-reserve-0001-0099.md)).
+  ([0015](.agents/adr/0015-template-adrs-reserve-0001-0099.md)), and why this
+  repo tracks its own copy of the alignment layer
+  ([0016](.agents/adr/0016-the-generator-repo-dogfoods-its-alignment-layer.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
