@@ -17,8 +17,9 @@ class LintDocsRepoScanTest < Minitest::Test
 
   def setup
     @root = Dir.mktmpdir
-    @env = %w[GIT_CONFIG_GLOBAL XDG_CONFIG_HOME].to_h { |key| [ key, ENV.fetch(key, nil) ] }
+    @env = %w[GIT_CONFIG_GLOBAL GIT_CONFIG_NOSYSTEM XDG_CONFIG_HOME].to_h { |key| [ key, ENV.fetch(key, nil) ] }
     ENV["GIT_CONFIG_GLOBAL"] = File::NULL
+    ENV["GIT_CONFIG_NOSYSTEM"] = "1"
     ENV["XDG_CONFIG_HOME"] = @root # no personal ~/.config/git/ignore either
     @dir = File.join(@root, "app")
     files, status = Open3.capture2("git", "-C", REPO, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
