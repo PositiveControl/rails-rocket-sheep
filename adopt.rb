@@ -126,11 +126,18 @@ template_file "CLAUDE.md.tt"
 empty_directory "docs"
 empty_directory "docs/plans"
 empty_directory "docs/qa"
+copy_template_file "docs/qa/autopilot-report-template.md"
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/vocabulary.md"
 # Both modes: the shared commands link it, and it says an API app skips walkthroughs.
 copy_template_file "docs/system/qa_walkthrough.md"
+# Autopilot (ADR 0016): what a running step reads, the driver and guard, what a
+# step costs, and what was changed on the strength of those numbers. Both modes.
+copy_template_file "docs/system/autopilot-steps.md"
+copy_template_file "docs/system/autopilot.md"
+copy_template_file "docs/system/workflow-usage.md"
+copy_template_file "docs/system/workflow-optimizations.md"
 
 # One decision per file, numbered, newest last. Globbed for the same reason the
 # rules are: adding a decision must not mean editing a manifest, or the ADR that
@@ -148,6 +155,7 @@ copy_template_file "docs/sop/find-slow-tests.md"
 copy_template_file "docs/sop/add-seo-to-a-page.md" unless API_MODE
 copy_template_file "docs/sop/add-an-endpoint.md" if API_MODE
 copy_template_file "docs/sop/update-from-the-template.md"
+copy_template_file "docs/sop/run-a-feature-on-autopilot.md"
 
 # Sharded conventions. One rule per file with frontmatter (applies_to globs,
 # trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
