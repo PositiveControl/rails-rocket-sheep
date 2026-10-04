@@ -12,7 +12,9 @@
 #
 #   bin/dogfood-sync          write, and list what changed
 #
-# Exit 0, or 1 when a {{TOKEN}} has no value.
+# Refuses with exit 1 under AUTOPILOT=1, which bin/autopilot sets for every
+# step: it rewrites the guard's own wiring, so a sync is the developer's, after
+# a run. Otherwise exit 0, or 1 when a {{TOKEN}} has no value.
 
 require "fileutils"
 

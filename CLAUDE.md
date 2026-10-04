@@ -68,9 +68,15 @@ plugin/                  Claude Code plugin: one command that runs `rails new --
 docs/                    Product documentation for buyers. Not shipped.
 README.md                Sales page. Not shipped.
 
-.claude/ .cursor/commands/ WORKFLOW.md .llm/ docs/plans/ docs/qa/
-bin/{gates,hooks,autopilot}  This repo's own copy of the alignment layer, rendered
+.claude/{commands,settings.json,autopilot-allowed-tools.txt} .cursor/commands/
+WORKFLOW.md .llm/tasks/task_template.md docs/qa/ bin/{gates,hooks,autopilot}
+.github/PULL_REQUEST_TEMPLATE.md
+                         This repo's own copy of the alignment layer, rendered
                          from templates/ by bin/dogfood-sync. Output, never source.
+.claude/workflow.config.md .llm/README.md docs/plans/
+                         Tracked and hand-written: the token values, the doc
+                         index, design docs and autopilot logs. The sync never
+                         writes them.
 bin/{test,dev,rubocop,brakeman,rails}  Stand-ins for an app's binstubs.
                          See "Dogfood layer".
 ```

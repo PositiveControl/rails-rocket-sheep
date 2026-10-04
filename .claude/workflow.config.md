@@ -18,4 +18,4 @@ Written by `/workflow_setup` on 2026-10-03. Re-running the wizard reads this as 
 | `{{PERSONA}}` | `Staff Rails Engineer, TDD advocate` |
 | Iteration filter in `/pick` | off |
 | Default branch | `main` |
-| Lint / test / scan | n/a here — verification is `templates/bin/lint-docs`, `ruby -c template.rb adopt.rb preamble.rb`, probe generation (see CLAUDE.local.md) |
+| Lint / test / scan | `bin/test` is the suite (entry scripts parse, `doc-tokens --check`, `lint-docs`, the template's plain-Ruby tests); `bin/rubocop` and `bin/brakeman` report n/a; probe generation for anything a generated app runs. See `CLAUDE.md`, *Dogfood layer* |
