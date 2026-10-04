@@ -235,6 +235,8 @@ Exactly one owner per slot. Ambient tooling a team runs (memory systems, indexer
 
 Soft vs hard: gates are prompt-enforced unless backed by repo settings. Branch protection with required CI turns G3/G4 hard.
 
+On a feature running on **autopilot**, G2 and a slice's G4 are answered by a written policy the developer approved at G1, and every answer is recorded in the autopilot log. G1 and the feature PR's G4 stay with a person. See *Autopilot*, below.
+
 **Repo prerequisites**, by tier:
 
 - All tiers: "Automatically delete head branches" enabled.
@@ -284,6 +286,8 @@ exists to create.
 that you can still type it. It does not mean the agent should run it speculatively:
 `/test_fix` when the suite is red, not on a hunch.
 
+**On autopilot** the driver, `bin/autopilot`, invokes the commands marked *You* that a slice needs: `/task_plan`, `/implement`, `/pr_submit`, `/pr_review` and `/pr_comment_resolver`. It also invokes the *Either* commands they reach for, `/resolve_conflicts` when `main` conflicts with the feature branch, and `/update_docs` at the end. The criterion above still holds, applied earlier. The developer makes every gate's decision in advance, as the policy approved at G1, so the moment and the audience are still theirs. The driver acts only on a feature whose design doc carries `**Autopilot:** on`. It never invokes `/pick`, `/feature_plan`, `/pr_qa`, `/workflow_setup` or the `/segue` set, which exist for a person deciding.
+
 ### A command cannot invoke a command
 
 Each command ends by naming what runs next, and that chain is what makes the
@@ -294,8 +298,10 @@ epic to `/feature_plan` means it tells you to run `/feature_plan`.
 This matters when writing one. A step that reads "then run `/task_plan`" will not
 happen on its own. Either the step does the work inline, or the command ends and
 says what to type. Where a real handoff is wanted rather than a suggestion, the
-mechanism is a subagent definition under `.claude/agents/`, which this template
-does not ship yet.
+mechanism lives outside the commands. For an approved feature, `bin/autopilot`
+runs each step as its own process and checks the tracker between steps
+(*Autopilot*, below). A subagent definition under `.claude/agents/` is the other
+route, and this template does not ship one yet.
 
 ## Sizing
 
@@ -321,7 +327,19 @@ A feature with more than one slice lands on a feature branch, not on `main`. Eac
 - **Closing issues.** GitHub's `Closes #n` fires only on a merge to the default branch, so a slice PR carries no `Closes` line. The feature PR body carries `Closes #<sub>` for every slice that has landed plus `Closes #<parent>`, and is regenerated on each slice merge. Done therefore still means *in `main`*, on every tier: a slice sits in Up for Review from its merge into the feature branch until the feature merges. `/pick` reconciles `beads` and `labels` only against PRs whose base was `main`.
 - **Docs.** Placeholders belong to the feature. A slice completes the ones its work fills in and leaves the rest; the "no `Status: Draft` left behind" rule is enforced on the feature PR.
 - **Staying current.** After each slice merges, merge `origin/main` into the feature branch so the final merge is small. Conflicts there are `/resolve_conflicts`.
-- **Review.** Each slice PR is reviewed by `/pr_review` run from a **fresh session** — a new context per pass, two passes at most, the second reviewing only the first's fixes — and you merge it from that session on the strength of those passes. The feature PR is reviewed by a human as an acceptance-criteria walk over the design doc's slice list, reading the posted passes rather than re-reading the whole diff. Why the line sits there: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
+- **Review.** Each slice PR is reviewed by `/pr_review` run from a **fresh session** — a new context per pass, two passes at most, the second reviewing only the first's fixes and running only when pass 1 found blockers or suggestions — and you merge it from that session on the strength of those passes. The feature PR is reviewed by a human as an acceptance-criteria walk over the design doc's slice list, reading the posted passes rather than re-reading the whole diff. Why the line sits there: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`.
+
+## Autopilot
+
+A multi-slice feature can run from its first open slice to a ready feature PR with nobody at the keyboard. The gates stay. Each question a command would put to the developer is answered from a policy, and the answer is written down. Spec: `docs/system/autopilot.md`; what a step reads: `docs/system/autopilot-steps.md`. Why: `docs/adr/0016-an-accepted-design-may-run-itself.md`.
+
+- **Consent at G1.** After the design is approved, `/feature_plan` asks whether to run the feature on autopilot. The default is no. On yes it writes `**Autopilot:** on` into the design doc and creates the feature's **autopilot log** with the policy as approved, including any changes the developer made. A feature past G1 can be switched on by a G1 amendment, which is also approved by the developer.
+- **Two keys.** The commands follow their *Autopilot* paragraphs only when the design doc has the line **and** `AUTOPILOT=1` is set. Only the driver sets the variable, so a person running a command by hand on the same feature still gets every question.
+- **The driver.** `bin/autopilot <slug>` runs each step as a fresh agent process in its own worktree and checks the tracker, git and the PR after each one rather than trusting the step's own report. It does the slice merges itself, after checking the base. Review passes run as new processes, so their fresh context is real.
+- **The policy.** Every human prompt has a gate id: `G2` self-approves within the sizing bound and the halt list, `fix-drop` drops a finding only with a probe, `merge` belongs to the driver, a comment from a person halts, and so on. A feature's log may change any row.
+- **Halt and pause.** When the policy says a person is needed, the step **halts**. The issue goes to Blocked, the log says what is needed and how to resume, and the driver notifies and exits. Hitting the usage limit is a **pause**, not a halt: the driver waits and resumes the same step.
+- **What the human reads.** The feature PR, as before: an acceptance-criteria walk over the slice list, plus the autopilot log. The log's *Read this first* ranks every decision by how hard it is to reverse, and lists every drop, filed issue and halt, and what no person has checked.
+- **Not on autopilot:** a single-slice feature (its PR targets `main`, where the merge is human), and the merge of any feature PR to `main`.
 
 ## Command inventory
 
@@ -330,7 +348,7 @@ A feature with more than one slice lands on a feature branch, not on `main`. Eac
 | `/pick` | Core | Entry door: prioritized ready work + context trees; routes epic/unshaped → `/feature_plan`, sized Todo → `/task_plan`, In Progress → `/implement`, Blocked → show blocker. Enforces sizing at the door |
 | `/feature_plan` | Core | Explore → design doc (G1) → sized sub-issues + doc placeholders → board Todo |
 | `/task_plan` | Core | Read design doc → task file + plan (G2) → branch → In Progress |
-| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit; ends with a fresh-context `/pr_review --local`, two rounds at most |
+| `/implement` | Core | Idempotent resume: load task file, orient, execute, commit per logical unit; ends with a fresh-context `/pr_review --local`: one round for a slice (pass 1 follows), two at most into `main` |
 | `/pr_submit` | Core | Suite (G3) → docs complete-or-delete → PR with `Closes #n` → comments (G4) |
 | `/pr_review` | Core | Full-context diff review; also the self-review pass on a slice, from a fresh session, and `--local` before a PR exists |
 | `/pr_qa` | Core | Guided manual QA pass, structured report |

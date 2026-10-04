@@ -1,5 +1,7 @@
 # A generated app's decisions are one file each, in docs/adr/
 
+Amended by [0015](0015-template-adrs-reserve-0001-0099.md): the template's ADRs take 0001–0099 and an app numbers its own from 0100.
+
 ## Context
 
 The shipped alignment layer kept its ADRs in a single file,

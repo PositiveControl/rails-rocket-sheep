@@ -247,10 +247,15 @@ creates at runtime, carries a `lint-docs:ignore` marker.
   why a rule declares in frontmatter how far the app has drifted from it
   ([0011](.agents/adr/0011-a-rule-declares-how-far-the-app-has-drifted-from-it.md)),
   why routing is two-tier in both modes
-  ([0012](.agents/adr/0012-routing-is-two-tier-in-both-modes.md)), and why the
+  ([0012](.agents/adr/0012-routing-is-two-tier-in-both-modes.md)), why the
   Claude Code plugin is a second door to the generator rather than a source of
   anything
-  ([0013](.agents/adr/0013-a-plugin-is-a-second-door-to-the-same-generator.md)).
+  ([0013](.agents/adr/0013-a-plugin-is-a-second-door-to-the-same-generator.md)),
+  why an approved design on autopilot is the one exception to "no automatic
+  command invocation"
+  ([0014](.agents/adr/0014-an-accepted-design-may-invoke-the-commands.md)), and
+  why the template's ADRs take 0001–0099 while an app numbers its own from 0100
+  ([0015](.agents/adr/0015-template-adrs-reserve-0001-0099.md)).
   Reversing one is fine; reversing one without knowing what it bought is not.
 - **Routing is plain markdown; enforcement need not be.** No harness-specific
   loading in the *routing* layer — `CLAUDE.md`, `AGENTS.md`, the rule index, the
