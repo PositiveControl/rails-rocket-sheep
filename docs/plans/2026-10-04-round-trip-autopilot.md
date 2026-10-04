@@ -1,6 +1,6 @@
 # Round trip — autopilot log
 
-**Design:** [2026-10-04-round-trip-design.md](2026-10-04-round-trip-design.md) · **Feature PR:** #<n>
+**Design:** [2026-10-04-round-trip-design.md](2026-10-04-round-trip-design.md) · **Feature PR:** #75
 **Run:** <started> → <finished> · **Usage:** <driver total>
 
 ## Read this first
