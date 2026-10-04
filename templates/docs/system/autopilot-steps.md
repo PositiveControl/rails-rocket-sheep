@@ -243,7 +243,7 @@ and this table says how it is done on each tier. Board IDs for
 |---|---|---|---|
 | A slice's id | `#<n>` | `#<n>` | `bd-<hash>` |
 | Read its state | `gh issue view <n> --json labels`: its `status:*` label | its board Status (`gh issue view <n> --json projectItems`) | `bd show <id> --json`: `status`, and the `lifecycle:up_for_review` label |
-| Set a state | add `status:<state>`, remove the other four `status:*` labels (removing a missing label is a no-op) | `gh project item-edit` on the issue's item, with that state's Status option ID | Todo `bd update <id> --status open`; In Progress `--status in_progress`; Blocked `--status blocked`; Up for Review `bd set-state <id> lifecycle=up_for_review` |
+| Set a state | add `status:<state>`, remove the other four `status:*` labels (removing a missing label is a no-op) | `gh project item-edit` on the issue's item, with that state's Status option ID | Todo `bd update <id> --status open`; In Progress `--status in_progress`; Blocked `--status blocked`; each of those three then `bd label remove <id> lifecycle:up_for_review`, so a slice reads as one state and `/pick` never closes a Blocked bead. Up for Review `bd set-state <id> lifecycle=up_for_review` |
 | Is it Blocked? | label `status:blocked` | Status `Blocked` | `status` is `blocked` |
 | Clear Blocked (the developer, to resume) | remove `status:blocked` | set Status to anything but `Blocked` | `bd update <id> --status open` |
 | File a split or an `issue` entry | `gh issue create --label autopilot --label status:todo` | `gh issue create --label autopilot`, then add it to the board (Todo) | `bd create --label autopilot`, then `bd dep add` it under the epic |

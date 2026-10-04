@@ -20,7 +20,7 @@ gh issue view $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json comments -
 
 Otherwise treat `$ARGUMENTS` as the problem statement.
 
-**Already designed?** A design doc whose `**Status:**` line says `Approved at G1`, and a developer asking to put it on autopilot → go straight to *Autopilot on an already-approved design* in Step 4b, and skip everything else.
+**Already designed?** A developer asking to put an approved feature on autopilot → go straight to *Autopilot on an already-approved design* in Step 4b, and skip everything else. Approved means the design doc's `**Status:**` line says `Approved at G1`, or, for a design approved before that line existed, a feature PR for its slug already has a **Slices** list (`gh pr list --head feature/<slug>`).
 
 ### Step 2: Explore the codebase (high altitude)
 
@@ -54,7 +54,7 @@ Once the design is approved, ask one more question: **run this feature on autopi
 
 On **yes**, show the policy's defaults and the halt list, and ask for changes: an exception scoped to one slice's acceptance criteria, a stricter row, or none. Those changes are part of what was approved. Step 6b writes them down. A single-slice feature never runs on autopilot; its PR targets `main`, where the merge is human anyway.
 
-**Autopilot on an already-approved design.** `$ARGUMENTS` names a feature whose design doc already says `**Status:** Approved at G1`, and the developer asks to put it on autopilot: this is a **G1 amendment**, and it is the only step that runs. The design is settled, so do not explore or rewrite it. Show the policy for the slices still open (from the feature PR's **Slices** list), take the developer's changes, and on approval write the flag line and the log as in Step 6b, committed on `feature/<slug>` and pushed, since that branch is where the driver reads them. Skip Steps 5 and 6: the issues and placeholders exist.
+**Autopilot on an already-approved design.** `$ARGUMENTS` names an approved feature (as Step 1 defines it), and the developer asks to put it on autopilot: this is a **G1 amendment**, and it is the only step that runs. The design is settled, so do not explore or rewrite it. Show the policy for the slices still open (from the feature PR's **Slices** list), take the developer's changes, and on approval write the flag line and the log as in Step 6b, committed on `feature/<slug>` and pushed, since that branch is where the driver reads them. Skip Steps 5 and 6: the issues and placeholders exist.
 
 ### Step 5: Create issues
 

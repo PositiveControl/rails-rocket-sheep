@@ -54,7 +54,7 @@ policy for this feature; later edits to the system doc do not reach it. -->
 
 <!-- One section per slice, in merge order:
 
-### #<issue> — <title> (PR #<n>, merged <SHA>)
+### <slice id> — <title> (PR #<n>, merged <SHA>)
 
 | Added | Files | Review rounds | Fixed | Dropped | Wall time | Usage |
 |---|---|---|---|---|---|---|
@@ -70,7 +70,7 @@ policy for this feature; later edits to the system doc do not reach it. -->
 - <claim> — probe: <command and output> — `file:line`
 
 #### Issues filed
-- #<n> <title> — <why it is out of scope>
+- <id> <title> — <why it is out of scope>
 
 #### Not checked by a human
 - <behaviour> — how to check it: <steps>
