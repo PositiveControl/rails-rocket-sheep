@@ -14,22 +14,32 @@ ROOT = File.expand_path("../..", __dir__)
 class ClaudeSettingsTest < Minitest::Test
   SETTINGS = JSON.parse(File.read(File.join(ROOT, ".claude/settings.json")))
 
+  # Claude Code runs a hook from the session's cwd, which an agent's `cd` moves.
+  PROJECT_DIR = 'cd "$CLAUDE_PROJECT_DIR" && '
+
   def hook_commands(event) = SETTINGS.dig("hooks", event).to_a.flat_map { |entry| entry["hooks"].map { |hook| hook["command"] } }
+  def all_hook_commands = SETTINGS.fetch("hooks").keys.flat_map { |event| hook_commands(event) }
+  def script(command) = command.delete_prefix(PROJECT_DIR)
 
   def test_every_wired_hook_exists_and_is_executable
-    commands = SETTINGS.fetch("hooks").keys.flat_map { |event| hook_commands(event) }
-
-    refute_empty commands
-    commands.each do |command|
-      path = File.join(ROOT, command)
+    refute_empty all_hook_commands
+    all_hook_commands.each do |command|
+      path = File.join(ROOT, script(command))
       assert File.executable?(path), "#{command} is wired but not an executable file"
     end
   end
 
+  # A bare `bin/hooks/x` fails, without a sound, once the cwd leaves the root.
+  def test_every_hook_runs_from_the_project_dir
+    all_hook_commands.each do |command|
+      assert command.start_with?(PROJECT_DIR), "#{command} is a bare relative path; prefix it with #{PROJECT_DIR}"
+    end
+  end
+
   def test_the_template_hooks_and_deny_list_are_in_place
-    assert_includes hook_commands("PostToolUse"), "bin/hooks/post_edit"
-    assert_includes hook_commands("Stop"), "bin/hooks/session_end"
-    assert_includes hook_commands("PreToolUse"), "bin/hooks/autopilot_guard"
+    assert_includes hook_commands("PostToolUse"), "#{PROJECT_DIR}bin/hooks/post_edit"
+    assert_includes hook_commands("Stop"), "#{PROJECT_DIR}bin/hooks/session_end"
+    assert_includes hook_commands("PreToolUse"), "#{PROJECT_DIR}bin/hooks/autopilot_guard"
     deny = SETTINGS.dig("permissions", "deny")
     [ "Read(./config/master.key)", "Bash(git push --force:*)", "Bash(git reset --hard:*)", "Bash(git clean -fd:*)" ].each do |rule|
       assert_includes deny, rule
@@ -64,6 +74,20 @@ class SessionEndHookTest < Minitest::Test
   def hook_status(env = { "AUTOPILOT" => nil, "SKIP_DRAFT_CHECK" => nil })
     _out, status = Open3.capture2e(env, HOOK, chdir: @dir, stdin_data: "{}")
     status.exitstatus
+  end
+
+  # The Stop command as settings.json wires it, run as Claude Code runs it: by
+  # sh, from wherever the session's cwd has wandered to (#57).
+  def test_the_wired_stop_command_still_runs_from_a_subdirectory
+    FileUtils.mkdir_p(File.join(@dir, "bin/hooks"))
+    FileUtils.cp(HOOK, File.join(@dir, "bin/hooks/session_end"))
+    FileUtils.mkdir_p(File.join(@dir, "docs/system/deep"))
+    stop = ClaudeSettingsTest::SETTINGS.dig("hooks", "Stop", 0, "hooks", 0, "command")
+
+    _out, status = Open3.capture2e({ "AUTOPILOT" => nil, "SKIP_DRAFT_CHECK" => nil, "CLAUDE_PROJECT_DIR" => @dir },
+                                   "sh", "-c", stop, chdir: File.join(@dir, "docs/system/deep"), stdin_data: "{}")
+
+    assert_equal 2, status.exitstatus, "the Stop hook did not run, or did not see the draft, from a subdirectory"
   end
 
   def test_a_slice_branch_with_its_own_draft_still_blocks
