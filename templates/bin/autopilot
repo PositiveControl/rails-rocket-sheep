@@ -36,6 +36,8 @@ module Autopilot
   # A slice is `#<n>` on the GitHub tiers and `bd-<hash>` under beads
   # (docs/system/autopilot-steps.md, Tracker tiers). In the driver the first
   # is an Integer and the second a String; ref turns either back into text.
+  # The Slices list is read with the tier's own pattern (Tracker#slice_ids),
+  # since a bead may carry its database's prefix there (`acme-a3f2dd`).
   SLICE_ID = /#\d+|bd-[\w.]+/
   SLICE_LINE = /^- \[( |x|X)\] (#{SLICE_ID})/
 
@@ -81,7 +83,7 @@ module Autopilot
     def repo = config.repo
     def branch_prefix = config.branch_prefix
 
-    def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : text
+    def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : "bd-#{text[/[^-]+\z/]}"
     def ref(id) = id.is_a?(Integer) ? "##{id}" : id.to_s
   end
 
@@ -218,6 +220,7 @@ module Autopilot
 
       # The feature PR's body carries `Closes #<n>` for each landed slice.
       def closes? = true
+      def slice_ids = /#\d+/
 
       # Nothing to probe: gh auth status covers it.
       def probe = nil
@@ -351,6 +354,10 @@ module Autopilot
 
       def closes? = false
 
+      # `bd-<hash>`, or the database's own prefix (docs/sop/beads-setup.md:
+      # `--prefix acme` gives `acme-a3f2dd`); both read as `bd-<hash>`.
+      def slice_ids = /[a-z][a-z0-9]*(?:-[a-z0-9]+)*-[a-z0-9][\w.]*/
+
       def probe
         result = bd("list", "--json", "--limit", "1")
         "bd cannot read the beads database (beads): #{result.out.strip.lines.first}" unless result.ok
@@ -451,7 +458,7 @@ module Autopilot
       return [] unless pr
 
       pr["body"].to_s.lines.filter_map do |line|
-        match = SLICE_LINE.match(line) or next
+        match = self.class.slice_line(tracker).match(line) or next
         Slice.new(issue: Autopilot.slice_id(match[2]), done: match[1].casecmp?("x"))
       end
     end
@@ -493,7 +500,7 @@ module Autopilot
     def tick(issue, slice_pr)
       reload
       body = pr.fetch("body").to_s
-      ticked = self.class.ticked(body, issue, slice_pr, closes: tracker.closes?)
+      ticked = self.class.ticked(body, issue, slice_pr, closes: tracker.closes?, pattern: self.class.slice_line(tracker))
       return if ticked == body
 
       file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
@@ -508,10 +515,9 @@ module Autopilot
     # `- [ ] #n — title` becomes `- [x] #n — title (PR #p)`, and `Closes #n`
     # goes after the last Closes line, or after the list. Under beads there
     # is no issue to close (`closes: false`). Running it twice changes nothing.
-    def self.ticked(body, issue, slice_pr, closes: true)
-      ref = Autopilot.ref(issue)
-      lines = body.lines.map { |line| line.end_with?("\n") ? line : "#{line}\n" }
-      row = lines.index { |line| line.match?(/^- \[ \] #{Regexp.escape(ref)}(?![\w.-])/) }
+    def self.ticked(body, issue, slice_pr, closes: true, pattern: SLICE_LINE)
+      lines = body.lines.map { |text| text.end_with?("\n") ? text : "#{text}\n" }
+      row = lines.index { |text| (match = pattern.match(text)) && match[1] == " " && Autopilot.slice_id(match[2]) == issue }
       if row
         line = lines[row].chomp.sub("- [ ]", "- [x]")
         line += " (PR ##{slice_pr})" unless line.include?("(PR ##{slice_pr})")
@@ -522,13 +528,16 @@ module Autopilot
       after = lines.rindex { |line| line.start_with?("Closes #") }
       if after
         lines.insert(after + 1, "Closes #{Autopilot.ref(issue)}\n")
-      elsif (last = lines.rindex { |line| SLICE_LINE.match?(line) })
+      elsif (last = lines.rindex { |text| pattern.match?(text) })
         lines.insert(last + 1, "\n", "Closes #{Autopilot.ref(issue)}\n")
       end
       lines.join
     end
 
     def title(id) = tracker.title(id)
+
+    # A row of the Slices list on this tier: `- [ ] <id>` and a space or the end.
+    def self.slice_line(tracker) = /^- \[( |x|X)\] (#{tracker.slice_ids})(?=\s|$)/
   end
 
   # One `claude -p` process: a single command, in the autopilot worktree, with
@@ -1810,6 +1819,11 @@ module Autopilot
       status = sh("git", "status", "--porcelain", chdir: worktree).out
       problems << "uncommitted changes in #{worktree}" unless status.strip.empty?
       problems << "no open feature PR for feature/#{@slug}" unless feature.pr
+      # With nothing it can read, every slice would look landed and the run would "finish".
+      if feature.pr && feature.slices.empty?
+        problems << "feature PR ##{feature.pr['number']} lists no slice rows this tier can read under Slices " \
+                    "(`- [ ] #{Autopilot.config.tracker == 'beads' ? '<prefix>-<hash>' : '#<n>'} — <title>`)"
+      end
       problems << "gh is not signed in (gh auth status)" unless sh("gh", "auth", "status").ok
       problems << "claude is not on PATH" unless sh("sh", "-c", "command -v claude").ok
       problems << "no allowlist at #{ALLOWLIST}" unless File.exist?(File.join(worktree, ALLOWLIST))
@@ -1890,6 +1904,7 @@ module Autopilot
 
     def finish(resume)
       slices = feature.slices
+      return say("Stopped: feature PR ##{feature.pr['number']} lists no slices this tier can read.", 2) if slices.empty?
       return say("No slice can start: each open one waits on a dependency that is not ticked.", 2) unless slices.all?(&:done)
       return say("Every slice has landed and feature PR ##{feature.pr['number']} is ready for review. Nothing to do.", 0) unless feature.pr["isDraft"]
 

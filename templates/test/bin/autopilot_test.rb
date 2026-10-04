@@ -1858,6 +1858,21 @@ class AutopilotTrackerTiersTest < Minitest::Test
     assert_equal %w[bd-a1], feature.slices.select(&:done).map(&:issue)
   end
 
+  # `bd init --prefix acme` names beads `acme-<hash>` (docs/sop/beads-setup.md);
+  # the driver reads them as the thread ID, as branches and task files name them.
+  def test_beads_a_list_in_the_databases_own_prefix_reads_as_thread_ids
+    tier!("beads")
+    slices_pr("## Slices\n- [x] acme-a1 — Cart store (PR #57)\n- [ ] acme-b2 — Checkout\n- [ ] my-app-c3 — Receipts\n")
+    @shell.on("bd show b2 --json", bead_json("b2", status: "open", blocked_by: %w[a1]))
+
+    assert_equal %w[bd-a1 bd-b2 bd-c3], feature.slices.map(&:issue)
+    assert_equal "bd-b2", feature.next_slice.issue
+
+    feature.tick("bd-b2", 71)
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    assert_includes body, "- [x] acme-b2 — Checkout (PR #71)\n"
+  end
+
   def test_beads_a_blocked_bead_stops_the_run_at_its_slice
     beads!
     @shell.on("bd show b2 --json", bead_json("b2", status: "blocked", blocked_by: %w[a1]))
@@ -2280,6 +2295,25 @@ class AutopilotCLITest < Minitest::Test
     assert_equal 1, cli("foo").call
     assert_match(/workflow\.config\.md has no `GITHUB_REPO` value/, @out.string)
     refute @shell.ran?(/^gh /), "no gh call without a repo to name"
+  end
+
+  # Read as "every slice landed", a list the tier cannot parse would finish
+  # the feature, or crash on a draft PR. Preflight names it instead.
+  def test_preflight_refuses_a_slices_list_it_cannot_read
+    @shell.on(/gh pr list .*--head feature\/foo/,
+              JSON.generate([ { "number" => 53, "body" => "## Slices\n- [ ] acme-a3f2 — x\n", "isDraft" => true } ]))
+
+    assert_equal 1, cli("foo").call
+    assert_match(/feature PR #53 lists no slice rows this tier can read/, @out.string)
+    assert_empty @shell.lines.grep(MUTATING)
+  end
+
+  # A checklist item in the feature PR is not a slice on a GitHub tier.
+  def test_a_checklist_bullet_is_not_read_as_a_slice
+    @shell.on(/gh pr list .*--head feature\/foo/,
+              JSON.generate([ { "number" => 53, "body" => "## Slices\n- [ ] #60 — a\n\n## Before merge\n- [ ] re-run checks\n" } ]))
+
+    assert_equal [ 60 ], Autopilot::Feature.new("foo", shell: @shell, root: @worktree).slices.map(&:issue)
   end
 
   def test_preflight_refuses_a_tier_it_cannot_read
