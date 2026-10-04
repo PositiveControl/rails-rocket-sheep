@@ -327,6 +327,15 @@ class AutopilotFeatureTest < Minitest::Test
     assert slice.blocked
   end
 
+  # Blocked added by hand without removing the slice's other status label
+  # still stops the run (autopilot-steps.md, Tracker tiers: "Is it Blocked?").
+  def test_a_blocked_label_beside_another_status_label_still_blocks
+    @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state",
+              issue_json("#47 must merge first.", labels: [ "status:in-progress", "status:blocked" ]))
+
+    assert feature.next_slice.blocked
+  end
+
   # GitHub renders [X] as ticked too.
   def test_an_uppercase_tick_counts_as_done
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => "- [X] #1 — a\n- [ ] #2 — b\n" } ]))

@@ -265,10 +265,14 @@ module Autopilot
 
     # `status:*` labels on the issue.
     class Labels < GitHub
+      # Blocked first: `status:blocked` added by hand beside another status
+      # label still stops the run.
+      READ_ORDER = ([ "blocked" ] + STATES + [ "done" ]).uniq.freeze
+
       def item(id)
         json = view(id, "body,labels,state")
         names = json["labels"].map { |label| label["name"] }
-        { state: (STATES + [ "done" ]).find { |state| names.include?("status:#{state}") },
+        { state: READ_ORDER.find { |state| names.include?("status:#{state}") },
           dependencies: dependencies(json["body"]) }
       end
 
