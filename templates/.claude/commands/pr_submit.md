@@ -153,7 +153,7 @@ Write the body with the Write tool to `tmp/pr-body-<ISSUE_NUMBER>.md` (a file, n
 gh pr create --base <BASE> --title "{{PR_TITLE_PREFIX}} | <ISSUE_NUMBER> | <Short description>" --body-file tmp/pr-body-<ISSUE_NUMBER>.md
 ```
 
-**`<BASE>` is a feature branch → omit `<CLOSING_LINE>` on every tier** and write `<SLICE_LINE>` as `Slice of \`feature/<slug>\` — feature PR #<n>`. GitHub closes issues only on a merge to the default branch, so a `Closes` here would do nothing; the feature PR body carries one per landed slice instead (`WORKFLOW.md`, *Feature branches*). Then find the feature PR (`gh pr list --head feature/<slug>`) and tick this slice in its **Slices** list. **Autopilot:** do not tick it. The driver ticks the slice last, once it has merged the slice, merged `origin/main` into the feature branch and written the slice's log section; a tick is what tells a rerun the slice is done, so an early one makes a rerun skip that landing.
+**`<BASE>` is a feature branch → omit `<CLOSING_LINE>` on every tier** and write `<SLICE_LINE>` as `Slice of \`feature/<slug>\` — feature PR #<n>`, with `<n>` from `gh pr list --head feature/<slug>`. GitHub closes issues only on a merge to the default branch, so a `Closes` here would do nothing; the feature PR body carries one per landed slice instead (`WORKFLOW.md`, *Feature branches*). **Do not tick the slice** in the feature PR's **Slices** list: a tick means the slice has merged. `/pr_review` *Land it* ticks it after the merge, and under autopilot the driver does, once it has also merged `origin/main` into the feature branch and written the slice's log section.
 
 **`<BASE>` is `main` → omit `<SLICE_LINE>`. PR title and `<CLOSING_LINE>` depend on the tracker tier `{{TRACKER}}`:**
 
