@@ -57,10 +57,10 @@ Easy to reverse → it will just get reversed. Unsurprising → nobody will wond
 
 ### Step 5: Write the ADR
 
-One file per decision, next number, four digits, slug from the title:
+One file per decision, next free number from 0100, four digits, slug from the title. 0001–0099 belong to the template's ADRs, so an update never lands a second file with the same number:
 
 ```bash
-ls docs/adr | tail -1        # highest number so far, increment it
+ls docs/adr | grep -E '^0[1-9][0-9]{2}-' | tail -1   # highest of this app's own, increment it; none yet → 0100
 ```
 
 `docs/adr/0009-<slug>.md`. The shipped eight are the shape: an H1 naming the decision, then **Status**, **Context**, **Decision**, **Consequences** as `(+)` and `(-)` lines. Shorter is fine — three sentences carrying the context, the decision, and the cost accepted is a complete ADR. Longer is not: an ADR nobody finishes reading records nothing.
@@ -77,7 +77,7 @@ The terms settled and where each landed, the ADRs written, and anything still am
 
 ## Reference
 - Glossary: `docs/system/vocabulary.md` — one meaning per term, `_Avoid_` list beside it
-- Decisions: `docs/adr/NNNN-<slug>.md`, four digits, one per file, indexed in `.llm/README.md`
+- Decisions: `docs/adr/NNNN-<slug>.md`, four digits, one per file, indexed in `.llm/README.md`. This app's own start at 0100; 0001–0099 are the template's
 - Conventions, one per file: `docs/rules/` + `docs/rules/INDEX.md`. Never restated here
 - Model reference (tables, columns, associations): `docs/system/models.md`
 - The three-part ADR test is Step 4, and it is the only place it lives: `/update_docs` points here rather than restating it

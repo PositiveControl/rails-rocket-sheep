@@ -147,7 +147,8 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   bullets. Forecast passes 1,500 lines mid-implementation → stop, split, land the
   current slice
 - Multi-slice features land on `feature/<slug>`. A slice is reviewed by `/pr_review`
-  run from a fresh session, two passes at most, and merged there on that review;
+  run from a fresh session, two passes at most (the second only after pass 1
+  found blockers or suggestions), and merged there on that review;
   the feature PR gets the human review. Spec: `WORKFLOW.md`, *Feature branches*;
   why: `docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md`
 - `/segue` is the escape valve — isolate a tangent, merge findings back without
@@ -158,6 +159,14 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
   or sits at a gate is yours to type. `WORKFLOW.md` has the table and the reason
   per command. No command invokes another one: "next: `/pr_submit`" is an
   instruction to you
+- **Autopilot** is the one exception. A multi-slice feature whose design doc says
+  `**Autopilot:** on` (consent given at G1) can run unattended: `bin/autopilot <slug>`
+  runs each step as a fresh `claude -p` in `../<repo>-autopilot-<slug>`, with its
+  own `*_autopilot` databases (`DB_SUFFIX`), and answers each gate from the policy
+  in `docs/system/autopilot-steps.md`. Commands follow their *Autopilot* paragraphs
+  only when `AUTOPILOT=1` is also set, which only the driver does. Operator steps:
+  `docs/sop/run-a-feature-on-autopilot.md`; why:
+  `docs/adr/0016-an-accepted-design-may-run-itself.md`
 
 Run `/workflow_setup` once before first use — it fills in GitHub org, repo, and board IDs.
 
