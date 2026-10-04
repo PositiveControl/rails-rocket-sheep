@@ -24,6 +24,7 @@
 # Exits 0 when clean, 1 with a list of findings otherwise. Add the marker
 # `lint-docs:ignore` to a line that legitimately names a different count.
 
+require "open3"
 require "yaml"
 
 # `templates/bin` in the template repo, `<app>/bin` in a generated app. An app
@@ -361,9 +362,30 @@ actual = { rules: rule_paths.size, commands: command_paths.size }
 # else names the directory, so it has one right answer and gets checked against it.
 MODE_OF_ROUTER = MODES.flat_map { |mode, files| files.map { |file| [ file, mode ] } }.to_h
 mode_rule_counts = MODES.keys.to_h { |mode| [ mode, rule_modes.count { |_, ms| ms.include?(mode) } ] }
+# Two checks read the whole repo here. They read what git tracks or would track,
+# not the raw tree: tmp/ holds an autopilot step's PR body and review JSON, and
+# scratch that says "the 10 commands" is not a doc. Without an answer from git — # lint-docs:ignore
+# no git, no repository, or an outer repository that ignores this one and so
+# lists nothing — the whole tree. Dotted paths are skipped either way, as the
+# glob's `**` always has: .agents/ is a record of what was true then.
+def repo_files(*exts)
+  @repo_files ||= begin
+    out, status = Open3.capture2("git", "-C", ROOT, "ls-files", "-z", "--cached", "--others", "--exclude-standard",
+                                 err: File::NULL)
+    listed = status.success? ? out.split("\0") : []
+    listed.reject { |f| f.split("/").any? { |part| part.start_with?(".") } }
+          .map { |f| File.join(ROOT, f) }.select { |f| File.file?(f) }
+  rescue Errno::ENOENT
+    []
+  end
+  return Dir.glob(File.join(ROOT, "**/*.{#{exts.join(',')}}")) if @repo_files.empty?
+
+  @repo_files.select { |f| exts.include?(File.extname(f).delete(".")) }
+end
+
 count_scan =
   if IN_TEMPLATE_REPO
-    Dir.glob(File.join(ROOT, "**/*.{md,tt,rb}"))
+    repo_files("md", "tt", "rb")
   else
     # The doc canon plus the root-level markdown, and nothing else: a comment in
     # this app's own code that happens to say "3 rules" is not this check's business.
@@ -490,7 +512,7 @@ VERSION_CUE = /\b(?:ruby|rails|pagy|node|bun|version|v)\s+\z/i
 
 host_scan =
   if IN_TEMPLATE_REPO
-    Dir.glob(File.join(ROOT, "**/*.{md,tt,rb,yml,mdc}"))
+    repo_files("md", "tt", "rb", "yml", "mdc")
   else
     Dir.glob(File.join(ROOT, "*.md")) +
       Dir.glob(File.join(ROOT, "{docs,.llm,.claude,.cursor,.kamal,config}/**/*.{md,mdc,yml}"))
