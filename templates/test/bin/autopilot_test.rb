@@ -124,6 +124,20 @@ module AutopilotFixtures
     Closes #44
   MD
 
+  # The log's sections for the slices those lists tick, as the driver writes
+  # them after landing each one. A tick without its section is not done.
+  LANDED = <<~MD
+    ## Slices
+
+    ### #44 — Scaffold the storefront (PR #54, merged a1b2c3d)
+    ### #45 — Sign-in and API core (PR #57, merged b2c3d4e)
+    ### #56 — Login screen (PR #58, merged c3d4e5f)
+    ### #46 — Cart store (PR #59, merged d4e5f6a)
+    ### #47 — Realtime via ActionCable (PR #67, merged e5f6a7b)
+    ### bd-a1 — Cart store (PR #57, merged f6a7b8c)
+
+  MD
+
   def issue_json(deps, labels: [ "status:todo" ])
     body = "Feature branch: feature/foo\n\n## Goal\nx\n\n## Dependencies\n#{deps}\n"
     JSON.generate("body" => body, "labels" => labels.map { |name| { "name" => name } }, "state" => "OPEN")
@@ -136,6 +150,7 @@ module AutopilotFixtures
                "# Foo\n\n**Feature branch:** feature/foo\n\n#{autopilot_line}\n\n**Status:** Approved at G1\n")
     File.write(File.join(dir, "docs/plans/2026-10-02-foobar-design.md"),
                "# Foobar\n\n**Feature branch:** feature/foobar\n\n**Autopilot:** on\n")
+    File.write(File.join(dir, "docs/plans/2026-10-02-foo-autopilot.md"), "# Foo — autopilot log\n\n#{LANDED}")
     dir
   end
 end
@@ -302,6 +317,26 @@ class AutopilotFeatureTest < Minitest::Test
     assert_equal 60, feature.next_slice.issue
   end
 
+  # A tick alone is not landed: #47 was ticked (early, or by hand) and the
+  # driver never wrote its section, so the run comes back to finish it.
+  def test_a_ticked_slice_without_its_log_section_is_next
+    log = File.join(@root, "docs/plans/2026-10-02-foo-autopilot.md")
+    File.write(log, File.read(log).sub(/^### #47 .*\n/, ""))
+    @shell.on("gh issue view 47 --repo acme/shop --json body,labels,state", issue_json("#46 must merge first."))
+
+    assert_equal [ 44, 45, 56, 46 ], feature.slices.select(&:done).map(&:issue)
+    assert_equal 47, feature.next_slice.issue
+  end
+
+  # The bare heading a command appends its entries under is not the driver's
+  # section: it names no PR and no merge.
+  def test_a_commands_bare_heading_is_not_a_landed_slice
+    log = File.join(@root, "docs/plans/2026-10-02-foo-autopilot.md")
+    File.write(log, File.read(log).sub(/^### #47 .*\n/, "### #47\n\n#### D47-1 · `choice` · /implement\n"))
+
+    refute feature.slices.find { |slice| slice.issue == 47 }.done
+  end
+
   def test_skips_a_slice_whose_dependency_is_still_open
     @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", issue_json("#48 must merge first."))
     @shell.on("gh issue view 48 --repo acme/shop --json body,labels,state", issue_json("#46 must merge first."))
@@ -359,6 +394,7 @@ class AutopilotFeatureTest < Minitest::Test
   # GitHub renders [X] as ticked too.
   def test_an_uppercase_tick_counts_as_done
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => "- [X] #1 — a\n- [ ] #2 — b\n" } ]))
+    File.write(File.join(@root, "docs/plans/2026-10-02-foo-autopilot.md"), "## Slices\n\n### #1 — a (PR #3, merged abc1234)\n")
 
     assert_equal [ 1 ], feature.slices.select(&:done).map(&:issue)
   end
@@ -366,6 +402,8 @@ class AutopilotFeatureTest < Minitest::Test
   def test_none_left_when_every_slice_is_ticked
     @shell.on(/gh pr list .*--head feature\/foo/,
               JSON.generate([ { "number" => 53, "body" => "## Slices\n- [x] #1 — a\n- [x] #2 — b\n" } ]))
+    File.write(File.join(@root, "docs/plans/2026-10-02-foo-autopilot.md"),
+               "## Slices\n\n### #1 — a (PR #3, merged abc1234)\n### #2 — b (PR #4, merged bcd2345)\n")
 
     assert_nil feature.next_slice
   end
@@ -1787,7 +1825,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
   def setup
     @root = design_repo
-    File.write(File.join(@root, LOG), "# Foo — autopilot log\n\n## Halts and pauses\n\n## Metrics\n")
+    File.write(File.join(@root, LOG), "# Foo — autopilot log\n\n#{LANDED}## Halts and pauses\n\n## Metrics\n")
     @shell = FakeShell.new
     @shell.on("git branch --show-current", "feature/foo\n")
     @shell.on(/gh pr list .*--base feature\/foo --state merged/, "[]")
@@ -2209,7 +2247,7 @@ class AutopilotCLITest < Minitest::Test
     FileUtils.cp(File.expand_path("../../.claude/settings.json", __dir__), File.join(@worktree, ".claude/settings.json"))
     FileUtils.mkdir_p(File.join(@worktree, "bin/hooks"))
     FileUtils.cp(File.expand_path("../../bin/hooks/autopilot_guard", __dir__), File.join(@worktree, "bin/hooks/autopilot_guard"))
-    File.write(File.join(@worktree, "docs/plans/2026-10-02-foo-autopilot.md"), "# log\n\n## Halts and pauses\n")
+    File.write(File.join(@worktree, "docs/plans/2026-10-02-foo-autopilot.md"), "# log\n\n#{LANDED}## Halts and pauses\n")
     @shell = FakeShell.new
     @shell.on("git rev-parse --path-format=absolute --git-common-dir", "#{@root}/.git\n")
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => SLICES } ]))
@@ -2474,7 +2512,14 @@ class AutopilotCLITest < Minitest::Test
     refute @shell.ran?(/^git worktree add/), "setup is idempotent"
   end
 
+  # The log as the driver leaves it once these slices have landed.
+  def landed!(*issues)
+    headings = issues.map { |n| "### ##{n} — slice #{n} (PR #7#{n}, merged abc#{n})\n" }.join
+    File.write(File.join(@worktree, "docs/plans/2026-10-02-foo-autopilot.md"), "# log\n\n#{LANDED}#{headings}\n## Halts and pauses\n")
+  end
+
   def test_a_feature_already_finished_ends_cleanly
+    landed!(1)
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => "- [x] #1 — a\n", "isDraft" => false } ]))
 
     assert_equal 0, cli("foo").call
@@ -2482,8 +2527,10 @@ class AutopilotCLITest < Minitest::Test
     refute @shell.ran?(/^spawn/), "nothing to run, no server"
   end
 
-  # The feature PR as the fake run leaves it: each landed slice ticked.
+  # The feature PR as the fake run leaves it: each landed slice ticked, and
+  # its section in the log.
   def slices_pr(*ticked)
+    landed!(*ticked)
     body = [ 60, 61 ].map { |n| "- [#{ticked.include?(n) ? 'x' : ' '}] ##{n} — slice #{n}\n" }.join
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => "## Slices\n#{body}", "isDraft" => true } ]))
   end
@@ -2499,6 +2546,21 @@ class AutopilotCLITest < Minitest::Test
     assert_equal [ 60, 61 ], landed
     assert_equal [ [ 61, [ 60, 61 ] ] ], fake.finalized
     assert_match(/Finished: feature PR #53 is ready for review/, @out.string)
+  end
+
+  # #60 was ticked before it landed (by hand, or by a step that ticked early)
+  # and has no log section, so the run lands it rather than finishing past it.
+  def test_a_ticked_slice_with_no_log_section_is_landed_before_the_finish
+    slices_pr(60, 61)
+    landed!(61)
+    @shell.on("gh issue view 61 --repo acme/shop --json body,labels,state", issue_json("#60 first."))
+    ran = []
+    fake = FakeRun.new { |issue| (ran << issue) && landed!(60, 61) }
+
+    assert_equal 0, cli("foo", run_factory: ->(**) { fake }).call
+
+    assert_equal [ 60 ], ran
+    assert_equal [ [ 61, [ 60, 61 ] ] ], fake.finalized
   end
 
   def test_a_blocked_slice_after_one_lands_stops_the_run_unfinished
