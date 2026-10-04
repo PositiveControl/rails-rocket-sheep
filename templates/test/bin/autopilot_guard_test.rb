@@ -14,22 +14,32 @@ ROOT = File.expand_path("../..", __dir__)
 class ClaudeSettingsTest < Minitest::Test
   SETTINGS = JSON.parse(File.read(File.join(ROOT, ".claude/settings.json")))
 
+  # Claude Code runs a hook from the session's cwd, which an agent's `cd` moves.
+  PROJECT_DIR = 'cd "$CLAUDE_PROJECT_DIR" && '
+
   def hook_commands(event) = SETTINGS.dig("hooks", event).to_a.flat_map { |entry| entry["hooks"].map { |hook| hook["command"] } }
+  def all_hook_commands = SETTINGS.fetch("hooks").keys.flat_map { |event| hook_commands(event) }
+  def script(command) = command.delete_prefix(PROJECT_DIR)
 
   def test_every_wired_hook_exists_and_is_executable
-    commands = SETTINGS.fetch("hooks").keys.flat_map { |event| hook_commands(event) }
-
-    refute_empty commands
-    commands.each do |command|
-      path = File.join(ROOT, command)
+    refute_empty all_hook_commands
+    all_hook_commands.each do |command|
+      path = File.join(ROOT, script(command))
       assert File.executable?(path), "#{command} is wired but not an executable file"
     end
   end
 
+  # A bare `bin/hooks/x` fails, without a sound, once the cwd leaves the root.
+  def test_every_hook_runs_from_the_project_dir
+    all_hook_commands.each do |command|
+      assert command.start_with?(PROJECT_DIR), "#{command} is a bare relative path; prefix it with #{PROJECT_DIR}"
+    end
+  end
+
   def test_the_template_hooks_and_deny_list_are_in_place
-    assert_includes hook_commands("PostToolUse"), "bin/hooks/post_edit"
-    assert_includes hook_commands("Stop"), "bin/hooks/session_end"
-    assert_includes hook_commands("PreToolUse"), "bin/hooks/autopilot_guard"
+    assert_includes hook_commands("PostToolUse"), "#{PROJECT_DIR}bin/hooks/post_edit"
+    assert_includes hook_commands("Stop"), "#{PROJECT_DIR}bin/hooks/session_end"
+    assert_includes hook_commands("PreToolUse"), "#{PROJECT_DIR}bin/hooks/autopilot_guard"
     deny = SETTINGS.dig("permissions", "deny")
     [ "Read(./config/master.key)", "Bash(git push --force:*)", "Bash(git reset --hard:*)", "Bash(git clean -fd:*)" ].each do |rule|
       assert_includes deny, rule

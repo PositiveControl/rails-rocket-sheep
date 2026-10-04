@@ -2404,6 +2404,30 @@ class AutopilotCLITest < Minitest::Test
     assert_empty @shell.lines.grep(MUTATING)
   end
 
+  # Settings from before #57 wire the guard bare. An app that has not updated
+  # yet still runs.
+  def test_a_guard_wired_in_the_older_bare_form_still_starts
+    settings = File.join(@worktree, ".claude/settings.json")
+    bare = JSON.parse(File.read(settings)).tap do |s|
+      s["hooks"]["PreToolUse"].each { |entry| entry["hooks"].each { |hook| hook["command"] = "bin/hooks/autopilot_guard" } }
+    end
+    File.write(settings, JSON.generate(bare))
+
+    assert_equal 0, cli("foo", "--dry-run").call, @out.string
+  end
+
+  # Something that merely ends in the path is not the guard.
+  def test_a_command_that_only_mentions_the_guard_is_not_wired
+    settings = File.join(@worktree, ".claude/settings.json")
+    fake = JSON.parse(File.read(settings)).tap do |s|
+      s["hooks"]["PreToolUse"].each { |entry| entry["hooks"].each { |hook| hook["command"] = "echo bin/hooks/autopilot_guard" } }
+    end
+    File.write(settings, JSON.generate(fake))
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(/the guard is not wired/, @out.string)
+  end
+
   # A bare `on` is consent (the spec accepts it), but the run has nowhere to
   # write. Preflight says so instead of the run crashing on a nil path.
   def test_consent_without_a_log_path_fails_preflight_by_name
