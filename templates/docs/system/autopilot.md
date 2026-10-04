@@ -172,7 +172,7 @@ pending or red, and that is an answer.
 
 | Step | Expectation (read from real state) |
 |---|---|
-| `/task_plan <n>` | Task file `.llm/tasks/<n>_*.md`, branch `<branch-prefix>/<n>/…`, issue `status:in-progress` |
+| `/task_plan <n>` | Task file `.llm/tasks/<n>_*.md`, branch `<branch-prefix>/<n>/…`, the slice In Progress (`autopilot-steps.md`, *Tracker tiers*) |
 | `/implement <n>` | `Pre-PR review:` in the progress log, clean tree |
 | `/pr_submit <n>` | Open PR from the slice branch with base `feature/<slug>`. No CI wait: pass 1 starts while CI runs, and the merge gate waits for every check on the head that lands |
 | `/pr_review <PR>` | A `Self-review pass 1` review on the PR |
@@ -247,16 +247,18 @@ on.
 
 **Resuming.** Every run starts the same way:
 
-1. It copies HALT entries posted on issues into the log on the feature branch,
-   skipping any already there, then commits and pushes.
-2. It stops at a slice still labelled `status:blocked`. Once every slice is
+1. It copies HALT entries posted off the slice branch (on issues, or on the
+   feature PR under `beads`) into the log on the feature branch, skipping any
+   already there, then commits and pushes.
+2. It stops at a slice still Blocked. Once every slice is
    ticked, that is the last one: a halt while finishing is filed there, and the
    finish waits on it too.
-3. It gives a cleared slice its status label back:
-   - `status:up-for-review` if its branch has an open PR (a halt in a review
-     step), or its PR has already merged (a halt while landing)
-   - `status:in-progress` if only the branch is on the remote
-   - `status:todo` otherwise
+3. It gives a cleared slice its state back, on the app's tier
+   (`autopilot-steps.md`, *Tracker tiers*):
+   - Up for Review if its branch has an open PR (a halt in a review step), or
+     its PR has already merged (a halt while landing)
+   - In Progress if only the branch is on the remote
+   - Todo otherwise
 
    If `gh` can't list the PRs, it stops with a notice rather than guess.
 

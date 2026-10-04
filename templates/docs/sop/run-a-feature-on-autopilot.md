@@ -21,7 +21,14 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    preflight refuses to start a run without it. An app that adopted the template
    gets it from `bin/rocket-sheep-update`. If its own `settings.json` had
    diverged, the update leaves conflict markers there to resolve.
-4. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
+4. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
+   and filed issues carry it:
+
+   ```bash
+   gh label create autopilot --repo <org>/<repo> --force
+   ```
+
+5. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
    updates install only the alignment layer and never touch `config/`, so an
    app that adopted the workflow adds it by hand: append `<%= ENV["DB_SUFFIX"] %>` to every
    development and test database name.
@@ -35,7 +42,7 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 
    Unset, nothing changes. The driver sets `DB_SUFFIX=_autopilot`, so a run never
    touches your own databases.
-5. **Set up the worktree, once per feature:**
+6. **Set up the worktree, once per feature:**
 
    ```bash
    bin/autopilot <slug> --setup
@@ -94,16 +101,18 @@ comment from a person halts the run (gate `comments`).
 
 ## After a halt
 
-The run exits with status 2. The slice's issue is labelled `status:blocked`, and
-its HALT entry is on the issue or in the log.
+The run exits with status 2. The slice is Blocked on your tracker, and its HALT
+entry is in the log, or on the issue (on the feature PR under `beads`).
 
 1. Read the entry's **Needs** line, and answer it: decide, fix, or change the
    policy in the log.
-2. Remove `status:blocked` from the issue.
+2. Clear Blocked: remove `status:blocked` (`labels`), move the board Status off
+   Blocked (`github-projects`), or `bd update <id> --status open` (`beads`).
+   `docs/system/autopilot-steps.md`, *Tracker tiers*, has every operation.
 3. Rerun `bin/autopilot <slug>`.
 
 The rerun copies any HALT entries posted on issues into the log, gives the slice
-its status label back, skips every step that already finished, and carries on.
+its state back, skips every step that already finished, and carries on.
 
 ## After a pause
 
@@ -133,8 +142,8 @@ Press **Ctrl-C** once in the driver's terminal. The driver:
 It labels nothing and posts nothing.
 
 What is left behind:
-- **The slice's labels** are as the step left them: usually `status:in-progress`,
-  or `status:up-for-review` once its PR is open.
+- **The slice's state** is as the step left it: usually In Progress, or Up for
+  Review once its PR is open.
 - **The worktree** may hold the step's uncommitted work. The next run's preflight
   refuses a dirty tree. Look at it with `git -C ../<repo>-autopilot-<slug> status`.
   Then commit it if it is sound, or `git stash` it if not.
@@ -144,8 +153,8 @@ What is left behind:
 Then pick one:
 - **Carry on:** rerun `bin/autopilot <slug>`. Every step finished so far is
   skipped, and the step you stopped runs again from a new session.
-- **Stop for good:** for each open slice, close its slice PR and put its issue
-  back to `status:todo`. Remove the worktree (`git worktree remove
+- **Stop for good:** for each open slice, close its slice PR and put the slice
+  back to Todo. Remove the worktree (`git worktree remove
   ../<repo>-autopilot-<slug>`) and drop the `*_autopilot` databases if you want
   the space. The feature PR, the merged slices and the log stay. The feature
   goes on by hand from there, with the log as its record.

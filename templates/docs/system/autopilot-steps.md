@@ -83,7 +83,7 @@ having agreed to it at its G1.
 | Gate id | Where it comes up | Answer |
 |---|---|---|
 | `G2` | `/task_plan` Step 5 | Self-approve when the forecast is ≤1,500 added lines and ≤25 files, there are ≤2 flagged decisions, and nothing in the plan touches the *halt list*. Each flagged decision is logged as its own `choice` entry. Otherwise `halt` |
-| `split` | `/task_plan` Step 5 (forecast over the bound), `/implement` Step 4 (scope escape) | Split: create the sub-issue (`Feature branch:` line, dependencies, label `autopilot`), add it to the feature PR's **Slices** list, carry on with the reduced slice. At most 2 splits per feature, then `halt` |
+| `split` | `/task_plan` Step 5 (forecast over the bound), `/implement` Step 4 (scope escape) | Split: create the sub-issue (`Feature branch:` line, dependencies, label `autopilot`; *Tracker tiers*), add it to the feature PR's **Slices** list, carry on with the reduced slice. At most 2 splits per feature, then `halt` |
 | `fix-drop` | `/implement` Step 5.4, `/pr_review` self-review pass 1 | Drop a finding only with a **probe**: a command or test whose output shows the failure scenario does not happen, or a cited rule it contradicts. Otherwise fix it under the failing-test rule. Every drop is logged with its probe |
 | `pass-2` | `/implement` Step 5.7 (a PR into `main` only), `/pr_review` self-review pass 2 | Fix confirmed blockers and suggestions under the failing-test rule. A fix with no possible failing test → `halt` |
 | `comments` | `/pr_comment_resolver` Step 4 | Address every non-noise comment. Skip noise and log what was skipped. **A comment from a person** on a slice PR mid-run → `halt`: someone is watching and has something to say |
@@ -91,7 +91,7 @@ having agreed to it at its G1.
 | `merge` | `/pr_review` *Land it from this session* | Never inside a command. The driver merges after checking the PR's base. The command stops once the review is posted |
 | `walkthrough` | `/pr_submit` Step 3b | Create it (already the rule for a non-interactive run) |
 | `out-of-slice` | Anywhere: a fix outside the slice's acceptance criteria | Allowed at ≤~100 added lines, with a failing test first and no migration. Bigger → file an `issue` and work around it, or `halt` if blocked |
-| `issue` | Anywhere: an API gap, a bug, follow-up work | File it with label `autopilot`, never work on it in the same run. Every one appears under *Read this first* |
+| `issue` | Anywhere: an API gap, a bug, follow-up work | File it with label `autopilot` (*Tracker tiers*), never work on it in the same run. Every one appears under *Read this first* |
 | `opinion` | A deliverable that is the developer's call (a recommendation, a scorecard verdict) | Write it under a heading **Draft — the agent's view, for the developer to confirm**, and mark the doc `**Status:** Draft` so the feature PR cannot merge it silently |
 | `choice` | Any design or implementation choice an interactive session would have put to the developer: a constant tuned, a library picked, an approach chosen between two | Make it, and log it with the alternative. This is the default gate id for a decision no other row covers |
 | `halt` | Every prompt not answered above, and the halt list | Halt (below) |
@@ -162,7 +162,7 @@ issue, or a published doc; `costly` is anything another slice now builds on.
 - **Uncommitted:** <`git status --short` summary, or "clean">
 - **Needs:** <the decision or fix the developer has to supply>
 - **Comments:** <gate `comments` only: the `kind:id` of each person's comment that caused the halt>
-- **Resume:** answer under **Needs**, remove `status:blocked` from #<issue>, then `bin/autopilot <slug>` (the driver restores the issue's status label when it picks the slice up again)
+- **Resume:** answer under **Needs**, clear Blocked on <slice id> (*Tracker tiers*), then `bin/autopilot <slug>` (the driver restores the slice's state when it picks the slice up again)
 
 #### PAUSE · usage limit · <step>
 - **At:** <time> · **Resumed:** <time> · **Step:** <command and argument>
@@ -229,6 +229,29 @@ autopilot that is a `halt` (gate `comments`). List them on the HALT entry's
 `pull_request_review_id` comes from GitHub's review-comment object. The driver's
 tests pin it with a payload recorded from a real self-review pass.
 
+## Tracker tiers
+
+Autopilot moves a slice through the same lifecycle states as a person does
+(`WORKFLOW.md`, *Gates*), on whichever tier `/workflow_setup` chose. Every
+tracker operation a step or the driver performs is one of the rows below. The
+rest of this doc and `autopilot.md` name the operation, such as "mark Blocked",
+and this table says how it is done on each tier. Board IDs for
+`github-projects` are the ones `/workflow_setup` recorded in
+`.claude/workflow.config.md`, and filled into the commands.
+
+| Operation | `labels` | `github-projects` | `beads` |
+|---|---|---|---|
+| A slice's id | `#<n>` | `#<n>` | `bd-<hash>` |
+| Read its state | `gh issue view <n> --json labels`: its `status:*` label | its board Status (`gh issue view <n> --json projectItems`) | `bd show <id> --json`: `status`, and the `lifecycle:up_for_review` label |
+| Set a state | add `status:<state>`, remove the other four `status:*` labels (removing a missing label is a no-op) | `gh project item-edit` on the issue's item, with that state's Status option ID | Todo `bd update <id> --status open`; In Progress `--status in_progress`; Blocked `--status blocked`; Up for Review `bd set-state <id> lifecycle=up_for_review` |
+| Is it Blocked? | label `status:blocked` | Status `Blocked` | `status` is `blocked` |
+| Clear Blocked (the developer, to resume) | remove `status:blocked` | set Status to anything but `Blocked` | `bd update <id> --status open` |
+| File a split or an `issue` entry | `gh issue create --label autopilot --label status:todo` | `gh issue create --label autopilot`, then add it to the board (Todo) | `bd create --label autopilot`, then `bd dep add` it under the epic |
+| Post a HALT entry off the slice branch | a comment on the issue | a comment on the issue | a comment on the feature PR, naming `bd-<hash>`: there is no GitHub issue |
+
+The label `autopilot` has to exist on GitHub for the first two tiers. The run
+guide's setup creates it.
+
 ## Halt
 
 A halt means the policy says a person is needed. It is not a failure. A command
@@ -236,8 +259,8 @@ that halts:
 
 1. Commits finished units as usual. It does not commit half-done work: the HALT
    entry lists it under **Uncommitted**.
-2. Marks the issue blocked, removing whichever status it had (removing a label
-   the issue lacks is a no-op):
+2. Marks the slice Blocked, replacing whichever state it had (*Tracker tiers*,
+   "Set a state"). Under `labels`:
    `gh issue edit <n> --add-label "status:blocked" --remove-label "status:todo" --remove-label "status:in-progress" --remove-label "status:up-for-review"`
 3. Records the HALT entry where the developer will see it. Decide by the branch
    that is checked out, not by step number: `/task_plan` Step 6 halts on a dirty
@@ -256,8 +279,9 @@ that halts:
    - **`issue`** (typically `/task_plan` Steps 1–5, and Step 6 up to the slice
      branch checkout, while the driver's worktree is on `feature/<slug>`): commit
      nothing. A commit there would land on the feature branch, possibly mixed with
-     the uncommitted changes that caused the halt. Post the entry as a comment on
-     the issue instead, ending with `<!-- autopilot -->`. The driver copies it into
+     the uncommitted changes that caused the halt. Post the entry as a comment
+     instead (*Tracker tiers*, "Post a HALT entry"), ending with
+     `<!-- autopilot -->`. The driver copies it into
      the log on the feature branch.
 4. Ends its output with exactly one line, the **halt marker**, and stops:
 
