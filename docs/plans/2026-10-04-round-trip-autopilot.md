@@ -58,6 +58,14 @@ see the test fail, restore it.
 
 ## Slices
 
+### #56 — session_end blocks every turn on a feature branch, looping the session (PR #77, merged d1dc8c5)
+
+| Added | Files | Review rounds | Fixed | Dropped | Wall time | Usage |
+|---|---|---|---|---|---|---|
+| 237 | 14 | 1 | — | — | 0m 0s | $0.00 |
+
+#### Decisions
+
 ## QA — how to check the whole feature
 
 - Not checked by a human (from G1): `bin/rocket-sheep-backport --check` run against
