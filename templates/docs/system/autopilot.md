@@ -105,10 +105,21 @@ bin/autopilot <slug> --usage     cost and cache use per step, from the state fil
 bin/autopilot <slug>             run it
 ```
 
+Claude Code drives every step. `--cli codex` and `--cli cursor` exit 1 and name
+what an adapter would need: a non-interactive mode that denies unlisted tools, a
+pre-tool hook for the guard, and a machine-readable result. Neither is verified,
+and an adapter without the guard would be worse than none (ADR 0016).
+
 Exit status:
 - `0`: finished, or nothing to do
 - `1`: not ready to run (preflight names every problem)
 - `2`: halted, blocked, stopped, or no open slice can start
+
+**What it reads.** The repo, the branch prefix, the tracker tier and, under
+`github-projects`, the board IDs, from `.claude/workflow.config.md`, the record
+`/workflow_setup` commits. The commands have those values filled in; the driver is
+code, so it reads them when it starts, and preflight refuses a run that is missing
+one, or that cannot read its tier.
 
 **Where it runs.** In `../<repo>-autopilot-<slug>`, beside the main checkout, so
 the developer's checkout and databases are never touched:
@@ -186,9 +197,11 @@ pending or red, and that is an answer.
    - Its head must be the one the review cycle ended on, so nothing pushed after
      the last review rides in.
    - Every check must finish green, `test` included (`gh pr checks --watch
-     --fail-fast`, 45 minutes at most).
+     --fail-fast`, 45 minutes at most), except the informational ones
+     (`CodeQL` / `Analyze`), as in `/pr_review` *Land it*. When those are the only
+     red, the rest are waited out without `--fail-fast`, and are what counts.
 
-   A red check first gets one rerun of its run's failed jobs (`gh run rerun
+   Any other red check first gets one rerun of its run's failed jobs (`gh run rerun
    --failed`, after the run finishes), so a flaky test does not stop the
    feature; the driver notifies and logs a `CI rerun` row. A wrong base, a
    moved head, or a check still red after that rerun is a `halt`. Checks
@@ -239,8 +252,9 @@ that is still open after it landed stops the run rather than looping on it.
 
 The feature PR's merge into `main` stays the developer's.
 
-**Halts the driver finds itself** follow [*Halt*](autopilot-steps.md#halt). It labels the issue
-blocked and posts the HALT entry on the issue, with the marker. It doesn't
+**Halts the driver finds itself** follow [*Halt*](autopilot-steps.md#halt). It marks the slice
+Blocked and posts the HALT entry off the slice branch, with the marker: on the
+issue, or on the feature PR under `beads` (`autopilot-steps.md`, *Tracker tiers*). It doesn't
 commit, because the branch checked out isn't necessarily one the entry belongs
 on.
 
@@ -310,7 +324,8 @@ it. Under it, it denies:
 | A push from another checkout: `git -C <dir> push`, or a `cd` before it, into any directory outside this worktree, or one the guard can't place | The developer's own checkout sits beside the worktree |
 | A git alias, `remote.*.push` or `push.default` | A renamed or redirected push escapes the push rules |
 | `gh pr ready`, `markPullRequestReadyForReview` | The driver readies the feature PR when every slice has landed |
-| `gh issue close`, a `state=closed` field | Issues close when the feature merges to `main` |
+| `gh issue close`, a `state=closed` field, the `closeIssue` and `deleteIssue` mutations. `bd close`, `bd delete`, `bd update --status` or `-s closed`, global flags first or not | Issues and beads close when the feature merges to `main` (`/pick` reconciles beads) |
+| `gh project delete`, `close`, `item-delete`, `item-archive`, `field-delete`, and their mutations (`deleteProjectV2Item`, `archiveProjectV2Item`, `deleteProjectV2Field`, `deleteProjectV2`) | A step moves a card on the board, nothing more |
 | `gh pr edit --base` or `-B`, a `base=` PATCH | A slice PR targets the feature branch |
 | Any edit under `config/credentials*` or `.github/workflows/`, and any command naming them | The halt list. Reads go through the Read tool; the settings' deny list covers the keys |
 | A migration that removes, drops or renames a column, table or reference: written by an edit, written by a command, or generated (`rails g migration Remove…`) | The halt list |

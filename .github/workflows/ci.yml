@@ -23,7 +23,8 @@ jobs:
       - name: Entry scripts parse
         run: |
           for f in template.rb adopt.rb preamble.rb templates/bin/lint-docs \
-                   templates/bin/doc-tokens templates/bin/rocket-sheep-update; do
+                   templates/bin/doc-tokens templates/bin/rocket-sheep-update \
+                   templates/bin/autopilot templates/bin/hooks/autopilot_guard; do
             ruby -c "$f" > /dev/null || exit 1
           done
 

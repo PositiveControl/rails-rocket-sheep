@@ -238,6 +238,29 @@ copy_template_file "bin/hooks/session_end"
 chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
 
+# The autopilot guard: a PreToolUse hook that does nothing unless AUTOPILOT=1,
+# which only bin/autopilot sets, and then denies what a step must never do
+# (docs/system/autopilot.md, Guard). Its test carries the settings and
+# session_end tests too, so an update that changes the wiring changes them.
+copy_template_file "bin/hooks/autopilot_guard"
+chmod "bin/hooks/autopilot_guard", 0755
+copy_template_file "test/bin/autopilot_guard_test.rb"
+
+# What an autopilot step may run without asking. bin/autopilot passes it to
+# `claude -p --permission-mode dontAsk`; it keeps an honest step from wandering,
+# and the guard is the wall.
+copy_template_file ".claude/autopilot-allowed-tools.txt"
+
+# The autopilot driver: runs an approved feature's slices unattended, one
+# `claude -p` step per gate (docs/system/autopilot.md, The driver). Its tests
+# and their fixtures come with it, so an update to the driver updates them.
+copy_template_file "bin/autopilot"
+chmod "bin/autopilot", 0755
+copy_template_file "test/bin/autopilot_test.rb"
+copy_template_file "test/bin/fixtures/autopilot/claude_success.json"
+copy_template_file "test/bin/fixtures/autopilot/log.md"
+copy_template_file "test/bin/fixtures/autopilot/workflow.config.md"
+
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that

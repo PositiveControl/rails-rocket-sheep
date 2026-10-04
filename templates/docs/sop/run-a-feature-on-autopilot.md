@@ -23,14 +23,18 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    preflight refuses to start a run without it. An app that adopted the template
    gets it from `bin/rocket-sheep-update`. If its own `settings.json` had
    diverged, the update leaves conflict markers there to resolve.
-4. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
+4. **The workflow config is committed.** The driver reads the repo, branch
+   prefix, tier and board IDs from `.claude/workflow.config.md`, which
+   `/workflow_setup` writes. Commit it, so the worktree has it too; preflight
+   names any value it is missing.
+5. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
    and filed issues carry it:
 
    ```bash
    gh label create autopilot --repo <org>/<repo> --force
    ```
 
-5. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
+6. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
    updates install only the alignment layer and never touch `config/`, so an
    app that adopted the workflow adds it by hand: append `<%= ENV["DB_SUFFIX"] %>` to every
    development and test database name.
@@ -44,7 +48,7 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 
    Unset, nothing changes. The driver sets `DB_SUFFIX=_autopilot`, so a run never
    touches your own databases.
-6. **Set up the worktree, once per feature:**
+7. **Set up the worktree, once per feature:**
 
    ```bash
    bin/autopilot <slug> --setup

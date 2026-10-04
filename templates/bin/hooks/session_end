@@ -10,13 +10,26 @@
 #
 # On a slice branch (`<prefix>/<id>/<slug>`) only placeholders created for that
 # id count: the rest belong to the feature and are resolved at the feature PR
-# (WORKFLOW.md, Feature branches). Anywhere else every draft counts.
+# (WORKFLOW.md, Feature branches). On the feature branch itself
+# (`feature/<slug>`) the drafts are the feature PR's to complete, so it says
+# nothing; holding every session there looped a merge session turn after
+# turn. On a detached HEAD no branch owns the drafts, so it says nothing.
+# Anywhere else every draft counts.
+#
+# Under AUTOPILOT=1 it says nothing at all. A Stop hook that exits 2 keeps a
+# `claude -p` step going, and a slice's own placeholder is legitimately Draft
+# until its /pr_submit: /task_plan and /implement would rewrite docs to make
+# the hook stop, until their timeout (seen: 36 refusals in one probe). The
+# slice's own are /pr_submit's to resolve, and the driver checks the feature's
+# at finish.
 #
 # Stays quiet unless there is something to say. Exits 2 with feedback when a
 # draft placeholder exists, 0 otherwise. A broken hook must never block work,
 # so any unexpected failure exits 0.
 #
-# Disable by removing the Stop entry from .claude/settings.json.
+# SKIP_DRAFT_CHECK=1 silences it, set locally in .claude/settings.local.json
+# `env` while drafts are legitimately open where you work (main mid-feature).
+# Disable entirely by removing the Stop entry from .claude/settings.json.
 
 DOC_DIRS = %w[docs/plans docs/system docs/sop docs/qa].freeze
 DRAFT = /^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i
@@ -24,6 +37,8 @@ DRAFT = /^\s*(\*\*)?Status:?(\*\*)?\s*:?\s*Draft\b/i
 drafts =
   begin
     branch = `git rev-parse --abbrev-ref HEAD 2>/dev/null`.strip
+    exit 0 if branch == "HEAD" || branch.match?(%r{\Afeature/[^/]+\z}) || ENV["AUTOPILOT"] == "1"
+    exit 0 if ENV["SKIP_DRAFT_CHECK"] == "1"
     slice_id = branch[%r{\A[^/]+/([^/]+)/}, 1]
 
     DOC_DIRS.flat_map do |dir|
