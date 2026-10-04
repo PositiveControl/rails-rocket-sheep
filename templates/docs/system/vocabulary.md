@@ -78,6 +78,30 @@ is recorded in the **autopilot log**. G1 and the merge to `main` stay human. Spe
 *Avoid*: "auto mode" (a Claude Code permission mode, unrelated), "unattended
 mode".
 
+**Policy**
+The answer to each question a command would put to the developer, by gate id,
+plus the halt list: what autopilot does in place of asking. The defaults are in
+`docs/system/autopilot-steps.md` (*Policy*). The developer approves them, with any
+changes, at G1, and the copy in the feature's **autopilot log** is the one in
+force from then on.
+*Avoid*: "rules" (the **doc canon**'s `docs/rules/` is something else), "config".
+
+**Driver**
+`bin/autopilot`: the script that runs an autopilot feature, one step at a time,
+each as a fresh agent process. It checks the tracker, git and the PR after every
+step, and does the slice merges itself. It is the only thing that sets
+`AUTOPILOT=1`. `docs/system/autopilot.md`, *The driver*.
+*Avoid*: "runner", "orchestrator", "the agent" (each step is an agent; the driver
+is not).
+
+**Guard**
+`bin/hooks/autopilot_guard`: the Claude Code `PreToolUse` hook that denies an
+autopilot step what only the driver or a person may do, such as a merge, a push
+to `main`, or rewriting history. Outside a run it does nothing. It leans toward
+denying, because a false positive costs a halt and a false negative can cost
+`main`. `docs/system/autopilot.md`, *Guard*.
+*Avoid*: "sandbox" (it reads commands; it does not isolate them).
+
 **Gate id**
 The name of one human prompt in the commands, as autopilot's policy answers it:
 `G2`, `split`, `fix-drop`, `pass-2`, `comments`, `post-review`, `merge`,
