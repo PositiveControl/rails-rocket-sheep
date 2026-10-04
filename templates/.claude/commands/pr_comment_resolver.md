@@ -81,6 +81,13 @@ Ask user:
 2. Whether any "noise" comments should be addressed anyway
 3. Whether any human comments need discussion before fixing
 
+**Autopilot (gate `comments`)** — active when the check in `docs/system/autopilot-steps.md` (*Activation*) passes with `<BASE>` = `baseRefName`:
+- Ask nothing.
+- Sort every comment by *Whose comment is it* in that doc, not by author login: the self-review passes post from the developer's own account.
+- **Any comment from a person is a `halt`.** Someone is watching this slice and has something to say, and the run should not answer for them.
+- Otherwise address every non-noise comment and log the skipped noise in one entry.
+- For each self-review finding, verify it before fixing it, as `/implement` Step 5 items 3–5 do. A finding you would drop needs a probe (gate `fix-drop` on pass 1, `pass-2` on pass 2), and the drop is logged with it.
+
 ### Step 5: Address comments
 
 Per comment:
@@ -119,12 +126,14 @@ Per addressed comment, reply to resolve conversation:
 gh api repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR_NUMBER>/comments/<COMMENT_ID>/replies -X POST -f body="Addressed — <brief description of fix>. See <COMMIT_SHA>."
 ```
 
+**Autopilot:** end every reply body with the marker `<!-- autopilot -->`. It is invisible on GitHub. A dropped finding gets a reply too: `Dropped — probe: <command and result>. <!-- autopilot -->`.
+
 ### Step 7: Verify fast CI checks
 
 Poll fast CI checks — confirm fixes break nothing:
 
 ```bash
-gh pr checks $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json name,state,link --jq '.[] | select(["scan_ruby","scan_js","lint"] | index(.name)) | "\(.name): \(.state)"'
+gh pr checks $ARGUMENTS --repo {{GITHUB_ORG}}/{{GITHUB_REPO}} --json name,state,link --jq '.[] | select(.name as $n | [{{FAST_CI_CHECKS_JQ}}] | index($n)) | "\(.name): \(.state)"'
 ```
 
 Fast check fails after push → diagnose, fix before reporting.
@@ -147,7 +156,8 @@ Human comments deferred for discussion → remind user.
 ## Reference
 - GitHub username: `gh api user --jq .login` gets current user's GitHub username
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
-- Fast CI checks: scan_ruby, scan_js, lint
+- Fast CI checks: {{FAST_CI_CHECKS}}
 - Bot reviewers: github-code-quality[bot], copilot-pull-request-reviewer
 - Reply endpoint: `repos/{{GITHUB_ORG}}/{{GITHUB_REPO}}/pulls/<PR>/comments/<ID>/replies`
+- Autopilot: `docs/system/autopilot-steps.md` — activation check, policy by gate id (`comments`, `fix-drop`, `pass-2`, `halt` here), whose comment is whose
 - CI check `state` values: PENDING, IN_PROGRESS, SUCCESS, FAILURE, SKIPPED

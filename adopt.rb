@@ -126,11 +126,18 @@ template_file "CLAUDE.md.tt"
 empty_directory "docs"
 empty_directory "docs/plans"
 empty_directory "docs/qa"
+copy_template_file "docs/qa/autopilot-report-template.md"
 
 template_file "docs/system/models.md.tt"
 copy_template_file "docs/system/vocabulary.md"
 # Both modes: the shared commands link it, and it says an API app skips walkthroughs.
 copy_template_file "docs/system/qa_walkthrough.md"
+# Autopilot (ADR 0016): what a running step reads, the driver and guard, what a
+# step costs, and what was changed on the strength of those numbers. Both modes.
+copy_template_file "docs/system/autopilot-steps.md"
+copy_template_file "docs/system/autopilot.md"
+copy_template_file "docs/system/workflow-usage.md"
+copy_template_file "docs/system/workflow-optimizations.md"
 
 # One decision per file, numbered, newest last. Globbed for the same reason the
 # rules are: adding a decision must not mean editing a manifest, or the ADR that
@@ -148,6 +155,7 @@ copy_template_file "docs/sop/find-slow-tests.md"
 copy_template_file "docs/sop/add-seo-to-a-page.md" unless API_MODE
 copy_template_file "docs/sop/add-an-endpoint.md" if API_MODE
 copy_template_file "docs/sop/update-from-the-template.md"
+copy_template_file "docs/sop/run-a-feature-on-autopilot.md"
 
 # Sharded conventions. One rule per file with frontmatter (applies_to globs,
 # trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
@@ -229,6 +237,29 @@ copy_template_file "bin/hooks/post_edit"
 copy_template_file "bin/hooks/session_end"
 chmod "bin/hooks/post_edit", 0755
 chmod "bin/hooks/session_end", 0755
+
+# The autopilot guard: a PreToolUse hook that does nothing unless AUTOPILOT=1,
+# which only bin/autopilot sets, and then denies what a step must never do
+# (docs/system/autopilot.md, Guard). Its test carries the settings and
+# session_end tests too, so an update that changes the wiring changes them.
+copy_template_file "bin/hooks/autopilot_guard"
+chmod "bin/hooks/autopilot_guard", 0755
+copy_template_file "test/bin/autopilot_guard_test.rb"
+
+# What an autopilot step may run without asking. bin/autopilot passes it to
+# `claude -p --permission-mode dontAsk`; it keeps an honest step from wandering,
+# and the guard is the wall.
+copy_template_file ".claude/autopilot-allowed-tools.txt"
+
+# The autopilot driver: runs an approved feature's slices unattended, one
+# `claude -p` step per gate (docs/system/autopilot.md, The driver). Its tests
+# and their fixtures come with it, so an update to the driver updates them.
+copy_template_file "bin/autopilot"
+chmod "bin/autopilot", 0755
+copy_template_file "test/bin/autopilot_test.rb"
+copy_template_file "test/bin/fixtures/autopilot/claude_success.json"
+copy_template_file "test/bin/fixtures/autopilot/log.md"
+copy_template_file "test/bin/fixtures/autopilot/workflow.config.md"
 
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from

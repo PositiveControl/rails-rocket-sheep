@@ -56,6 +56,17 @@ class FlayGateTest < Minitest::Test
     assert_includes out, "no copied code"
   end
 
+  # An autopilot step runs under dontAsk, where a `BASE=` prefix matches no
+  # allowlist rule and is denied, so the base can be passed as an argument too.
+  def test_takes_the_base_as_an_argument_over_the_environment
+    write("app/b.rb", "class B\n  def other = 1\nend\n")
+
+    out, status = run_gate({ "BASE" => "no-such-ref" }, [ "HEAD" ])
+
+    assert status.success?, out
+    assert_includes out, "no copied code"
+  end
+
   def test_fails_on_verbatim_copy
     write("app/b.rb", "class B\n#{METHOD}end\n")
 
@@ -127,9 +138,9 @@ class FlayGateTest < Minitest::Test
     File.write(File.join(@repo, path), body)
   end
 
-  def run_gate(overrides = {})
+  def run_gate(overrides = {}, args = [])
     env = { "BASE" => "HEAD", "BUNDLE_GEMFILE" => File.join(ROOT, "Gemfile") }.merge(overrides)
-    out, err, status = Open3.capture3(env, File.join(ROOT, "bin/flay"), chdir: @repo)
+    out, err, status = Open3.capture3(env, File.join(ROOT, "bin/flay"), *args, chdir: @repo)
     [ out + err, status ]
   end
 end

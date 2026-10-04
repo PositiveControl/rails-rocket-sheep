@@ -24,38 +24,40 @@ default: &default
 <% end -%>
   password: <%%= ENV["DB_PASSWORD"] %>
 
+# DB_SUFFIX gives a second checkout its own development and test databases
+# (bin/autopilot sets DB_SUFFIX=_autopilot). Unset, the names are unchanged.
 development:
   primary:
     <<: *default
-    database: <%= app_name %>_development
+    database: <%= app_name %>_development<%%= ENV["DB_SUFFIX"] %>
   queue:
     <<: *default
-    database: <%= app_name %>_development_queue
+    database: <%= app_name %>_development_queue<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
-    database: <%= app_name %>_development_cable
+    database: <%= app_name %>_development_cable<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/cable_migrate
   cache:
     <<: *default
-    database: <%= app_name %>_development_cache
+    database: <%= app_name %>_development_cache<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/cache_migrate
 
 test:
   primary:
     <<: *default
-    database: <%= app_name %>_test
+    database: <%= app_name %>_test<%%= ENV["DB_SUFFIX"] %>
   queue:
     <<: *default
-    database: <%= app_name %>_test_queue
+    database: <%= app_name %>_test_queue<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/queue_migrate
   cable:
     <<: *default
-    database: <%= app_name %>_test_cable
+    database: <%= app_name %>_test_cable<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/cable_migrate
   cache:
     <<: *default
-    database: <%= app_name %>_test_cache
+    database: <%= app_name %>_test_cache<%%= ENV["DB_SUFFIX"] %>
     migrations_paths: db/cache_migrate
 
 production:

@@ -1,4 +1,5 @@
 {
+  "promptCacheTtl": "1h",
   "permissions": {
     "allow": [
       "Bash(bin/test:*)",
@@ -61,6 +62,17 @@
     ]
   },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash|Edit|Write|MultiEdit|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bin/hooks/autopilot_guard"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "Edit|Write|MultiEdit",

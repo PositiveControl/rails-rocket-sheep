@@ -68,6 +68,58 @@ branches*.
 *Avoid*: calling a slice's branch a feature branch. A slice branch is
 `prefix/<id>/<slug>` and lives for one PR.
 
+**Autopilot**
+Running an approved multi-slice feature from its first open slice to a ready
+feature PR with nobody at the keyboard. It needs two keys: an `**Autopilot:** on`
+line in the design doc, written at G1, and `AUTOPILOT=1`, set only by the driver.
+The gates still stand. Each one is answered from a written policy, and the answer
+is recorded in the **autopilot log**. G1 and the merge to `main` stay human. Spec:
+`docs/system/autopilot.md`, and what a step reads: `docs/system/autopilot-steps.md`.
+*Avoid*: "auto mode" (a Claude Code permission mode, unrelated), "unattended
+mode".
+
+**Policy**
+The answer to each question a command would put to the developer, by gate id,
+plus the halt list: what autopilot does in place of asking. The defaults are in
+`docs/system/autopilot-steps.md` (*Policy*). The developer approves them, with any
+changes, at G1, and the copy in the feature's **autopilot log** is the one in
+force from then on.
+*Avoid*: "rules" (the **doc canon**'s `docs/rules/` is something else), "config".
+
+**Driver**
+`bin/autopilot`: the script that runs an autopilot feature, one step at a time,
+each as a fresh agent process. It checks the tracker, git and the PR after every
+step, and does the slice merges itself. It is the only thing that sets
+`AUTOPILOT=1`. `docs/system/autopilot.md`, *The driver*.
+*Avoid*: "runner", "orchestrator", "the agent" (each step is an agent; the driver
+is not).
+
+**Guard**
+`bin/hooks/autopilot_guard`: the Claude Code `PreToolUse` hook that denies an
+autopilot step what only the driver or a person may do, such as a merge, a push
+to `main`, or rewriting history. Outside a run it does nothing. It leans toward
+denying, because a false positive costs a halt and a false negative can cost
+`main`. `docs/system/autopilot.md`, *Guard*.
+*Avoid*: "sandbox" (it reads commands; it does not isolate them).
+
+**Gate id**
+The name of one human prompt in the commands, as autopilot's policy answers it:
+`G2`, `split`, `fix-drop`, `pass-2`, `comments`, `post-review`, `merge`,
+`walkthrough`, `out-of-slice`, `issue`, `opinion`, `choice`, `halt`. Every
+autopilot log entry carries one. `G2` is the gate of the same name; the others are
+the smaller questions a command asks between gates.
+
+**Halt**
+Autopilot stopping because its policy says a person is needed: the issue goes to
+Blocked, a HALT entry in the autopilot log says what is needed, and the step ends
+with an `AUTOPILOT-HALT:` line. Not a failure; a halt is the policy working.
+*Avoid*: "crash", "abort" (an abort is the developer stopping the run).
+
+**Pause**
+The driver waiting out the subscription's usage limit and then rerunning the same
+step. A pause uses no retry and needs no person, which is what separates it from a
+**halt**.
+
 ## The documents
 
 **Doc canon**
@@ -99,6 +151,15 @@ Issues are created from it *after* approval, because issues are commitment.
 The output of `/task_plan`, in `.llm/tasks/<id>_<slug>.md`, local and uncommitted.
 It is the resumability artifact: `/implement` reloads it in a fresh session, which
 is what makes a tenth resume identical to a first run.
+
+**Autopilot log**
+`docs/plans/<date>-<slug>-autopilot.md`, one per autopilot feature: the policy as
+accepted at G1, then every decision the run made, one entry each, with its gate
+id, the alternative, the trade-off and how hard it is to reverse. Committed, and
+kept after the feature merges. The feature-PR reviewer reads it in place of the
+questions they were not asked.
+*Avoid*: "ledger" (the **query ledger** is something else), "decision log",
+"run log".
 
 **Non-negotiable**
 One of the short list in `CLAUDE.md`: a rule stated in one line with a link to the

@@ -2,7 +2,8 @@
 # Fail when the branch adds verbatim-duplicated Ruby that BASE does not have.
 #
 # Usage: bin/flay                     # working tree vs origin/main
-#        BASE=origin/feature/<slug> bin/flay   # a slice, against its feature branch
+#        bin/flay origin/feature/<slug>        # a slice, against its feature branch
+#        BASE=origin/feature/<slug> bin/flay   # the same; the argument wins over BASE
 #        bundle exec flay app lib     # raw whole-repo report, no gate
 #
 # rubocop (omakase) has no clone detection: its Lint/Duplicate* cops each look
@@ -31,7 +32,9 @@ require "flay"
 require "tmpdir"
 
 DIRS = %w[app lib].freeze
-BASE = ENV.fetch("BASE", "origin/main")
+# An argument, because an autopilot step runs under dontAsk and a `BASE=` prefix
+# matches no allowlist rule. BASE stays for CI and anyone already using it.
+BASE = ARGV.first || ENV.fetch("BASE", "origin/main")
 MASS = Integer(ENV.fetch("FLAY_MASS", 16))
 COPY_UNITS = %i[defn defs class module].freeze
 
@@ -66,7 +69,7 @@ end
 # it would report every duplicate in the repo as added.
 system("git", "fetch", "-q", "origin", BASE.delete_prefix("origin/"), err: File::NULL) if BASE.start_with?("origin/")
 unless system("git", "rev-parse", "--verify", "--quiet", "#{BASE}^{commit}", out: File::NULL)
-  abort "flay: BASE #{BASE} is not a commit here. Fetch it, or set BASE to the branch this one targets."
+  abort "flay: BASE #{BASE} is not a commit here. Fetch it, or pass the branch this one targets."
 end
 
 before = Dir.mktmpdir do |tmp|

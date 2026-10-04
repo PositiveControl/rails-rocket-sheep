@@ -40,6 +40,10 @@ How things currently work. Architecture state, not intentions.
 - [Models](../docs/system/models.md) — model reference
 - [Vocabulary](../docs/system/vocabulary.md) — what each workflow and doc term means here
 - [QA walkthroughs](../docs/system/qa_walkthrough.md) — the reviewer script per change, and how to run one
+- [Autopilot](../docs/system/autopilot.md) — how an approved feature runs itself: log template, driver, guard
+- [Autopilot — what a step reads](../docs/system/autopilot-steps.md) — activation, policy by gate id, log entries, whose comment is whose, halt
+- [Workflow usage](../docs/system/workflow-usage.md) — what an autopilot step costs, and the cache TTL settings
+- [Workflow optimizations](../docs/system/workflow-optimizations.md) — each change made to cut cost and time, and how to see its effect
 <!-- system:end -->
 
 ## ADRs — `docs/adr/`
@@ -57,6 +61,7 @@ Written by `/domain_model`.
 - [Pattern Budget](../docs/adr/0007-pattern-budget.md) — the six sanctioned directories, and what a seventh costs
 - [Registries as `Data` Objects](../docs/adr/0008-registries-as-data-objects.md) — fixed variant sets without a base class
 - [Slices Merge on the Agent's Review, Features on a Human's](../docs/adr/0014-slices-merge-on-the-agents-review-features-on-a-humans.md) — where the human reads, and why a fresh session reviews a slice
+- [An Accepted Design May Run Itself](../docs/adr/0016-an-accepted-design-may-run-itself.md) — autopilot: consent and policy at G1, a driver between slices, the autopilot log for the feature-PR reviewer
 <!-- adr:end -->
 
 ## SOP — `docs/sop/`
@@ -71,6 +76,7 @@ Procedures somebody will need to repeat.
 - [Set up the beads tracker tier](../docs/sop/beads-setup.md) — only if `/workflow_setup` chose tier `beads`
 - [Find slow tests](../docs/sop/find-slow-tests.md) — read the Slowpoke report and act on it
 - [Update from the template](../docs/sop/update-from-the-template.md) — three-way merge the alignment layer against a newer template
+- [Run a feature on autopilot](../docs/sop/run-a-feature-on-autopilot.md) — set up, start, watch, resume, finish, read the log, and abort an autopilot run
 <!-- sop:end -->
 
 ## QA — `docs/qa/`
@@ -78,7 +84,7 @@ Procedures somebody will need to repeat.
 Manual test guides. Written by `/pr_qa` for flows that automated tests don't cover.
 
 <!-- qa:start -->
-*None yet.*
+- [Autopilot report template](../docs/qa/autopilot-report-template.md) — copy after a feature's first autopilot run, to judge the workflow by numbers
 <!-- qa:end -->
 
 ---
