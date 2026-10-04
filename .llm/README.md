@@ -13,6 +13,7 @@ index is kept by hand; `bin/dogfood-sync` never writes it.
   scratch and never appear here.
 - `/feature_plan` adds plan entries. `/pr_submit` re-checks this index for
   duplicates and dead links.
+- Never merge a PR that leaves a `Status: Draft` placeholder listed here.
 - One line per doc: link plus a short description of what question it answers.
 
 ---
