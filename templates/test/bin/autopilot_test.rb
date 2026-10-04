@@ -327,6 +327,26 @@ class AutopilotFeatureTest < Minitest::Test
     assert slice.blocked
   end
 
+  # A colon or comma after the number is still the slice's row: missing one
+  # would let the run finish with that slice never built.
+  def test_a_row_with_punctuation_after_the_number_is_a_slice
+    @shell.on(/gh pr list .*--head feature\/foo/,
+              JSON.generate([ { "number" => 53, "body" => "## Slices\n- [x] #60 — a\n- [ ] #61: b\n- [ ] #62, c\n" } ]))
+
+    assert_equal [ 60, 61, 62 ], feature.slices.map(&:issue)
+  end
+
+  # Ticking finds the row under Slices, not a checklist that names the issue.
+  def test_tick_leaves_a_checklist_outside_the_slices_list_alone
+    body = "## Slices\n- [ ] #60 — a\n\n## Before merge\n- [ ] #60 docs follow-up\n"
+
+    ticked = Autopilot::Feature.ticked(body, 60, 71)
+
+    assert_includes ticked, "- [x] #60 — a (PR #71)\n"
+    assert_includes ticked, "- [ ] #60 docs follow-up\n"
+    assert_match(/- \[x\] #60 — a \(PR #71\)\n\nCloses #60\n/, ticked, "Closes goes after the list, not the checklist")
+  end
+
   # Blocked added by hand without removing the slice's other status label
   # still stops the run (autopilot-steps.md, Tracker tiers: "Is it Blocked?").
   def test_a_blocked_label_beside_another_status_label_still_blocks
@@ -1898,6 +1918,16 @@ class AutopilotTrackerTiersTest < Minitest::Test
     feature.tick("bd-b2", 71)
     body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
     assert_includes body, "- [x] acme-b2 — Checkout (PR #71)\n"
+  end
+
+  # The beads pattern takes any `<prefix>-<hash>`, so `follow-up` would read
+  # as bd-up, and bd's partial-ID matching could find a real bead by it.
+  # Only rows under ## Slices are slices.
+  def test_beads_a_checklist_outside_the_slices_list_is_not_a_slice
+    tier!("beads")
+    slices_pr("#{BEAD_SLICES}\n## Before merge\n- [ ] follow-up docs\n- [ ] re-run checks\n")
+
+    assert_equal %w[bd-a1 bd-b2 bd-c3], feature.slices.map(&:issue)
   end
 
   def test_beads_a_blocked_bead_stops_the_run_at_its_slice

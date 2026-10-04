@@ -364,7 +364,7 @@ module Autopilot
 
       # `bd-<hash>`, or the database's own prefix (docs/sop/beads-setup.md:
       # `--prefix acme` gives `acme-a3f2dd`); both read as `bd-<hash>`.
-      def slice_ids = /[a-z][a-z0-9]*(?:-[a-z0-9]+)*-[a-z0-9][\w.]*/
+      def slice_ids = /[a-z][a-z0-9]*(?:-[a-z0-9]+)*-[a-z0-9][\w.]*(?=\s|$)/
 
       def probe
         result = bd("list", "--json", "--limit", "1")
@@ -465,8 +465,9 @@ module Autopilot
     def slices
       return [] unless pr
 
-      pr["body"].to_s.lines.filter_map do |line|
-        match = self.class.slice_line(tracker).match(line) or next
+      lines = pr["body"].to_s.lines
+      self.class.slice_rows(lines).filter_map do |i|
+        match = self.class.slice_line(tracker).match(lines[i]) or next
         Slice.new(issue: Autopilot.slice_id(match[2]), done: match[1].casecmp?("x"))
       end
     end
@@ -525,7 +526,8 @@ module Autopilot
     # is no issue to close (`closes: false`). Running it twice changes nothing.
     def self.ticked(body, issue, slice_pr, closes: true, pattern: SLICE_LINE)
       lines = body.lines.map { |text| text.end_with?("\n") ? text : "#{text}\n" }
-      row = lines.index { |text| (match = pattern.match(text)) && match[1] == " " && Autopilot.slice_id(match[2]) == issue }
+      rows = slice_rows(lines)
+      row = rows.find { |i| (match = pattern.match(lines[i])) && match[1] == " " && Autopilot.slice_id(match[2]) == issue }
       if row
         line = lines[row].chomp.sub("- [ ]", "- [x]")
         line += " (PR ##{slice_pr})" unless line.include?("(PR ##{slice_pr})")
@@ -536,7 +538,7 @@ module Autopilot
       after = lines.rindex { |line| line.start_with?("Closes #") }
       if after
         lines.insert(after + 1, "Closes #{Autopilot.ref(issue)}\n")
-      elsif (last = lines.rindex { |text| pattern.match?(text) })
+      elsif (last = rows.reverse.find { |i| pattern.match?(lines[i]) })
         lines.insert(last + 1, "\n", "Closes #{Autopilot.ref(issue)}\n")
       end
       lines.join
@@ -545,7 +547,17 @@ module Autopilot
     def title(id) = tracker.title(id)
 
     # A row of the Slices list on this tier: `- [ ] <id>` and a space or the end.
-    def self.slice_line(tracker) = /^- \[( |x|X)\] (#{tracker.slice_ids})(?=\s|$)/
+    def self.slice_line(tracker) = /^- \[( |x|X)\] (#{tracker.slice_ids})/
+
+    # The line numbers a slice row may be on: under `## Slices`, up to the
+    # next `## ` heading, so a checklist elsewhere in the body (a person's
+    # "Before merge" list) is never read as a slice. A body with no Slices
+    # heading is read whole.
+    def self.slice_rows(lines)
+      start = lines.index { |line| line.chomp == "## Slices" } or return (0...lines.size).to_a
+      stop = (start + 1...lines.size).find { |i| lines[i].start_with?("## ") } || lines.size
+      (start + 1...stop).to_a
+    end
   end
 
   # One `claude -p` process: a single command, in the autopilot worktree, with
