@@ -134,6 +134,15 @@ diff -r .claude/commands .cursor/commands    # mirrors must stay identical
 Must return nothing. Leftovers → fill them.
 
 Write the record to `.claude/workflow.config.md` — a table of every token and its value, plus the date. Re-running this wizard reads that file as the starting defaults. <!-- lint-docs:ignore -->
+One token per row, name and value each in backticks, `n/a` for a board token the tier does not use. `bin/autopilot` reads this file at run time, so commit it:
+
+```
+| Token | Value |
+|---|---|
+| `TRACKER` | `labels` |
+| `GITHUB_ORG` | `acme` |
+| `STATUS_BLOCKED` | `n/a` |
+```
 
 ### Step 6: Conventions file
 

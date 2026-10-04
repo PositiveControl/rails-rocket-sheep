@@ -251,6 +251,16 @@ copy_template_file "test/bin/autopilot_guard_test.rb"
 # and the guard is the wall.
 copy_template_file ".claude/autopilot-allowed-tools.txt"
 
+# The autopilot driver: runs an approved feature's slices unattended, one
+# `claude -p` step per gate (docs/system/autopilot.md, The driver). Its tests
+# and their fixtures come with it, so an update to the driver updates them.
+copy_template_file "bin/autopilot"
+chmod "bin/autopilot", 0755
+copy_template_file "test/bin/autopilot_test.rb"
+copy_template_file "test/bin/fixtures/autopilot/claude_success.json"
+copy_template_file "test/bin/fixtures/autopilot/log.md"
+copy_template_file "test/bin/fixtures/autopilot/workflow.config.md"
+
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that
