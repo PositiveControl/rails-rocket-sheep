@@ -16,9 +16,9 @@ This copy is the policy for this feature; later edits to the system doc do not r
 
 **Changes from the defaults:** none
 
-**Scope note (from the design, not a policy change):** slices A (#57) and B (#56) land by
-hand before the run. The guard denies any edit to the wiring's source under `templates/`,
-so they cannot run as steps. The run takes C, D and E.
+**Scope note (from the design, not a policy change):** slices A (#57), B (#56) and F (#72)
+land by hand before the run. The guard denies any edit to the wiring's source under
+`templates/`, and to CI workflows, so they cannot run as steps. The run takes C, D and E.
 
 | Gate id | Where it comes up | Answer |
 |---|---|---|
