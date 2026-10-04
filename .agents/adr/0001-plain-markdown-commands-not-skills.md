@@ -1,5 +1,7 @@
 # Commands are plain markdown; enforcement may be harness-specific, routing may not
 
+Amended by [0014](0014-an-accepted-design-may-invoke-the-commands.md): an autopilot run is the one exception to the ceiling on automatic command invocation.
+
 ## Context
 
 The generated app's alignment layer has two halves. **Routing** is how an agent
