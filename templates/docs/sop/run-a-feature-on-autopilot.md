@@ -11,8 +11,10 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 1. **Consent.** The feature's design doc has `**Autopilot:** on — log: <path>`,
    and the log exists with *Policy accepted at G1*. `/feature_plan` writes both
    when you say yes at G1. For a design already past G1, ask `/feature_plan` for a
-   **G1 amendment**. Either way the line has to reach `main` (fresh G1) or
-   `feature/<slug>` (amendment) before a run.
+   **G1 amendment**. Either way the line has to reach `main` (fresh G1: a
+   small PR with the design doc and log, merged before the first slice is
+   planned) or `feature/<slug>` (amendment: `/feature_plan` commits and pushes it
+   there) before a run.
 2. **The feature branch and its draft PR exist.** `/task_plan` makes them for the
    first slice. If no slice has been planned yet, plan the first one by hand, or
    create the branch and draft PR as `/task_plan` Step 6 does.
