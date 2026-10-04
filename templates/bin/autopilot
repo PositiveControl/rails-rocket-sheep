@@ -186,6 +186,8 @@ module Autopilot
     def read?(cmd)
       return false unless cmd.first == "gh"
       # A GraphQL query is sent with -f like a write; only a mutation is one.
+      # The driver passes every query inline, so `mutation` is in argv; one
+      # read from a file (-F query=@x, --input) would look like a read here.
       return cmd.none? { |arg| arg.match?(/\bmutation\b/) } if cmd[1, 2] == %w[api graphql]
       return !cmd.intersect?(WRITE_FLAGS) if cmd[1] == "api"
 
