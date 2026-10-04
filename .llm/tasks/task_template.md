@@ -1,0 +1,47 @@
+**LLM Persona:** Staff Rails Engineer, TDD advocate
+
+# Task: [Short Task Name]
+**Issue:** #[NUMBER]
+**Base:** [main | feature/<slug> — the branch this slice's PR targets]
+**Start Date:** [YYYY-MM-DD]
+**Owner:** [Name]
+**Status:** [Not Started | In Progress | Blocked | Complete]
+**Last Updated:** [YYYY-MM-DD]
+
+---
+
+## Goal
+[Purpose and desired outcome, from the issue.]
+
+## Background / Context
+[Relevant context: issue discussion, parent feature, design doc link (docs/plans/...), key findings from exploration.]
+
+## Requirements & Acceptance Criteria
+<!-- ≤5 testable bullets. More → the issue is too big; split via /feature_plan. -->
+- [ ] Criterion 1
+- [ ] Criterion 2
+
+**In scope:** [explicit]
+**Out of scope:** [explicit — related work that is deliberately NOT this task]
+
+## Rules & Conventions
+Follow `CLAUDE.md` for the non-negotiables and `docs/rules/INDEX.md` to find the rules that apply to the files you are touching. Do not copy rules here. Task-specific constraints only:
+- [Add only if this task has constraints beyond CLAUDE.md]
+
+## Next Actions
+<!-- Concrete implementation steps from /task_plan: files to modify, approach, test strategy. /implement works through these in order. -->
+1. [ ] [Step — files touched]
+2. [ ] QA walkthrough: [steps added to script/qa/<feature>.rb, run twice unattended] — or [skipped: no user-facing change / developer's call]
+
+## Progress Log
+<!-- One dated bullet per logical unit landed or decision made. Commits are truth; this is orientation for the next session. -->
+- YYYY-MM-DD: Task created from issue #N
+
+## Questions & Answers
+- **Q:** [question]
+  **A:** [answer]
+
+## References
+- Issue: [link]
+- Design doc: [docs/plans/... if part of a feature]
+- Key source files: [paths]

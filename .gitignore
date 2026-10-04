@@ -1,2 +1,7 @@
 .idea/
 .DS_Store
+
+# Local to a checkout: the driver's state and logs, private settings and notes.
+tmp/
+.claude/settings.local.json
+CLAUDE.local.md

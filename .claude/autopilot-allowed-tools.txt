@@ -1,0 +1,108 @@
+# Tools an autopilot step may use without asking. bin/autopilot passes these to
+# `claude -p --permission-mode dontAsk --allowedTools`, and anything not listed
+# is denied rather than prompted (docs/system/autopilot.md).
+#
+# One rule per line, in Claude Code's permission rule syntax. `#` starts a
+# comment. Deliberately absent: `gh pr merge` (the driver merges, after checking
+# the base), `gh pr ready` and `gh issue close` (the developer's), force pushes,
+# and anything that reads credentials.
+#
+# Not a wall on its own. Rules match by prefix, and several entries the steps
+# genuinely need run arbitrary code:
+# - `ruby`, `bundle exec` and `bin/rails` (`bin/rails runner`)
+# - `find` (`-exec`, `-delete`)
+# - `git checkout` (`git checkout -- .` discards work)
+# - `gh api`, which can reach the merge endpoint
+# So `gh pr merge` or a force push is one `ruby -e` away. This list keeps an
+# honest step from wandering. The guard, bin/hooks/autopilot_guard, denies by
+# what a command does anywhere in its string, not by its prefix. It and the
+# policy are the other two layers (docs/system/autopilot.md, Guard).
+
+Read
+Edit
+Write
+Glob
+Grep
+Agent
+TodoWrite
+
+# The workflow's own scripts
+Bash(bin/test:*)
+Bash(bin/rails:*)
+Bash(bin/rubocop:*)
+Bash(bin/brakeman:*)
+Bash(bin/gates:*)
+Bash(bin/flay:*)
+Bash(bin/lint-docs:*)
+Bash(bin/doc-tokens:*)
+Bash(bin/qa-walkthrough:*)
+Bash(bundle exec:*)
+Bash(ruby:*)
+
+# git: everything a slice needs, nothing that rewrites shared history
+Bash(git status:*)
+Bash(git diff:*)
+Bash(git log:*)
+Bash(git show:*)
+Bash(git add:*)
+Bash(git commit:*)
+Bash(git checkout:*)
+Bash(git switch:*)
+Bash(git branch:*)
+Bash(git fetch:*)
+Bash(git pull:*)
+Bash(git merge:*)
+Bash(git rev-parse:*)
+Bash(git rev-list:*)
+Bash(git merge-tree:*)
+Bash(git stash:*)
+Bash(git push -u origin HEAD)
+Bash(git push origin HEAD)
+Bash(git push)
+
+# GitHub: read anything; write only what the commands write
+Bash(gh issue view:*)
+Bash(gh issue list:*)
+Bash(gh issue create:*)
+Bash(gh issue edit:*)
+Bash(gh issue comment:*)
+Bash(gh pr view:*)
+Bash(gh pr list:*)
+Bash(gh pr diff:*)
+Bash(gh pr checks:*)
+Bash(gh pr create:*)
+Bash(gh pr edit:*)
+Bash(gh pr comment:*)
+Bash(gh pr checkout:*)
+Bash(gh api:*)
+Bash(gh run view:*)
+Bash(gh run list:*)
+
+# The other two tracker tiers: the board and the beads database
+# (docs/system/autopilot-steps.md, Tracker tiers)
+Bash(gh project:*)
+Bash(bd:*)
+
+# Read-only shell
+Bash(ls:*)
+Bash(cat:*)
+Bash(head:*)
+Bash(tail:*)
+Bash(wc:*)
+Bash(grep:*)
+Bash(rg:*)
+Bash(find:*)
+Bash(jq:*)
+Bash(sed -n:*)
+Bash(sort:*)
+Bash(uniq:*)
+Bash(diff:*)
+Bash(mkdir:*)
+Bash(echo:*)
+Bash(printenv:*)
+
+# dogfood — appended by bin/dogfood-sync: the template repo's own checks
+Bash(templates/bin/lint-docs:*)
+Bash(ruby -c:*)
+Bash(ruby templates/bin/doc-tokens:*)
+Bash(ruby templates/test/bin/:*)
