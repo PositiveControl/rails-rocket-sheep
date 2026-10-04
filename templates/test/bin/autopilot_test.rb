@@ -2045,6 +2045,18 @@ class AutopilotRetryingShellTest < Minitest::Test
     assert_equal 2 * (Autopilot::RetryingShell::DELAYS.size + 1), @fake.calls.size
   end
 
+  # The board tier reads through GraphQL, which gh sends with -f.
+  def test_a_graphql_query_is_a_read_and_a_mutation_is_not
+    @fake.on(/gh/, ok: false)
+
+    @shell.run("gh", "api", "graphql", "-f", "query={ node(id: \"PVT_1\") { id } }")
+    assert_equal Autopilot::RetryingShell::DELAYS.size + 1, @fake.calls.size
+
+    @fake.calls.clear
+    @shell.run("gh", "api", "graphql", "-f", "query=mutation { addComment(input: {}) { clientMutationId } }")
+    assert_equal 1, @fake.calls.size
+  end
+
   # A write that failed may still have landed: a second try could post twice.
   def test_gh_writes_are_not_retried
     @fake.on(/gh/, ok: false)

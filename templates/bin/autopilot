@@ -185,6 +185,8 @@ module Autopilot
 
     def read?(cmd)
       return false unless cmd.first == "gh"
+      # A GraphQL query is sent with -f like a write; only a mutation is one.
+      return cmd.none? { |arg| arg.match?(/\bmutation\b/) } if cmd[1, 2] == %w[api graphql]
       return !cmd.intersect?(WRITE_FLAGS) if cmd[1] == "api"
 
       READS.include?(cmd[1, 2])
@@ -1259,7 +1261,7 @@ module Autopilot
     CHECKS_TIMEOUT = 45 * 60
     # Checks that report and never gate a merge, as /pr_review's Land it and
     # /pr_submit treat them.
-    INFORMATIONAL = /\b(CodeQL|Analyze)\b/
+    INFORMATIONAL = /\A(CodeQL|Analyze)\b/
     # `--no-ff` because a developer's `merge.ff=only` would otherwise refuse the
     # merge commit a diverged feature branch needs, and fail with no conflict.
     MERGE_MAIN = %w[git merge --no-edit --no-ff origin/main].freeze
