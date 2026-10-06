@@ -391,9 +391,9 @@ class AutopilotFeatureTest < Minitest::Test
   def test_tick_edits_the_feature_pr_body_through_a_file
     feature.tick(60, 71)
 
-    edit = @shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line]
-    assert_match(%r{--repo acme/shop --body-file \S+/tmp/autopilot/feature-pr-body.md$}, edit)
-    assert_includes File.read(edit.split.last), "- [x] #60"
+    edit = @shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line]
+    assert_match(%r{-F body=@\S+/tmp/autopilot/feature-pr-body.md --silent$}, edit)
+    assert_includes File.read(edit[/body=@(\S+)/, 1]), "- [x] #60"
   end
 
   # #50's step split #79 into the Slices list mid-slice; the driver then ticked
@@ -406,14 +406,14 @@ class AutopilotFeatureTest < Minitest::Test
 
     f.tick(50, 87)
 
-    edit = @shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line]
-    body = File.read(edit.split.last)
+    edit = @shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line]
+    body = File.read(edit[/body=@(\S+)/, 1])
     assert_includes body, "- [ ] #79 — split from #50"
     assert_includes body, "- [x] #50"
   end
 
   def test_a_failed_edit_raises
-    @shell.on(/^gh pr edit 53/, "HTTP 502", ok: false)
+    @shell.on(%r{^gh api -X PATCH repos/acme/shop/pulls/53}, "HTTP 502", ok: false)
 
     assert_raises(Autopilot::Error) { feature.tick(60, 71) }
   end
@@ -1931,7 +1931,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
     assert_equal "bd-b2", feature.next_slice.issue
 
     feature.tick("bd-b2", 71)
-    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line][/body=@(\S+)/, 1])
     assert_includes body, "- [x] acme-b2 — Checkout (PR #71)\n"
   end
 
@@ -2023,7 +2023,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
     feature.tick("bd-b2", 71)
 
-    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line][/body=@(\S+)/, 1])
     assert_includes body, "- [x] bd-b2 — Checkout (PR #71)\n"
     refute_includes body, "Closes"
   end

@@ -543,7 +543,10 @@ module Autopilot
       file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
       FileUtils.mkdir_p(File.dirname(file))
       File.write(file, ticked)
-      result = @shell.run("gh", "pr", "edit", pr.fetch("number").to_s, "--repo", Autopilot.repo, "--body-file", file)
+      # Not `gh pr edit`: it asks for projectCards, which GitHub rejects since
+      # Projects (classic) was sunset, and writes nothing.
+      result = @shell.run("gh", "api", "-X", "PATCH", "repos/#{Autopilot.repo}/pulls/#{pr.fetch('number')}",
+                          "-F", "body=@#{file}", "--silent")
       raise Error, "cannot edit feature PR ##{pr['number']}: #{result.out.strip}" unless result.ok
 
       reload
