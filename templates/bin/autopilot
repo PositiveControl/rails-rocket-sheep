@@ -317,8 +317,7 @@ module Autopilot
                   "blocked" => "STATUS_BLOCKED", "done" => "STATUS_DONE" }.freeze
 
       def item(id)
-        json = view(id, "body,projectItems,state")
-        { state: status(card(json["projectItems"].to_a)), dependencies: dependencies(json["body"]) }
+        { state: status(card(id)), dependencies: dependencies(view(id, "body,state")["body"]) }
       end
 
       def set(id, state)
@@ -345,10 +344,8 @@ module Autopilot
 
       private
 
-      # The card on this app's board, by name when the issue is on several.
-      def card(items)
-        items.find { |item| item["title"] == @config["PROJECT_NAME"] } || items.first
-      end
+      # The issue's card on this app's board, with its Status; nil when it has none.
+      def card(id) = cards(id).find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }
 
       # By option ID, or by the Status name WORKFLOW.md gives each state.
       def status(card)
@@ -358,16 +355,24 @@ module Autopilot
       end
 
       def board_item(id)
-        org, name = Autopilot.repo.split("/", 2)
-        query = "{ repository(owner: \"#{org}\", name: \"#{name}\") { issue(number: #{id}) " \
-                "{ projectItems(first: 20) { nodes { id project { id } } } } } }"
-        result = @shell.run("gh", "api", "graphql", "-f", "query=#{query}")
-        return unless result.ok
-
-        nodes = JSON.parse(result.out).dig("data", "repository", "issue", "projectItems", "nodes").to_a
-        nodes.find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }&.fetch("id")
-      rescue JSON::ParserError
+        card(id)&.fetch("id")
+      rescue Error
         nil
+      end
+
+      # Every board card the issue has, with its board and Status. GraphQL, not
+      # `gh issue view --json projectItems`, which gh 2.23.0 does not know.
+      def cards(id)
+        org, name = Autopilot.repo.split("/", 2)
+        query = "{ repository(owner: \"#{org}\", name: \"#{name}\") { issue(number: #{id}) { projectItems(first: 20) " \
+                "{ nodes { id project { id } status: fieldValueByName(name: \"Status\") " \
+                "{ ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } } } } } }"
+        result = @shell.run("gh", "api", "graphql", "-f", "query=#{query}")
+        raise Error, "cannot read issue ##{id}'s board cards: #{result.out.strip}" unless result.ok
+
+        JSON.parse(result.out).dig("data", "repository", "issue", "projectItems", "nodes").to_a
+      rescue JSON::ParserError
+        raise Error, "cannot read issue ##{id}'s board cards"
       end
     end
 

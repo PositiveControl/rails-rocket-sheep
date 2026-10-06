@@ -77,13 +77,15 @@ module AutopilotFixtures
     Autopilot.config = Autopilot::Config.new(text.scan(Autopilot::Config::ROW).to_h)
   end
 
-  # `gh issue view --json body,projectItems,state`: the issue's card on the
-  # app's board, and one on another board that must not count.
-  def board_issue_json(deps, option:, name: nil)
-    items = [ { "status" => { "optionId" => "opt-x", "name" => "Done" }, "title" => "Other board" },
-              { "status" => { "optionId" => option, "name" => name }.compact, "title" => "Shop" } ]
+  # The issue (`gh issue view --json body,state`) and its cards (graphql): one on
+  # the app's board, and one on another board that must not count.
+  def board_issue!(id, deps, option:, name: nil)
     body = "## Goal\nx\n\n## Dependencies\n#{deps}\n"
-    JSON.generate("body" => body, "projectItems" => items, "state" => "OPEN")
+    @shell.on("gh issue view #{id} --repo acme/shop --json body,state", JSON.generate("body" => body, "state" => "OPEN"))
+    nodes = [ { "id" => "PVTI_other", "project" => { "id" => "PVT_9" }, "status" => { "optionId" => "opt-x", "name" => "Done" } },
+              { "id" => "PVTI_#{id}", "project" => { "id" => "PVT_1" }, "status" => { "optionId" => option, "name" => name }.compact } ]
+    @shell.on(/^gh api graphql -f query=\{ repository\(owner: "acme", name: "shop"\) \{ issue\(number: #{id}\)/,
+              JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => nodes } } } }))
   end
 
   # The graphql lookup that finds the issue's item on the app's board.
@@ -1824,7 +1826,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
   def test_board_a_blocked_card_stops_the_run_at_its_slice
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-blocked"))
+    board_issue!(60, "#47 first.", option: "opt-blocked")
 
     slice = feature.next_slice
 
@@ -1834,7 +1836,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
   def test_board_reads_the_card_on_this_apps_board_by_option_id
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-doing"))
+    board_issue!(60, "#47 first.", option: "opt-doing")
 
     assert_equal "in-progress", feature.tracker.state(60)
     refute feature.next_slice.blocked, "the other board's Done card does not count"
@@ -1844,16 +1846,15 @@ class AutopilotTrackerTiersTest < Minitest::Test
   # names its columns the way WORKFLOW.md does.
   def test_board_falls_back_to_the_status_name
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state",
-              board_issue_json("", option: "opt-unknown", name: "Up for Review"))
+    board_issue!(60, "", option: "opt-unknown", name: "Up for Review")
 
     assert_equal "up-for-review", feature.tracker.state(60)
   end
 
   def test_board_dependencies_come_from_the_issue_body
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#48 first.", option: "opt-todo"))
-    @shell.on("gh issue view 48 --repo acme/shop --json body,projectItems,state", board_issue_json("", option: "opt-todo"))
+    board_issue!(60, "#48 first.", option: "opt-todo")
+    board_issue!(48, "", option: "opt-todo")
 
     assert_equal 48, feature.next_slice.issue
   end
