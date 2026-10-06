@@ -2446,10 +2446,12 @@ class AutopilotCLITest < Minitest::Test
     assert @shell.ran?("git worktree add #{@worktree} feature/foo")
     dev = @shell.calls.find { |c| c[:line] == "bin/rails db:prepare" }
     assert_equal({ "DB_SUFFIX" => "_autopilot" }, dev[:env], "development is prepared, and seeded for walkthroughs")
-    # db:prepare seeds a database it creates; seeded rows in a test database
-    # outlive every test. The test databases get the schema only.
+    # db:prepare seeds a database it creates, and in development it creates
+    # the test databases too. The test databases get the schema only.
     test = @shell.calls.find { |c| c[:line] == "bin/rails db:test:prepare" }
     assert_equal({ "DB_SUFFIX" => "_autopilot" }, test && test[:env])
+    assert_operator @shell.calls.index(test), :<, @shell.calls.index(dev),
+                    "the test databases are prepared first, so db:prepare finds them initialized and does not seed them"
     refute @shell.calls.any? { |c| c[:env].to_h["RAILS_ENV"] == "test" && c[:line] == "bin/rails db:prepare" }
 
     @shell.calls.clear
@@ -2738,7 +2740,6 @@ end
 class AutopilotDatabaseSuffixTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   DATABASE_YML = File.join(ROOT, "config/database.yml")
-  ROLES = %w[primary queue cable cache].freeze
 
   def setup
     return if File.exist?(DATABASE_YML) && File.read(DATABASE_YML).include?("DB_SUFFIX")
@@ -2749,38 +2750,56 @@ class AutopilotDatabaseSuffixTest < Minitest::Test
   def test_names_are_unchanged_without_a_suffix
     config = render(nil)
 
-    assert_match(/_development\z/, config.dig("development", "primary", "database"))
-    assert_match(/_development_queue\z/, config.dig("development", "queue", "database"))
-    assert_match(/_test\z/, config.dig("test", "primary", "database"))
-    assert_match(/_test_cache\z/, config.dig("test", "cache", "database"))
+    assert_match(/_development\z/, config.dig("development", "primary"))
+    assert_match(/_development_queue\z/, config.dig("development", "queue")) if config["development"].key?("queue")
+    assert_match(/_test\z/, config.dig("test", "primary"))
+    assert_match(/_test_cache\z/, config.dig("test", "cache")) if config["test"].key?("cache")
   end
 
   def test_every_development_and_test_database_carries_the_suffix
     config = render("_autopilot")
 
     %w[development test].each do |env|
-      ROLES.each do |role|
-        name = config.dig(env, role, "database")
-        assert name.end_with?("_autopilot"), "#{env}.#{role} is #{name.inspect}"
-      end
+      refute_empty config[env], "#{env} names no database"
+      config[env].each { |role, name| assert name.end_with?("_autopilot"), "#{env}.#{role} is #{name.inspect}" }
     end
   end
 
   def test_production_ignores_the_suffix
     config = render("_autopilot")
 
-    ROLES.each do |role|
-      refute_match(/_autopilot\z/, config.dig("production", role, "database").to_s, "production.#{role}")
-    end
+    config.fetch("production", {}).each { |role, name| refute_match(/_autopilot\z/, name, "production.#{role}") }
   end
 
   private
 
+  # { env => { role => database name } }, for one database per env or several
+  # roles. Rendered in StandIn's scope, where `Rails` is a stand-in: an adopted
+  # app's file may read Rails.application.credentials, and a plain test has no
+  # app to answer.
   def render(suffix)
     previous = ENV.fetch("DB_SUFFIX", nil)
     suffix ? ENV["DB_SUFFIX"] = suffix : ENV.delete("DB_SUFFIX")
-    YAML.safe_load(ERB.new(File.read(DATABASE_YML)).result, aliases: true)
+    text = ERB.new(File.read(DATABASE_YML)).result(StandIn.scope)
+    YAML.safe_load(text, aliases: true).transform_values { |env| databases(env) }
   ensure
     previous ? ENV["DB_SUFFIX"] = previous : ENV.delete("DB_SUFFIX")
+  end
+
+  # `Rails.application.credentials.dig(...)` is nil here, so a credentials
+  # lookup falls through to its `||` default as it would with none set.
+  module StandIn
+    Rails = Object.new
+    def Rails.method_missing(name, *) = %i[application credentials].include?(name) ? self : nil
+    def Rails.respond_to_missing?(*) = true
+
+    def self.scope = binding
+  end
+
+  def databases(env)
+    return {} unless env.is_a?(Hash)
+
+    roles = env.key?("database") ? { "primary" => env } : env.select { |_, value| value.is_a?(Hash) && value.key?("database") }
+    roles.transform_values { |config| config["database"].to_s }
   end
 end

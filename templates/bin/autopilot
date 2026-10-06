@@ -1823,10 +1823,12 @@ module Autopilot
       suffix = { "DB_SUFFIX" => Step::DB_SUFFIX }
       [
         [ %w[bundle install], suffix ],
-        [ %w[bin/rails db:prepare], suffix ],
-        # db:prepare would seed a test database it creates, and seeded rows
-        # outlive every test; the test databases get the schema only.
-        [ %w[bin/rails db:test:prepare], suffix ]
+        # The test databases first, schema only: db:prepare in development
+        # also creates them, and it seeds every database it creates. Seeded
+        # rows outlive every test, and seeds that need a file git does not
+        # carry would fail setup outright. Prepared here, they are only migrated.
+        [ %w[bin/rails db:test:prepare], suffix ],
+        [ %w[bin/rails db:prepare], suffix ]
       ].each do |cmd, env|
         result = sh(*cmd, env: env, chdir: worktree)
         return say("#{cmd.join(' ')} failed:\n#{result.out}", 1) unless result.ok
