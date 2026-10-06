@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
+require "minitest/mock"
 require "erb"
 require "yaml"
 require "active_support/core_ext/object/blank" # database.yml's production block calls present?
@@ -988,7 +989,7 @@ class AutopilotRunTest < Minitest::Test
   end
 
   def test_red_ci_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, "test\tfail\t4m\thttps://ci/1\n", ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, "test\tfail\t4m\thttps://ci/1\n", ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
 
@@ -1002,7 +1003,7 @@ class AutopilotRunTest < Minitest::Test
 
   # A flaky test gets one rerun of the failed jobs before it halts the run.
   def test_red_ci_that_a_rerun_turns_green_merges
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
 
     run_with(happy_script).slice(48)
 
@@ -1014,7 +1015,7 @@ class AutopilotRunTest < Minitest::Test
   end
 
   def test_red_ci_after_its_rerun_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
     @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
@@ -1027,52 +1028,33 @@ class AutopilotRunTest < Minitest::Test
 
   CODEQL_RED = "CodeQL\tfail\t3m\thttps://github.com/o/r/actions/runs/500/job/9\n"
 
-  def checks_json(*buckets) = JSON.generate(buckets.map { |name, bucket| { "name" => name, "bucket" => bucket } })
+  # gh 2.23.0's plain listing: name, bucket, elapsed, link, tab-separated.
+  def checks_list(*buckets) = buckets.map { |name, bucket| "#{name}\t#{bucket}\t1m\thttps://ci/1\n" }.join
 
-  # --fail-fast stops at CodeQL's red while the real checks still run. The
-  # driver waits them out without it and merges when only CodeQL is red, as
-  # /pr_review's Land it does.
-  def test_an_informational_red_alone_waits_out_the_rest_and_merges
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test pass], %w[lint pass]), ok: false)
+  # Only CodeQL is red: the driver merges, as /pr_review's Land it does.
+  def test_an_informational_red_alone_merges
+    @shell.on(/^gh pr checks 70 .*--watch$/, CODEQL_RED, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop$/, checks_list(%w[CodeQL fail], %w[test pass], %w[lint pass]), ok: false)
 
     run_with(happy_script).slice(48)
 
-    assert @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/), "the rest waited for without --fail-fast"
     refute @shell.ran?(/^gh run rerun/), "an informational check is never rerun"
     assert @shell.ran?(/^gh pr merge 70/)
   end
 
-  def test_an_informational_red_with_a_real_one_behind_it_is_rerun_without_it
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED + RED_RUN, ok: false)
-    answers = [ checks_json(%w[CodeQL fail], %w[test pending]), checks_json(%w[CodeQL fail], %w[test fail]) ]
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/) { Autopilot::Shell::Result.new(answers.shift || answers.last, false, false) }
-    @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
-
-    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
-
-    assert_match(/still red after one rerun/, error.message)
-    assert @shell.ran?(/^gh run rerun 371 --failed/)
-    refute @shell.ran?(/^gh run rerun 500/), "CodeQL's run is not rerun"
-    refute @shell.ran?(/^gh pr merge/)
-  end
-
-  def test_a_real_red_beside_an_informational_one_is_not_waited_past
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED + RED_RUN, ok: false)
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test fail]), ok: false)
+  def test_a_real_red_beside_an_informational_one_is_rerun_without_it
+    @shell.on(/^gh pr checks 70 .*--watch$/, CODEQL_RED + RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop$/, checks_list(%w[CodeQL fail], %w[test fail]), ok: false)
 
     run_with(happy_script).slice(48)
 
-    refute @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/)
     assert @shell.ran?(/^gh run rerun 371 --failed/)
     refute @shell.ran?(/^gh run rerun 500/)
     assert @shell.ran?(/^gh pr merge 70/), "the rerun turned the real check green"
   end
 
   def test_a_rerun_gh_refuses_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
     @shell.on(/^gh run rerun 371/, "run 371 cannot be rerun", ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
@@ -1117,12 +1099,43 @@ class AutopilotRunTest < Minitest::Test
     git.("update-ref", "refs/remotes/origin/main", "main")
     git.("checkout", "-q", "feature/foo")
 
-    out, status = Open3.capture2e(*Autopilot::Run::MERGE_MAIN, chdir: repo)
+    out, status = Open3.capture2e(*Autopilot::Run.merge_main, chdir: repo)
 
     assert status.success?, out
     assert_equal "", git.("rev-list", "HEAD..origin/main").first
   ensure
     FileUtils.remove_entry(repo)
+  end
+
+  def test_the_default_branch_comes_from_the_config_and_falls_back_to_main
+    assert_equal "main", Autopilot::Config.new({}).default_branch
+    assert_equal "main", Autopilot::Config.new("DEFAULT_BRANCH" => "n/a").default_branch
+
+    Autopilot.config = Autopilot::Config.new("DEFAULT_BRANCH" => "master")
+
+    assert_equal "origin/master", Autopilot::Run.merge_main.last
+  ensure
+    Autopilot.config = nil
+  end
+
+  def test_initials_follow_the_commands_rule
+    assert_equal "me", Autopilot::Config.initials("Mark Evans")
+    assert_equal "ms", Autopilot::Config.initials("Mary Jo Smith")
+    assert_equal "ch", Autopilot::Config.initials("Cher")
+    assert_equal "", Autopilot::Config.initials("")
+  end
+
+  def test_an_initials_prefix_is_each_developers_own
+    config = Autopilot::Config.new("BRANCH_PREFIX" => "<initials>")
+
+    config.stub(:git_user_name, "Isaac Hale") { assert_equal "ih", config.branch_prefix }
+    assert_equal "feat", Autopilot::Config.new("BRANCH_PREFIX" => "feat").branch_prefix
+  end
+
+  def test_an_initials_prefix_with_no_git_user_is_refused
+    config = Autopilot::Config.new("TRACKER" => "labels", "GITHUB_ORG" => "o", "GITHUB_REPO" => "r", "BRANCH_PREFIX" => "<initials>")
+
+    config.stub(:git_user_name, "") { assert_match(/git config user.name` is empty/, config.problems.join) }
   end
 
   def conflicting!
@@ -1419,7 +1432,7 @@ class AutopilotRunTest < Minitest::Test
 
     assert_raises(Autopilot::Halted) { run_with(script).slice(48) }
 
-    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_48 --field-id PVTSSF_1 --single-select-option-id opt-blocked")
+    assert @shell.ran?(/updateProjectV2ItemFieldValue\(input: \{ projectId: "PVT_1", itemId: "PVTI_48", fieldId: "PVTSSF_1", value: \{ singleSelectOptionId: "opt-blocked" \}/)
     refute @shell.ran?(/gh issue edit/), "no status labels on a board tier"
     comment = @shell.calls.find { |c| c[:line].start_with?("gh issue comment 48") }[:line]
     assert_includes comment, "#### HALT · `halt` · /task_plan 48"
@@ -1854,14 +1867,14 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
     resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
 
-    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_60 --field-id PVTSSF_1 --single-select-option-id opt-review")
+    assert @shell.ran?(/updateProjectV2ItemFieldValue\(input: \{ projectId: "PVT_1", itemId: "PVTI_60", fieldId: "PVTSSF_1", value: \{ singleSelectOptionId: "opt-review" \}/)
   end
 
   def test_board_leaves_a_card_already_in_the_right_column
     board!
     resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
 
-    refute @shell.ran?(/gh project item-edit/)
+    refute @shell.ran?(/updateProjectV2ItemFieldValue/)
   end
 
   def test_board_an_issue_missing_from_the_board_is_not_written
@@ -1869,7 +1882,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
     @shell.on(/^gh api graphql -f query=\{ repository/, JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => [] } } } }))
 
     refute feature.tracker.set(60, "blocked")
-    refute @shell.ran?(/gh project item-edit/)
+    refute @shell.ran?(/updateProjectV2ItemFieldValue/)
   end
 
   def test_board_halts_are_read_from_the_issue

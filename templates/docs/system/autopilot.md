@@ -119,7 +119,10 @@ Exit status:
 `github-projects`, the board IDs, from `.claude/workflow.config.md`, the record
 `/workflow_setup` commits. The commands have those values filled in; the driver is
 code, so it reads them when it starts, and preflight refuses a run that is missing
-one, or that cannot read its tier.
+one, or that cannot read its tier. An optional `DEFAULT_BRANCH` row names the
+branch features merge into; unset, it is `main`. A `BRANCH_PREFIX` of `<initials>`
+is each developer's own, derived from `git config user.name` as the commands derive
+it, so one committed file serves a team.
 
 **Where it runs.** In `../<repo>-autopilot-<slug>`, beside the main checkout, so
 the developer's checkout and databases are never touched:

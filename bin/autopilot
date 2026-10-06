@@ -59,7 +59,24 @@ module Autopilot
 
     def [](key) = @values[key]
     def repo = "#{self['GITHUB_ORG']}/#{self['GITHUB_REPO']}"
-    def branch_prefix = self["BRANCH_PREFIX"]
+    # `<initials>` means each developer's own: first and last initial of
+    # `git config user.name` (a one-word name: its first two letters),
+    # lowercased, as /workflow_setup's default prefix is.
+    INITIALS = "<initials>"
+
+    def self.initials(name)
+      words = name.to_s.split
+      (words.one? ? words.first[0, 2] : "#{words.first.to_s[0]}#{words.last.to_s[0]}").downcase
+    end
+
+    def branch_prefix
+      prefix = self["BRANCH_PREFIX"]
+      prefix == INITIALS ? @initials ||= self.class.initials(git_user_name) : prefix
+    end
+
+    def git_user_name = `git config user.name 2>/dev/null`.strip
+    # Optional: the branch features merge into. Unset → `main`.
+    def default_branch = filled?("DEFAULT_BRANCH") ? self["DEFAULT_BRANCH"] : "main"
     def tracker = self["TRACKER"]
 
     # What stops a run before it starts: a value the driver needs and does not
@@ -69,6 +86,7 @@ module Autopilot
       missing = REQUIRED.reject { |key| filled?(key) }
       missing += BOARD.reject { |key| filled?(key) } if tracker == "github-projects"
       problems = missing.map { |key| "#{PATH} has no `#{key}` value: run /workflow_setup, and commit the file" }
+      problems << "#{PATH}: BRANCH_PREFIX is `#{INITIALS}`, but `git config user.name` is empty" if branch_prefix.to_s.empty? && filled?("BRANCH_PREFIX")
       problems << "#{PATH}: TRACKER is `#{tracker}`, not one of #{TIERS.join(', ')}" if filled?("TRACKER") && !TIERS.include?(tracker)
       problems
     end
@@ -84,6 +102,7 @@ module Autopilot
     def config = @config ||= Config.new({})
     def repo = config.repo
     def branch_prefix = config.branch_prefix
+    def default_branch = config.default_branch
 
     def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : "bd-#{text[/[^-]+\z/]}"
     def ref(id) = id.is_a?(Integer) ? "##{id}" : id.to_s
@@ -305,8 +324,10 @@ module Autopilot
       def set(id, state)
         item = board_item(id) or return false
 
-        @shell.run("gh", "project", "item-edit", "--project-id", @config["PROJECT_ID"], "--id", item,
-                   "--field-id", @config["STATUS_FIELD_ID"], "--single-select-option-id", @config[OPTIONS.fetch(state)]).ok
+        # GraphQL, not `gh project item-edit`: some gh builds have no `project` (Debian 2.23.0).
+        input = "projectId: \"#{@config['PROJECT_ID']}\", itemId: \"#{item}\", fieldId: \"#{@config['STATUS_FIELD_ID']}\", " \
+                "value: { singleSelectOptionId: \"#{@config[OPTIONS.fetch(state)]}\" }"
+        @shell.run("gh", "api", "graphql", "-f", "query=mutation { updateProjectV2ItemFieldValue(input: { #{input} }) { projectV2Item { id } } }").ok
       end
 
       # Clearing Blocked sets any other Status, so whatever it was set to is
@@ -809,13 +830,13 @@ module Autopilot
 
     # After /resolve_conflicts: the merge of origin/main finished and committed.
     def merge_resolved
-      return "the merge of origin/main is still in progress" unless git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
+      return "the merge of origin/#{Autopilot.default_branch} is still in progress" unless git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
 
       status = git("status", "--porcelain")
       return "uncommitted changes: #{status.lines.first(3).map(&:strip).join(', ')}" unless status.empty?
 
-      "origin/main is not merged into HEAD" unless @shell.run("git", "merge-base", "--is-ancestor", "origin/main", "HEAD",
-                                                               chdir: @worktree).ok
+      main = "origin/#{Autopilot.default_branch}"
+      "#{main} is not merged into HEAD" unless @shell.run("git", "merge-base", "--is-ancestor", main, "HEAD", chdir: @worktree).ok
     end
 
     # nil when gh cannot say: an unreadable head is not a moved one.
@@ -1280,7 +1301,7 @@ module Autopilot
     INFORMATIONAL = /\A(CodeQL|Analyze)\b/
     # `--no-ff` because a developer's `merge.ff=only` would otherwise refuse the
     # merge commit a diverged feature branch needs, and fail with no conflict.
-    MERGE_MAIN = %w[git merge --no-edit --no-ff origin/main].freeze
+    def self.merge_main = [ "git", "merge", "--no-edit", "--no-ff", "origin/#{Autopilot.default_branch}" ]
 
     def initialize(step:, expect:, notifier:, state:, shell:, worktree:, feature: nil, branch: nil, clock: Clock.new,
                    resolver: :fresh)
@@ -1455,11 +1476,11 @@ module Autopilot
                     "#{head[0, 7]}: not merged", gate: "merge")
       end
       checks = timed(issue, "CI wait, PR ##{pr}") do
-        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", "--fail-fast", timeout: CHECKS_TIMEOUT)
+        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", timeout: CHECKS_TIMEOUT)
       end
       raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if checks.timed_out
 
-      checks = past_informational(issue, pr, checks) unless checks.ok
+      checks = Shell::Result.new(checks.out, true, false) if !checks.ok && informational_only?(red_checks(pr))
       unless checks.ok
         rerun = rerun_failed_jobs(issue, pr, checks.out)
         retried = " (still red after one rerun of its failed jobs)" unless rerun.nil?
@@ -1480,37 +1501,22 @@ module Autopilot
       result
     end
 
-    # One rerun of the failed jobs before a red CI halts: a flaky test should
-    # not stop a run that a second attempt would pass. True when every rerun
-    # run went green; nil when the checks name no run to rerun. `--fail-fast` returns at the first failure, so each run
-    # is waited out before its failed jobs can be rerun.
-    # `--fail-fast` stops at the first red check. When every red one is
-    # informational, the rest may still be pending: wait for them without
-    # it, and pass the gate when nothing else is red. Any other red, or checks
-    # gh cannot list, go on to the rerun as before.
-    def past_informational(issue, pr, checks)
-      return checks unless informational_only?(red_checks(pr))
-
-      rest = timed(issue, "CI wait, PR ##{pr}") do
-        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", timeout: CHECKS_TIMEOUT)
-      end
-      raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if rest.timed_out
-
-      Shell::Result.new(rest.out, rest.ok || informational_only?(red_checks(pr)), false)
-    end
-
     # The names of the checks that failed or were cancelled; nil when gh
-    # cannot say. `gh pr checks` exits non-zero for red checks even with
-    # --json, so the output decides, not the status.
+    # cannot say. Read from the plain tab-separated listing (name, bucket, …),
+    # since gh 2.23.0 has no `--json` here; its non-zero exit for red checks is
+    # an answer, so the output decides, not the status.
     def red_checks(pr)
-      result = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--json", "name,bucket")
-      JSON.parse(result.out).select { |check| %w[fail cancel].include?(check["bucket"]) }.map { |check| check["name"].to_s }
-    rescue JSON::ParserError
-      nil
+      rows = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo).out.lines.map { |line| line.chomp.split("\t") }
+      rows = rows.select { |row| row.size >= 2 }
+      rows.empty? ? nil : rows.select { |_name, bucket| %w[fail cancel].include?(bucket) }.map(&:first)
     end
 
     def informational_only?(red) = !red.nil? && red.any? && red.all? { |name| INFORMATIONAL.match?(name) }
 
+    # One rerun of the failed jobs before a red CI halts: a flaky test should
+    # not stop a run that a second attempt would pass. True when every rerun
+    # run went green; nil when the checks name no run to rerun. Each run is
+    # waited out before its failed jobs can be rerun.
     # An informational check's run is not rerun: it never gates the merge,
     # and a second red from it would halt a slice whose real checks passed.
     def rerun_failed_jobs(issue, pr, out)
@@ -1576,16 +1582,17 @@ module Autopilot
     # A conflict is /resolve_conflicts' to settle and the driver's to prove:
     # the step's own report is not taken as the suite being green.
     def sync_main(issue, branch)
-      branch.git!("fetch", "origin", "main")
-      return if @shell.run("git", "merge-base", "--is-ancestor", "origin/main", "HEAD", chdir: @worktree).ok
-      return if @shell.run(*MERGE_MAIN, chdir: @worktree).ok
-      raise Error, "git merge origin/main failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
+      main = Autopilot.default_branch
+      branch.git!("fetch", "origin", main)
+      return if @shell.run("git", "merge-base", "--is-ancestor", "origin/#{main}", "HEAD", chdir: @worktree).ok
+      return if @shell.run(*Run.merge_main, chdir: @worktree).ok
+      raise Error, "git merge origin/#{main} failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
 
       ensure_step("resolve_conflicts", @feature.branch, issue, skip_if_done: false) { @expect.merge_resolved }
       suite = timed(issue, "bin/test after /resolve_conflicts") do
         @shell.run("bin/test", env: Step.env, chdir: @worktree, timeout: Step::TIMEOUT)
       end
-      halt(issue, "the suite is red after /resolve_conflicts merged origin/main into #{@feature.branch}") unless suite.ok
+      halt(issue, "the suite is red after /resolve_conflicts merged origin/#{main} into #{@feature.branch}") unless suite.ok
     end
 
     # Runs a step until its expectation holds: skipped when it already does,
@@ -1890,7 +1897,7 @@ module Autopilot
           then /pr_review <PR> (new session), /pr_comment_resolver <PR> (#{resolver_session}),
           and /pr_review <PR> and the resolver again only if the resolver moved HEAD.
         Then the driver lands it: base and head checked, every check green, squash merge,
-        origin/main merged into feature/#{@slug}, the log written, the slice ticked.
+        origin/#{Autopilot.default_branch} merged into feature/#{@slug}, the log written, the slice ticked.
         Then the next slice, until none is left, and the feature PR is finished and readied.
         Dry run: nothing was started, posted or committed.
       PLAN

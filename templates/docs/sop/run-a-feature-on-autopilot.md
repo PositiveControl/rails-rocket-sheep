@@ -26,7 +26,8 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 4. **The workflow config is committed.** The driver reads the repo, branch
    prefix, tier and board IDs from `.claude/workflow.config.md`, which
    `/workflow_setup` writes. Commit it, so the worktree has it too; preflight
-   names any value it is missing.
+   names any value it is missing. An app whose default branch is not `main`
+   adds a `DEFAULT_BRANCH` row; without one the driver merges `origin/main`.
 5. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
    and filed issues carry it:
 
