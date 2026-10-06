@@ -991,6 +991,29 @@ class AutopilotRunTest < Minitest::Test
     assert_includes File.read(File.join(@dir, @feature.log_path)), "| #48 | `CI wait, PR #70` | 20m 0s | $0.00 | 0 | 0 |"
   end
 
+  # One workflow passed while another's run had no jobs yet, so --watch had
+  # nothing left to wait on and the slice merged before its tests ran.
+  def test_a_workflow_run_still_unfinished_after_the_watch_is_watched_again
+    runs = [ "CI\n", "" ]
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs\?head_sha=c1 }) { Autopilot::Shell::Result.new(runs.shift, true, false) }
+
+    run_with(happy_script).slice(48)
+
+    assert_equal 2, @shell.calls.count { |c| c[:line].match?(/^gh pr checks 70 .*--watch$/) }
+    assert_equal [ @clock.now + 15 ], @clock.slept_until
+    assert @shell.ran?(/^gh pr merge 70 /)
+  end
+
+  def test_a_workflow_run_that_never_finishes_stops_the_run_unmerged
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs}, "CI\n")
+    @shell.on(/^gh pr checks 70 .*--watch$/) { (@clock.advance(600) && Autopilot::Shell::Result.new("", true, false)) }
+
+    error = assert_raises(Autopilot::Error) { run_with(happy_script).slice(48) }
+
+    assert_match(/did not finish within 45 minutes/, error.message)
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
   def test_red_ci_halts_without_merging
     @shell.on(/^gh pr checks 70 .*--watch$/, "test\tfail\t4m\thttps://ci/1\n", ok: false)
 

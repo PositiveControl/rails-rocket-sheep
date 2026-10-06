@@ -1488,9 +1488,7 @@ module Autopilot
         halt(issue, "PR ##{pr}'s head moved to #{state['headRefOid'].to_s[0, 7]} after the review cycle ended at " \
                     "#{head[0, 7]}: not merged", gate: "merge")
       end
-      checks = timed(issue, "CI wait, PR ##{pr}") do
-        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", timeout: CHECKS_TIMEOUT)
-      end
+      checks = timed(issue, "CI wait, PR ##{pr}") { watch_checks(pr, head) }
       raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if checks.timed_out
 
       checks = Shell::Result.new(checks.out, true, false) if !checks.ok && informational_only?(red_checks(pr))
@@ -1504,7 +1502,32 @@ module Autopilot
       raise Error, "gh pr merge ##{pr} failed: #{result.out.strip}" unless result.ok
     end
 
-    # The driver's own waits, as rows beside the steps', so a slice's wall
+    # `gh pr checks --watch` waits only on the checks it can see, and a
+    # workflow whose jobs are not queued yet has none, so a slice merged once
+    # one fast check passed, a minute before the rest started. Watch again until every
+    # workflow run on the head has finished. Red returns at once: it halts or
+    # reruns either way.
+    def watch_checks(pr, head)
+      deadline = @clock.now + CHECKS_TIMEOUT
+      loop do
+        checks = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch",
+                            timeout: [ deadline - @clock.now, 1 ].max)
+        return checks if checks.timed_out || !checks.ok || unfinished_runs(head).empty?
+        return Shell::Result.new(checks.out, false, true) if @clock.now >= deadline
+
+        @clock.sleep_until(@clock.now + 15)
+      end
+    end
+
+    def unfinished_runs(head)
+      result = @shell.run("gh", "api", "repos/#{Autopilot.repo}/actions/runs?head_sha=#{head}", "--jq",
+                          '.workflow_runs[] | select(.status != "completed") | .name')
+      raise Error, "cannot read the workflow runs on #{head[0, 7]}" unless result.ok
+
+      result.out.lines.map(&:strip).reject(&:empty?)
+    end
+
+    # The driver's own waits, as rows beside the steps so a slice's wall
     # time in the log is the whole of it.
     def timed(issue, label)
       started = @clock.now
