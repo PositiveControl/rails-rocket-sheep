@@ -766,13 +766,14 @@ class AutopilotExpectTest < Minitest::Test
     refute @shell.ran?(/gh pr checks/)
   end
 
-  def reviews(*pages) = JSON.generate(pages)
+  # `gh api --paginate … --jq '.[]'`: one review per line, every page in turn.
+  def reviews(*pages) = pages.flatten(1).map(&:to_json).join("\n")
 
-  # --paginate --slurp returns one array per page; a pass on page 2 counts.
+  # A pass on page 2 counts.
   def test_reviewed_counts_self_review_passes_across_pages
     page1 = [ { "body" => "Looks fine", "commit_id" => "x" } ] * 30
     page2 = [ { "body" => "Self-review pass 1\n\n…", "commit_id" => "c1" } ]
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews}, reviews(page1, page2))
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]}, reviews(page1, page2))
 
     assert_nil @expect.reviewed(70, 1)
     assert_match(/Self-review pass 2/, @expect.reviewed(70, 2))
@@ -782,7 +783,7 @@ class AutopilotExpectTest < Minitest::Test
   # "Could not read the reviews" must not look like "no pass yet", or the
   # retry posts the same pass twice.
   def test_unreadable_reviews_raise_rather_than_count_as_none
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews}, "HTTP 502", ok: false)
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]}, "HTTP 502", ok: false)
 
     assert_raises(Autopilot::Error) { @expect.reviewed(70, 1) }
   end
@@ -790,7 +791,7 @@ class AutopilotExpectTest < Minitest::Test
   # The driver reads pass 1's own count to decide on pass 2 (pr_review, Two passes at most).
   def test_findings_reads_blockers_and_suggestions_from_the_pass_s_findings_line
     body = "Self-review pass 1\n\n## PR #70 Review Summary\n\n**Findings:** 1 blocking, 2 suggestions, 3 nitpicks\n"
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews},
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]},
               reviews([ { "body" => body, "commit_id" => "c1" } ]))
 
     assert_equal 3, @expect.findings(70, 1)
@@ -798,7 +799,7 @@ class AutopilotExpectTest < Minitest::Test
 
   # Reviews posted before the line existed: unknown, not zero.
   def test_findings_is_nil_when_the_pass_has_no_findings_line
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews},
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]},
               reviews([ { "body" => "Self-review pass 1\n\n**Overall assessment:** approve", "commit_id" => "c1" } ]))
 
     assert_nil @expect.findings(70, 1)

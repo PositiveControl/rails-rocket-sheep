@@ -854,11 +854,16 @@ module Autopilot
     private
 
     # Raises when the reviews cannot be read: "none yet" would send the step
-    # round again and post the same pass twice.
+    # round again and post the same pass twice. `--jq '.[]'` prints one review
+    # per line across every page; `--slurp` would too, but gh 2.23.0 lacks it.
     def passes(pr)
-      pages = parse(@shell.run("gh", "api", "--paginate", "--slurp", "repos/#{Autopilot.repo}/pulls/#{pr}/reviews")) or
-        raise Error, "cannot read the reviews on PR ##{pr}"
-      pages.flatten(1).select { |review| review["body"].to_s.start_with?("Self-review pass") }
+      result = @shell.run("gh", "api", "--paginate", "repos/#{Autopilot.repo}/pulls/#{pr}/reviews", "--jq", ".[]")
+      raise Error, "cannot read the reviews on PR ##{pr}" unless result.ok
+
+      result.out.lines.reject { |line| line.strip.empty? }.map { |line| JSON.parse(line) }
+            .select { |review| review["body"].to_s.start_with?("Self-review pass") }
+    rescue JSON::ParserError
+      raise Error, "cannot read the reviews on PR ##{pr}"
     end
 
     # gh output that is missing or not JSON reads as "nothing there"; each
