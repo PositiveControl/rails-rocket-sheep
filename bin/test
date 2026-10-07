@@ -8,7 +8,7 @@
 # Generating an app is CI's job (bin/smoke-generate). See CLAUDE.md, "Dogfood layer".
 #
 #   bin/test                        everything
-#   bin/test templates/test/bin/x_test.rb …   only those test files
+#   bin/test templates/test/bin/x_test.rb test/bin/y_test.rb …   only those test files
 set -euo pipefail
 cd "$(dirname "$0")/.."
 

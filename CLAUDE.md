@@ -79,6 +79,8 @@ WORKFLOW.md .llm/tasks/task_template.md docs/qa/ bin/{gates,hooks,autopilot}
                          writes them.
 bin/{test,dev,rubocop,brakeman,rails}  Stand-ins for an app's binstubs.
                          See "Dogfood layer".
+test/bin/                Tests for this repo's own tooling (bin/dogfood-sync).
+                         Not shipped; the template's are under templates/test/.
 ```
 
 **The distinction that matters:** anything under `templates/` is shipped and is read
@@ -233,8 +235,8 @@ guard, allowlist and commands from there
 - **The binstubs are stand-ins.** `bin/test` is this repo's suite: the entry
   scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`,
   `templates/test/bin/*_test.rb` (not `flay_test.rb`, which needs an app's
-  Gemfile), and this repo's own `test/bin/*_test.rb`. `bin/dev` waits to be stopped. `bin/rubocop`, `bin/brakeman` and
-  `bin/rails` report n/a. Generating a probe app ("Testing a change") is still
+  Gemfile), and this repo's own `test/bin/*_test.rb`. `bin/dev` waits to be
+  stopped. `bin/rubocop`, `bin/brakeman` and `bin/rails` report n/a. Generating a probe app ("Testing a change") is still
   the check for anything a generated app runs.
 - **A slice that changes the wiring's source can't run on autopilot.** The guard
   denies a step any path containing `bin/autopilot`, `bin/hooks/`,
