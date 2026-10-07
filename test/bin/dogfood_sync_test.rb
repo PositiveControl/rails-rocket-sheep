@@ -31,6 +31,10 @@ class DogfoodSyncTest < Minitest::Test
       FileUtils.cp(source, File.join(@dir, file), preserve: true)
     end
     git("init", "-q")
+    # A feature branch may run behind templates/ until the developer syncs it
+    # (an autopilot step cannot), so the copy is brought in step first rather
+    # than trusted to be.
+    sync
     git("add", "-A")
     git("-c", "user.name=t", "-c", "user.email=t@example.invalid", "commit", "-qm", "copy")
   end
@@ -53,7 +57,7 @@ class DogfoodSyncTest < Minitest::Test
     Open3.capture2("git", "status", "--porcelain", "--untracked-files=all", chdir: @dir).first
   end
 
-  def test_the_committed_root_is_in_step
+  def test_a_second_run_writes_nothing
     out, code = sync
 
     assert_equal 0, code, out
