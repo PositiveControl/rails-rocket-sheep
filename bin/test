@@ -4,8 +4,8 @@
 # The workflow commands and bin/autopilot call bin/test. This repo is the
 # template, not an app, so its suite is the template's own checks: the entry
 # scripts parse, the token figures are current, the docs agree with the tree,
-# and the template's plain-Ruby tests pass. Generating an app is CI's job
-# (bin/smoke-generate). See CLAUDE.md, "Dogfood layer".
+# and the plain-Ruby tests pass, the template's and this repo's own (test/bin/).
+# Generating an app is CI's job (bin/smoke-generate). See CLAUDE.md, "Dogfood layer".
 #
 #   bin/test                        everything
 #   bin/test templates/test/bin/x_test.rb …   only those test files
@@ -38,5 +38,10 @@ for t in templates/test/bin/*_test.rb; do
     echo "skip $t: needs an app's Gemfile (CI's generated app runs it)"
     continue
   fi
+  ruby "$t"
+done
+
+echo "== repo tests"
+for t in test/bin/*_test.rb; do
   ruby "$t"
 done
