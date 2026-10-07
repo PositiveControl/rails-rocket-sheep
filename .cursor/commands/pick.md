@@ -138,3 +138,5 @@ State the route explicitly: "This is a sized Todo issue → run `/task_plan 1606
 - Task files: `.llm/tasks/<issue>_<slug>.md`
 - `gh` commands fail → suggest `gh auth status`
 - `bd` commands fail with "no beads database found" → beads needs a running `dolt sql-server`. Suggest starting it, then `bd init`. See `docs/sop/beads-setup.md`
+
+<!-- throwaway edit for #72: not synced -->
