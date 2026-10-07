@@ -79,6 +79,8 @@ WORKFLOW.md .llm/tasks/task_template.md docs/qa/ bin/{gates,hooks,autopilot}
                          writes them.
 bin/{test,dev,rubocop,brakeman,rails}  Stand-ins for an app's binstubs.
                          See "Dogfood layer".
+test/bin/                Tests for this repo's own tooling (bin/dogfood-sync).
+                         Not shipped; the template's are under templates/test/.
 ```
 
 **The distinction that matters:** anything under `templates/` is shipped and is read
@@ -216,7 +218,13 @@ guard, allowlist and commands from there
   allowlist. A second run writes nothing. Commit what it changed with the
   `templates/` change it came from. An autopilot step never syncs, since the
   sync rewrites the guard's own wiring, so after a run lands, sync by hand on
-  the feature branch.
+  the feature branch. Root files it never writes, such as
+  `.claude/workflow.config.md` and `.llm/README.md`, are listed in its
+  `HAND_KEPT`; any other tracked file under the layer fails the sync.
+- **CI fails a PR into `main` whose root copy is stale.**
+  [`.github/workflows/dogfood.yml`](.github/workflows/dogfood.yml) runs the sync
+  and fails on any diff, naming the files. PRs into `feature/*` are exempt, so
+  a slice landed by autopilot never goes red for it; the feature PR does.
 - **Paths a command names that do not exist at the root:**
   - `docs/rules/…` → `templates/docs/rules/…`, read-only reference. This repo is
     not a Rails app, so most rules apply only to `templates/app/` and the like.
@@ -225,11 +233,12 @@ guard, allowlist and commands from there
     separately, so both have a 0016: match on the filename, not the number.
   - `docs/system/`, `docs/sop/` → `templates/docs/…`.
 - **The binstubs are stand-ins.** `bin/test` is this repo's suite: the entry
-  scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`, and
+  scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`,
   `templates/test/bin/*_test.rb` (not `flay_test.rb`, which needs an app's
-  Gemfile). `bin/dev` waits to be stopped. `bin/rubocop`, `bin/brakeman` and
-  `bin/rails` report n/a. Generating a probe app ("Testing a change") is still
-  the check for anything a generated app runs.
+  Gemfile), and this repo's own `test/bin/*_test.rb`. `bin/dev` waits to be
+  stopped. `bin/rubocop`, `bin/brakeman` and `bin/rails` report n/a. Generating
+  a probe app ("Testing a change") is still the check for anything a generated
+  app runs.
 - **A slice that changes the wiring's source can't run on autopilot.** The guard
   denies a step any path containing `bin/autopilot`, `bin/hooks/`,
   `.claude/settings*.json` or the allowlist, and that includes `templates/`. Plan
