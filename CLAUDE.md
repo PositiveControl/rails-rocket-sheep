@@ -236,8 +236,9 @@ guard, allowlist and commands from there
   scripts parse, `doc-tokens --check`, `templates/bin/lint-docs`,
   `templates/test/bin/*_test.rb` (not `flay_test.rb`, which needs an app's
   Gemfile), and this repo's own `test/bin/*_test.rb`. `bin/dev` waits to be
-  stopped. `bin/rubocop`, `bin/brakeman` and `bin/rails` report n/a. Generating a probe app ("Testing a change") is still
-  the check for anything a generated app runs.
+  stopped. `bin/rubocop`, `bin/brakeman` and `bin/rails` report n/a. Generating
+  a probe app ("Testing a change") is still the check for anything a generated
+  app runs.
 - **A slice that changes the wiring's source can't run on autopilot.** The guard
   denies a step any path containing `bin/autopilot`, `bin/hooks/`,
   `.claude/settings*.json` or the allowlist, and that includes `templates/`. Plan
