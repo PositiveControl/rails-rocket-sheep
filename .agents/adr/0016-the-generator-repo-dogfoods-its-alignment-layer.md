@@ -43,8 +43,11 @@ a conflict, and its commands call `bin/rubocop`, `bin/brakeman` and `bin/rails`.
 - The root shows a second copy of the layer. A reader browsing the repo can
   mistake `.claude/commands/` for the source. The `CLAUDE.md` *Dogfood layer*
   section and this ADR say otherwise, and the sync keeps the two from drifting.
-  Nothing checks that a `templates/` change was synced; a stale root copy is
-  found by the next sync's diff.
+- A stale root copy cannot reach `main`. CI runs the sync on every PR into
+  `main` and fails on any diff (`.github/workflows/dogfood.yml`, added in #72).
+  PRs into `feature/*` are not checked, because an autopilot step cannot sync:
+  a feature branch may run behind `templates/` until the developer syncs it
+  after the run, and the feature PR is where a missed sync turns red.
 - The hooks are live in every interactive session here, not only on autopilot.
   `SKIP_DRAFT_CHECK=1` in `.claude/settings.local.json` is the opt-out for the
   Stop hook while a feature's drafts sit on `main`.
