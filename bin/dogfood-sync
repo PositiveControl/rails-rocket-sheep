@@ -150,7 +150,7 @@ removed = []
 OWNED.each do |dir, source|
   shipped = Dir.children(File.join(SRC, source))
   Dir.glob("#{ROOT}/#{dir}/*").each do |path|
-    next if shipped.include?(File.basename(path))
+    next if shipped.include?(File.basename(path)) || !File.file?(path)
 
     File.delete(path)
     removed << "#{dir}/#{File.basename(path)}"

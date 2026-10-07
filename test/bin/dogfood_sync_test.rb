@@ -106,6 +106,15 @@ class DogfoodSyncTest < Minitest::Test
     end
   end
 
+  def test_a_directory_inside_an_owned_one_is_left_alone
+    FileUtils.mkdir_p(path("bin/hooks/lib"))
+
+    out, code = sync
+
+    assert_equal 0, code, out
+    assert File.directory?(path("bin/hooks/lib"))
+  end
+
   def test_a_tracked_file_nobody_owns_fails_naming_it
     File.write(path("bin/stray"), "x\n")
     git("add", "bin/stray")
