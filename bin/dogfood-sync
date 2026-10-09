@@ -14,7 +14,12 @@
 #
 # Refuses with exit 1 under AUTOPILOT=1, which bin/autopilot sets for every
 # step: it rewrites the guard's own wiring, so a sync is the developer's, after
-# a run. Otherwise exit 0, or 1 when a {{TOKEN}} has no value.
+# a run. Otherwise exit 0, or 1 when a {{TOKEN}} has no value or a tracked file
+# under the layer's paths is neither written here nor HAND_KEPT.
+#
+# CI runs this on every PR into main and fails on any diff it leaves
+# (.github/workflows/dogfood.yml). PRs into feature/* are exempt, since an
+# autopilot step cannot sync.
 
 require "fileutils"
 
@@ -41,11 +46,36 @@ VERBATIM = [
   ".claude/commands/workflow_setup.md",
   ".claude/settings.json",
   "bin/gates",
-  "bin/hooks/post_edit",
-  "bin/hooks/session_end",
-  "bin/hooks/pre-push",
-  "bin/hooks/autopilot_guard",
-  "bin/autopilot"
+  *Dir.glob("#{SRC}/bin/hooks/*").map { |path| path.delete_prefix("#{SRC}/") },
+  "bin/autopilot",
+  ".llm/threads/.gitkeep",
+  "docs/qa/.gitkeep"
+].freeze
+
+# Directories the sync owns whole, each with the templates/ directory it mirrors:
+# a root file there with no source is one the template dropped, and goes.
+OWNED = {
+  ".claude/commands" => ".claude/commands",
+  ".cursor/commands" => ".claude/commands",
+  "bin/hooks" => "bin/hooks"
+}.freeze
+
+# Where the layer lives at the root. Every tracked file under these is either
+# written above or listed here, or the sync fails naming it.
+LAYER = %w[.claude .cursor bin .llm docs/qa .github WORKFLOW.md].freeze
+# Tracked under LAYER, never written by the sync.
+HAND_KEPT = [
+  ".claude/workflow.config.md",   # the token values the sync reads
+  ".llm/README.md",               # this repo's doc index, not the template's
+  ".github/workflows/ci.yml",     # this repo's CI, not the template's
+  ".github/workflows/dogfood.yml",
+  "bin/dogfood-sync",             # this script
+  "bin/smoke-generate",           # CI's generation check
+  "bin/test",                     # stand-ins for an app's binstubs (CLAUDE.md, "Dogfood layer")
+  "bin/dev",
+  "bin/rubocop",
+  "bin/brakeman",
+  "bin/rails"
 ].freeze
 
 ALLOWLIST = ".claude/autopilot-allowed-tools.txt"
@@ -85,7 +115,9 @@ end
 
 def write(rel, content, mode, changed)
   dest = File.join(ROOT, rel)
-  return if File.exist?(dest) && File.binread(dest) == content.b && (File.stat(dest).mode & 0o777) == mode
+  # Git tracks the exec bits and nothing else of a mode, so a umask difference
+  # is not a change.
+  return if File.exist?(dest) && File.binread(dest) == content.b && (File.stat(dest).mode & 0o111) == (mode & 0o111)
 
   FileUtils.mkdir_p(File.dirname(dest))
   File.binwrite(dest, content)
@@ -113,19 +145,30 @@ end
 
 write(ALLOWLIST, "#{File.read(File.join(SRC, ALLOWLIST)).chomp}\n\n#{DOGFOOD_TOOLS}", 0o644, changed)
 
-# A command the template no longer ships is gone from both copies.
-%w[.claude/commands .cursor/commands].each do |dir|
-  shipped = Dir.glob("#{SRC}/.claude/commands/*.md").map { |path| File.basename(path) }
-  Dir.glob("#{ROOT}/#{dir}/*.md").each do |path|
-    next if shipped.include?(File.basename(path))
+# A file the template no longer ships is gone from the root too.
+removed = []
+OWNED.each do |dir, source|
+  shipped = Dir.children(File.join(SRC, source))
+  Dir.glob("#{ROOT}/#{dir}/*").each do |path|
+    next if shipped.include?(File.basename(path)) || !File.file?(path)
 
     File.delete(path)
-    changed << "#{dir}/#{File.basename(path)} (removed)"
+    removed << "#{dir}/#{File.basename(path)}"
   end
 end
+changed.concat(removed.map { |rel| "#{rel} (removed)" })
+
+written = [ *RENDERED, *VERBATIM, ALLOWLIST ].flat_map do |rel|
+  rel.start_with?(".claude/commands/") ? [ rel, rel.sub(".claude/", ".cursor/") ] : [ rel ]
+end
+tracked = IO.popen([ "git", "-C", ROOT, "ls-files", "-z", "--", *LAYER ], &:read).split("\0")
+unowned = tracked - written - removed - HAND_KEPT
 
 puts changed.empty? ? "dogfood layer: in step with templates/" : changed.map { |rel| "  #{rel}" }.unshift("dogfood layer: updated").join("\n")
 unless unfilled.empty?
   warn "no value in #{CONFIG.delete_prefix("#{ROOT}/")} for:\n#{unfilled.map { |line| "  #{line}" }.join("\n")}"
-  exit 1
 end
+unless unowned.empty?
+  warn "tracked, but neither synced nor in HAND_KEPT (bin/dogfood-sync):\n#{unowned.map { |rel| "  #{rel}" }.join("\n")}"
+end
+exit 1 unless unfilled.empty? && unowned.empty?

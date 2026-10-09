@@ -1,6 +1,6 @@
 # Round trip — autopilot log
 
-**Design:** [2026-10-04-round-trip-design.md](2026-10-04-round-trip-design.md) · **Feature PR:** #<n>
+**Design:** [2026-10-04-round-trip-design.md](2026-10-04-round-trip-design.md) · **Feature PR:** #75
 **Run:** <started> → <finished> · **Usage:** <driver total>
 
 ## Read this first
@@ -16,9 +16,9 @@ This copy is the policy for this feature; later edits to the system doc do not r
 
 **Changes from the defaults:** none
 
-**Scope note (from the design, not a policy change):** slices A (#57) and B (#56) land by
-hand before the run. The guard denies any edit to the wiring's source under `templates/`,
-so they cannot run as steps. The run takes C, D and E.
+**Scope note (from the design, not a policy change):** slices A (#57), B (#56) and F (#72)
+land by hand before the run. The guard denies any edit to the wiring's source under
+`templates/`, and to CI workflows, so they cannot run as steps. The run takes C, D and E.
 
 | Gate id | Where it comes up | Answer |
 |---|---|---|
@@ -57,6 +57,14 @@ into the log's *Policy accepted at G1* (example: "auth: bearer-token auth exactl
 see the test fail, restore it.
 
 ## Slices
+
+### #56 — session_end blocks every turn on a feature branch, looping the session (PR #77, merged d1dc8c5)
+
+| Added | Files | Review rounds | Fixed | Dropped | Wall time | Usage |
+|---|---|---|---|---|---|---|
+| 237 | 14 | 1 | — | — | 0m 0s | $0.00 |
+
+#### Decisions
 
 ## QA — how to check the whole feature
 

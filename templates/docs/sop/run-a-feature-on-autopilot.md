@@ -19,21 +19,28 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    first slice. If no slice has been planned yet, plan the first one by hand, or
    create the branch and draft PR as `/task_plan` Step 6 does.
 3. **The guard is wired.** `.claude/settings.json` has
-   `bin/hooks/autopilot_guard` under `PreToolUse`. A generated app has it, and
-   preflight refuses to start a run without it. An app that adopted the template
-   gets it from `bin/rocket-sheep-update`. If its own `settings.json` had
-   diverged, the update leaves conflict markers there to resolve.
+   `cd "$CLAUDE_PROJECT_DIR" && bin/hooks/autopilot_guard` under `PreToolUse`, or
+   the bare `bin/hooks/autopilot_guard` of settings from before the `cd`. Either
+   counts, but only the first survives a session that leaves the root. A
+   generated app has it, and preflight refuses to start a run without it. An
+   app that adopted the template gets it from `bin/rocket-sheep-update`. If its
+   own `settings.json` had diverged, the update leaves conflict markers there to
+   resolve.
 4. **The workflow config is committed.** The driver reads the repo, branch
    prefix, tier and board IDs from `.claude/workflow.config.md`, which
    `/workflow_setup` writes. Commit it, so the worktree has it too; preflight
    names any value it is missing. An app whose default branch is not `main`
    adds a `DEFAULT_BRANCH` row; without one the driver merges `origin/main`.
 5. **The `autopilot` label exists** (tiers `labels` and `github-projects`). Splits
-   and filed issues carry it:
+   and filed issues carry it, and `/workflow_setup` creates it. Check:
 
    ```bash
-   gh label create autopilot --repo <org>/<repo> --force
+   gh label list --repo <org>/<repo> --search autopilot --json name --jq '.[] | select(.name == "autopilot") | .name'
    ```
+
+   The search also matches a name that only contains the word; the `--jq`
+   keeps the exact one. Nothing printed means the setup ran before it did
+   that. Create it with `gh label create autopilot --repo <org>/<repo> --force`.
 
 6. **`DB_SUFFIX` in `config/database.yml`.** A generated app has it. Adoption and
    updates install only the alignment layer and never touch `config/`, so an

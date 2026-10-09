@@ -1,0 +1,38 @@
+name: Dogfood layer
+
+# The root copy of the alignment layer is bin/dogfood-sync's output
+# (.agents/adr/0016). A PR into main that changed templates/ without syncing
+# would leave every later session here running the old commands and guard.
+#
+# PRs into feature/* are exempt on purpose: an autopilot step cannot sync, since
+# the sync rewrites the guard's own wiring. The developer syncs on the feature
+# branch after the run, and the feature PR into main is where this catches it.
+on:
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  in-step:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+
+      # Plain Ruby, no gems. The sync itself fails on a tracked file it neither
+      # writes nor lists as hand-kept; the diff afterwards catches the rest.
+      - name: Root layer matches templates/
+        run: |
+          bin/dogfood-sync
+          stale=$(git status --porcelain --untracked-files=all)
+          if [ -n "$stale" ]; then
+            echo "::error title=Dogfood layer out of step::Run bin/dogfood-sync and commit the result."
+            echo "The root copy differs from what bin/dogfood-sync renders from templates/:"
+            echo "$stale"
+            echo
+            echo "Fix: run bin/dogfood-sync and commit what it changes."
+            exit 1
+          fi

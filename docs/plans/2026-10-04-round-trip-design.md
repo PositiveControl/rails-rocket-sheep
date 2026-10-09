@@ -5,7 +5,7 @@
 **Feature branch:** feature/round-trip
 **Autopilot:** on — log: docs/plans/2026-10-04-round-trip-autopilot.md
 
-Issues: #67 (slice 0), #57, #56, #58, #68, #69. #59 is the parent of #68 and #69. Deferred: #70.
+Issues: #67 (slice 0), #57, #56, #72, #58, #68, #69. #59 is the parent of #68 and #69. Deferred: #70.
 
 ## Problem
 
@@ -120,6 +120,16 @@ This touches the wiring, so it is by hand.
 
 This touches `bin/autopilot`, so it is by hand.
 
+### Slice F: CI fails a stale dogfood layer (#72, by hand)
+
+Added 2026-10-04, after G1. A CI job on PRs into `main` runs `bin/dogfood-sync`
+and fails on any diff, naming the stale files; PRs into `feature/*` are exempt,
+since autopilot steps cannot sync. Scope and criteria are #72's.
+
+The guard denies a step any edit to a CI workflow, and the last criterion is a
+throwaway PR into `main`, so it is by hand. It depends only on slice 0, and the
+feature PR is the first PR into `main` it checks.
+
 ### Slice C: the update writes a new command's mirror (#58, autopilot)
 
 `destinations` also returns the `.cursor/` mirror when the `.claude/` file is new
@@ -206,8 +216,9 @@ autopilot tests.
 | C — update writes the new command's mirror | #58 | autopilot | ~350 | 0 |
 | D — `rocket-sheep-backport --check` | #68 | autopilot | ~700 | C (shares the test harness) |
 | E — backport write, round trip, SOP | #69 | autopilot | ~800 | D |
+| F — CI fails a stale dogfood layer (added after G1) | #72 | by hand | small | 0 |
 
-Slices A and B land on `feature/round-trip` by hand before the run. They're
+Slices A, B and F land on `feature/round-trip` by hand before the run. They're
 ticked, and the driver finishes landing them (merge `main`, log section). The run
 then takes C, D and E.
 

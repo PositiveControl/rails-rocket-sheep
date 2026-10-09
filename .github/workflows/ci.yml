@@ -34,6 +34,11 @@ jobs:
       - name: Docs lint
         run: templates/bin/lint-docs
 
+      # The sync's own behaviour, on every PR. Whether the tree is in step is
+      # dogfood.yml's, and only for PRs into main.
+      - name: Dogfood sync
+        run: ruby test/bin/dogfood_sync_test.rb
+
   # What only a generated app can answer: whether the ERB rendered, whether the
   # mode branched, and whether the thing boots. Needs a real bundle, because
   # after_bundle installs PaperTrail and Doorkeeper through their generators, and
