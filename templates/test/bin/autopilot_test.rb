@@ -2145,6 +2145,7 @@ class AutopilotRetryingShellTest < Minitest::Test
     @fake.on(/git push/) { Autopilot::Shell::Result.new("", replies.shift, false) }
 
     assert @shell.run("git", "push", "origin", "HEAD:feature/x", chdir: "/w").ok
+    assert_equal 2, @fake.calls.size
     assert_equal [ Autopilot::RetryingShell::DELAYS.first ], @slept
     assert_equal [ "/w" ], @fake.calls.map { |call| call[:chdir] }.uniq
   end
