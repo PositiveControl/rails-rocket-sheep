@@ -2423,9 +2423,20 @@ class AutopilotCLITest < Minitest::Test
   # rerun's /implement starts from `git status` and carries on with it.
   def test_preflight_lets_a_rerun_pick_up_uncommitted_work_on_the_next_slice_branch
     @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, "[]")
 
     assert_equal 0, cli("foo", "--dry-run").call
     refute_match(/uncommitted changes/, @out.string)
+  end
+
+  # Past /implement, its expectation fails on any dirty tree: a rerun would
+  # run /implement again over a review step's half-done work.
+  def test_preflight_refuses_uncommitted_work_once_the_slice_pr_is_open
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, JSON.generate([ { "number" => 70 } ]))
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
   end
 
   def test_preflight_refuses_uncommitted_work_on_any_other_branch

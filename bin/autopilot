@@ -1912,13 +1912,20 @@ module Autopilot
       problems
     end
 
-    # Uncommitted work on the next slice's own branch is what a stopped step
-    # left behind; the rerun's /implement starts from `git status` and picks
-    # it up. Anywhere else it is the developer's, and the run is not started.
+    # Uncommitted work on the next slice's own branch, before its PR is open,
+    # is what a stopped step left behind; the rerun's /implement starts from
+    # `git status` and picks it up. Once the PR is open, /implement would run
+    # again over a later step's work. Anywhere else it is the developer's, and
+    # the run is not started.
     def mid_slice?
       slice = feature.pr && feature.next_slice or return false
+      branch = sh("git", "branch", "--show-current", chdir: worktree).out.strip
+      return false unless branch.start_with?("#{Autopilot.branch_prefix}/#{slice.issue}/")
 
-      sh("git", "branch", "--show-current", chdir: worktree).out.strip.start_with?("#{Autopilot.branch_prefix}/#{slice.issue}/")
+      prs = sh("gh", "pr", "list", "--repo", Autopilot.repo, "--head", branch, "--state", "open", "--json", "number")
+      prs.ok && JSON.parse(prs.out).empty?
+    rescue JSON::ParserError
+      false
     end
 
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,
