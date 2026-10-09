@@ -79,7 +79,8 @@ halts as well as cost: a cheaper resolver that misses fixes is not cheaper.
 
 Preflight names every problem at once. Fix them and rerun:
 - missing consent or log
-- a dirty tree in the worktree, unless it is on the next slice's branch
+- a dirty tree in the worktree, unless it is on the next slice's branch and
+  its PR is not open yet
 - no feature PR
 - `gh auth status` signed out
 - no `claude` on `PATH`
@@ -152,11 +153,12 @@ What is left behind:
 - **The slice's state** is as the step left it: usually In Progress, or Up for
   Review once its PR is open.
 - **The worktree** may hold the step's uncommitted work. On the next slice's
-  branch, the next run keeps it: `/implement` starts from `git status` and
-  carries on from there. Don't want it? Discard it before you rerun, edits
-  and new files both:
+  branch, before its PR is open, the next run keeps it: `/implement` starts
+  from `git status` and carries on from there. Don't want it? Discard it
+  before you rerun, edits and new files both:
   `git -C ../<repo>-autopilot-<slug> checkout -- . && git -C ../<repo>-autopilot-<slug> clean -fd`.
-  A dirty tree on any other branch is refused, with the files named.
+  A dirty tree anywhere else, or once the slice PR is open, is refused with
+  the files named: commit the work if it is sound, or discard it.
 - **The state file** has no row for the step you stopped. Its usage is not
   counted in the log's metrics.
 
