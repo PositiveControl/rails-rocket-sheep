@@ -59,7 +59,24 @@ module Autopilot
 
     def [](key) = @values[key]
     def repo = "#{self['GITHUB_ORG']}/#{self['GITHUB_REPO']}"
-    def branch_prefix = self["BRANCH_PREFIX"]
+    # `<initials>` means each developer's own: first and last initial of
+    # `git config user.name` (a one-word name: its first two letters),
+    # lowercased, as /workflow_setup's default prefix is.
+    INITIALS = "<initials>"
+
+    def self.initials(name)
+      words = name.to_s.split
+      (words.one? ? words.first[0, 2] : "#{words.first.to_s[0]}#{words.last.to_s[0]}").downcase
+    end
+
+    def branch_prefix
+      prefix = self["BRANCH_PREFIX"]
+      prefix == INITIALS ? @initials ||= self.class.initials(git_user_name) : prefix
+    end
+
+    def git_user_name = `git config user.name 2>/dev/null`.strip
+    # Optional: the branch features merge into. Unset → `main`.
+    def default_branch = filled?("DEFAULT_BRANCH") ? self["DEFAULT_BRANCH"] : "main"
     def tracker = self["TRACKER"]
 
     # What stops a run before it starts: a value the driver needs and does not
@@ -69,6 +86,7 @@ module Autopilot
       missing = REQUIRED.reject { |key| filled?(key) }
       missing += BOARD.reject { |key| filled?(key) } if tracker == "github-projects"
       problems = missing.map { |key| "#{PATH} has no `#{key}` value: run /workflow_setup, and commit the file" }
+      problems << "#{PATH}: BRANCH_PREFIX is `#{INITIALS}`, but `git config user.name` is empty" if branch_prefix.to_s.empty? && filled?("BRANCH_PREFIX")
       problems << "#{PATH}: TRACKER is `#{tracker}`, not one of #{TIERS.join(', ')}" if filled?("TRACKER") && !TIERS.include?(tracker)
       problems
     end
@@ -84,6 +102,7 @@ module Autopilot
     def config = @config ||= Config.new({})
     def repo = config.repo
     def branch_prefix = config.branch_prefix
+    def default_branch = config.default_branch
 
     def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : "bd-#{text[/[^-]+\z/]}"
     def ref(id) = id.is_a?(Integer) ? "##{id}" : id.to_s
@@ -298,15 +317,16 @@ module Autopilot
                   "blocked" => "STATUS_BLOCKED", "done" => "STATUS_DONE" }.freeze
 
       def item(id)
-        json = view(id, "body,projectItems,state")
-        { state: status(card(json["projectItems"].to_a)), dependencies: dependencies(json["body"]) }
+        { state: status(card(id)), dependencies: dependencies(view(id, "body,state")["body"]) }
       end
 
       def set(id, state)
         item = board_item(id) or return false
 
-        @shell.run("gh", "project", "item-edit", "--project-id", @config["PROJECT_ID"], "--id", item,
-                   "--field-id", @config["STATUS_FIELD_ID"], "--single-select-option-id", @config[OPTIONS.fetch(state)]).ok
+        # GraphQL, not `gh project item-edit`: some gh builds have no `project` (Debian 2.23.0).
+        input = "projectId: \"#{@config['PROJECT_ID']}\", itemId: \"#{item}\", fieldId: \"#{@config['STATUS_FIELD_ID']}\", " \
+                "value: { singleSelectOptionId: \"#{@config[OPTIONS.fetch(state)]}\" }"
+        @shell.run("gh", "api", "graphql", "-f", "query=mutation { updateProjectV2ItemFieldValue(input: { #{input} }) { projectV2Item { id } } }").ok
       end
 
       # Clearing Blocked sets any other Status, so whatever it was set to is
@@ -324,10 +344,8 @@ module Autopilot
 
       private
 
-      # The card on this app's board, by name when the issue is on several.
-      def card(items)
-        items.find { |item| item["title"] == @config["PROJECT_NAME"] } || items.first
-      end
+      # The issue's card on this app's board, with its Status; nil when it has none.
+      def card(id) = cards(id).find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }
 
       # By option ID, or by the Status name WORKFLOW.md gives each state.
       def status(card)
@@ -337,16 +355,24 @@ module Autopilot
       end
 
       def board_item(id)
-        org, name = Autopilot.repo.split("/", 2)
-        query = "{ repository(owner: \"#{org}\", name: \"#{name}\") { issue(number: #{id}) " \
-                "{ projectItems(first: 20) { nodes { id project { id } } } } } }"
-        result = @shell.run("gh", "api", "graphql", "-f", "query=#{query}")
-        return unless result.ok
-
-        nodes = JSON.parse(result.out).dig("data", "repository", "issue", "projectItems", "nodes").to_a
-        nodes.find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }&.fetch("id")
-      rescue JSON::ParserError
+        card(id)&.fetch("id")
+      rescue Error
         nil
+      end
+
+      # Every board card the issue has, with its board and Status. GraphQL, not
+      # `gh issue view --json projectItems`, which gh 2.23.0 does not know.
+      def cards(id)
+        org, name = Autopilot.repo.split("/", 2)
+        query = "{ repository(owner: \"#{org}\", name: \"#{name}\") { issue(number: #{id}) { projectItems(first: 20) " \
+                "{ nodes { id project { id } status: fieldValueByName(name: \"Status\") " \
+                "{ ... on ProjectV2ItemFieldSingleSelectValue { optionId name } } } } } } }"
+        result = @shell.run("gh", "api", "graphql", "-f", "query=#{query}")
+        raise Error, "cannot read issue ##{id}'s board cards: #{result.out.strip}" unless result.ok
+
+        JSON.parse(result.out).dig("data", "repository", "issue", "projectItems", "nodes").to_a
+      rescue JSON::ParserError
+        raise Error, "cannot read issue ##{id}'s board cards"
       end
     end
 
@@ -517,7 +543,10 @@ module Autopilot
       file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
       FileUtils.mkdir_p(File.dirname(file))
       File.write(file, ticked)
-      result = @shell.run("gh", "pr", "edit", pr.fetch("number").to_s, "--repo", Autopilot.repo, "--body-file", file)
+      # Not `gh pr edit`: it asks for projectCards, which GitHub rejects since
+      # Projects (classic) was sunset, and writes nothing.
+      result = @shell.run("gh", "api", "-X", "PATCH", "repos/#{Autopilot.repo}/pulls/#{pr.fetch('number')}",
+                          "-F", "body=@#{file}", "--silent")
       raise Error, "cannot edit feature PR ##{pr['number']}: #{result.out.strip}" unless result.ok
 
       reload
@@ -809,13 +838,13 @@ module Autopilot
 
     # After /resolve_conflicts: the merge of origin/main finished and committed.
     def merge_resolved
-      return "the merge of origin/main is still in progress" unless git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
+      return "the merge of origin/#{Autopilot.default_branch} is still in progress" unless git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
 
       status = git("status", "--porcelain")
       return "uncommitted changes: #{status.lines.first(3).map(&:strip).join(', ')}" unless status.empty?
 
-      "origin/main is not merged into HEAD" unless @shell.run("git", "merge-base", "--is-ancestor", "origin/main", "HEAD",
-                                                               chdir: @worktree).ok
+      main = "origin/#{Autopilot.default_branch}"
+      "#{main} is not merged into HEAD" unless @shell.run("git", "merge-base", "--is-ancestor", main, "HEAD", chdir: @worktree).ok
     end
 
     # nil when gh cannot say: an unreadable head is not a moved one.
@@ -828,11 +857,16 @@ module Autopilot
     private
 
     # Raises when the reviews cannot be read: "none yet" would send the step
-    # round again and post the same pass twice.
+    # round again and post the same pass twice. `--jq '.[]'` prints one review
+    # per line across every page; `--slurp` would too, but gh 2.23.0 lacks it.
     def passes(pr)
-      pages = parse(@shell.run("gh", "api", "--paginate", "--slurp", "repos/#{Autopilot.repo}/pulls/#{pr}/reviews")) or
-        raise Error, "cannot read the reviews on PR ##{pr}"
-      pages.flatten(1).select { |review| review["body"].to_s.start_with?("Self-review pass") }
+      result = @shell.run("gh", "api", "--paginate", "repos/#{Autopilot.repo}/pulls/#{pr}/reviews", "--jq", ".[]")
+      raise Error, "cannot read the reviews on PR ##{pr}" unless result.ok
+
+      result.out.lines.reject { |line| line.strip.empty? }.map { |line| JSON.parse(line) }
+            .select { |review| review["body"].to_s.start_with?("Self-review pass") }
+    rescue JSON::ParserError
+      raise Error, "cannot read the reviews on PR ##{pr}"
     end
 
     # gh output that is missing or not JSON reads as "nothing there"; each
@@ -1280,7 +1314,7 @@ module Autopilot
     INFORMATIONAL = /\A(CodeQL|Analyze)\b/
     # `--no-ff` because a developer's `merge.ff=only` would otherwise refuse the
     # merge commit a diverged feature branch needs, and fail with no conflict.
-    MERGE_MAIN = %w[git merge --no-edit --no-ff origin/main].freeze
+    def self.merge_main = [ "git", "merge", "--no-edit", "--no-ff", "origin/#{Autopilot.default_branch}" ]
 
     def initialize(step:, expect:, notifier:, state:, shell:, worktree:, feature: nil, branch: nil, clock: Clock.new,
                    resolver: :fresh)
@@ -1454,12 +1488,10 @@ module Autopilot
         halt(issue, "PR ##{pr}'s head moved to #{state['headRefOid'].to_s[0, 7]} after the review cycle ended at " \
                     "#{head[0, 7]}: not merged", gate: "merge")
       end
-      checks = timed(issue, "CI wait, PR ##{pr}") do
-        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", "--fail-fast", timeout: CHECKS_TIMEOUT)
-      end
+      checks = timed(issue, "CI wait, PR ##{pr}") { watch_checks(pr, head) }
       raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if checks.timed_out
 
-      checks = past_informational(issue, pr, checks) unless checks.ok
+      checks = Shell::Result.new(checks.out, true, false) if !checks.ok && informational_only?(red_checks(pr))
       unless checks.ok
         rerun = rerun_failed_jobs(issue, pr, checks.out)
         retried = " (still red after one rerun of its failed jobs)" unless rerun.nil?
@@ -1470,7 +1502,32 @@ module Autopilot
       raise Error, "gh pr merge ##{pr} failed: #{result.out.strip}" unless result.ok
     end
 
-    # The driver's own waits, as rows beside the steps', so a slice's wall
+    # `gh pr checks --watch` waits only on the checks it can see, and a
+    # workflow whose jobs are not queued yet has none, so a slice merged once
+    # one fast check passed, a minute before the rest started. Watch again until every
+    # workflow run on the head has finished. Red returns at once: it halts or
+    # reruns either way.
+    def watch_checks(pr, head)
+      deadline = @clock.now + CHECKS_TIMEOUT
+      loop do
+        checks = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch",
+                            timeout: [ deadline - @clock.now, 1 ].max)
+        return checks if checks.timed_out || !checks.ok || unfinished_runs(head).empty?
+        return Shell::Result.new(checks.out, false, true) if @clock.now >= deadline
+
+        @clock.sleep_until(@clock.now + 15)
+      end
+    end
+
+    def unfinished_runs(head)
+      result = @shell.run("gh", "api", "repos/#{Autopilot.repo}/actions/runs?head_sha=#{head}", "--jq",
+                          '.workflow_runs[] | select(.status != "completed") | .name')
+      raise Error, "cannot read the workflow runs on #{head[0, 7]}" unless result.ok
+
+      result.out.lines.map(&:strip).reject(&:empty?)
+    end
+
+    # The driver's own waits, as rows beside the steps so a slice's wall
     # time in the log is the whole of it.
     def timed(issue, label)
       started = @clock.now
@@ -1480,37 +1537,22 @@ module Autopilot
       result
     end
 
-    # One rerun of the failed jobs before a red CI halts: a flaky test should
-    # not stop a run that a second attempt would pass. True when every rerun
-    # run went green; nil when the checks name no run to rerun. `--fail-fast` returns at the first failure, so each run
-    # is waited out before its failed jobs can be rerun.
-    # `--fail-fast` stops at the first red check. When every red one is
-    # informational, the rest may still be pending: wait for them without
-    # it, and pass the gate when nothing else is red. Any other red, or checks
-    # gh cannot list, go on to the rerun as before.
-    def past_informational(issue, pr, checks)
-      return checks unless informational_only?(red_checks(pr))
-
-      rest = timed(issue, "CI wait, PR ##{pr}") do
-        @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--watch", timeout: CHECKS_TIMEOUT)
-      end
-      raise Error, "CI on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if rest.timed_out
-
-      Shell::Result.new(rest.out, rest.ok || informational_only?(red_checks(pr)), false)
-    end
-
     # The names of the checks that failed or were cancelled; nil when gh
-    # cannot say. `gh pr checks` exits non-zero for red checks even with
-    # --json, so the output decides, not the status.
+    # cannot say. Read from the plain tab-separated listing (name, bucket, …),
+    # since gh 2.23.0 has no `--json` here; its non-zero exit for red checks is
+    # an answer, so the output decides, not the status.
     def red_checks(pr)
-      result = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo, "--json", "name,bucket")
-      JSON.parse(result.out).select { |check| %w[fail cancel].include?(check["bucket"]) }.map { |check| check["name"].to_s }
-    rescue JSON::ParserError
-      nil
+      rows = @shell.run("gh", "pr", "checks", pr.to_s, "--repo", Autopilot.repo).out.lines.map { |line| line.chomp.split("\t") }
+      rows = rows.select { |row| row.size >= 2 }
+      rows.empty? ? nil : rows.select { |_name, bucket| %w[fail cancel].include?(bucket) }.map(&:first)
     end
 
     def informational_only?(red) = !red.nil? && red.any? && red.all? { |name| INFORMATIONAL.match?(name) }
 
+    # One rerun of the failed jobs before a red CI halts: a flaky test should
+    # not stop a run that a second attempt would pass. True when every rerun
+    # run went green; nil when the checks name no run to rerun. Each run is
+    # waited out before its failed jobs can be rerun.
     # An informational check's run is not rerun: it never gates the merge,
     # and a second red from it would halt a slice whose real checks passed.
     def rerun_failed_jobs(issue, pr, out)
@@ -1576,16 +1618,17 @@ module Autopilot
     # A conflict is /resolve_conflicts' to settle and the driver's to prove:
     # the step's own report is not taken as the suite being green.
     def sync_main(issue, branch)
-      branch.git!("fetch", "origin", "main")
-      return if @shell.run("git", "merge-base", "--is-ancestor", "origin/main", "HEAD", chdir: @worktree).ok
-      return if @shell.run(*MERGE_MAIN, chdir: @worktree).ok
-      raise Error, "git merge origin/main failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
+      main = Autopilot.default_branch
+      branch.git!("fetch", "origin", main)
+      return if @shell.run("git", "merge-base", "--is-ancestor", "origin/#{main}", "HEAD", chdir: @worktree).ok
+      return if @shell.run(*Run.merge_main, chdir: @worktree).ok
+      raise Error, "git merge origin/#{main} failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
 
       ensure_step("resolve_conflicts", @feature.branch, issue, skip_if_done: false) { @expect.merge_resolved }
       suite = timed(issue, "bin/test after /resolve_conflicts") do
         @shell.run("bin/test", env: Step.env, chdir: @worktree, timeout: Step::TIMEOUT)
       end
-      halt(issue, "the suite is red after /resolve_conflicts merged origin/main into #{@feature.branch}") unless suite.ok
+      halt(issue, "the suite is red after /resolve_conflicts merged origin/#{main} into #{@feature.branch}") unless suite.ok
     end
 
     # Runs a step until its expectation holds: skipped when it already does,
@@ -1811,10 +1854,12 @@ module Autopilot
       suffix = { "DB_SUFFIX" => Step::DB_SUFFIX }
       [
         [ %w[bundle install], suffix ],
-        [ %w[bin/rails db:prepare], suffix ],
-        # db:prepare would seed a test database it creates, and seeded rows
-        # outlive every test; the test databases get the schema only.
-        [ %w[bin/rails db:test:prepare], suffix ]
+        # The test databases first, schema only: db:prepare in development
+        # also creates them, and it seeds every database it creates. Seeded
+        # rows outlive every test, and seeds that need a file git does not
+        # carry would fail setup outright. Prepared here, they are only migrated.
+        [ %w[bin/rails db:test:prepare], suffix ],
+        [ %w[bin/rails db:prepare], suffix ]
       ].each do |cmd, env|
         result = sh(*cmd, env: env, chdir: worktree)
         return say("#{cmd.join(' ')} failed:\n#{result.out}", 1) unless result.ok
@@ -1890,7 +1935,7 @@ module Autopilot
           then /pr_review <PR> (new session), /pr_comment_resolver <PR> (#{resolver_session}),
           and /pr_review <PR> and the resolver again only if the resolver moved HEAD.
         Then the driver lands it: base and head checked, every check green, squash merge,
-        origin/main merged into feature/#{@slug}, the log written, the slice ticked.
+        origin/#{Autopilot.default_branch} merged into feature/#{@slug}, the log written, the slice ticked.
         Then the next slice, until none is left, and the feature PR is finished and readied.
         Dry run: nothing was started, posted or committed.
       PLAN

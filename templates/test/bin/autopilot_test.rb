@@ -76,13 +76,15 @@ module AutopilotFixtures
     Autopilot.config = Autopilot::Config.new(text.scan(Autopilot::Config::ROW).to_h)
   end
 
-  # `gh issue view --json body,projectItems,state`: the issue's card on the
-  # app's board, and one on another board that must not count.
-  def board_issue_json(deps, option:, name: nil)
-    items = [ { "status" => { "optionId" => "opt-x", "name" => "Done" }, "title" => "Other board" },
-              { "status" => { "optionId" => option, "name" => name }.compact, "title" => "Shop" } ]
+  # The issue (`gh issue view --json body,state`) and its cards (graphql): one on
+  # the app's board, and one on another board that must not count.
+  def board_issue!(id, deps, option:, name: nil)
     body = "## Goal\nx\n\n## Dependencies\n#{deps}\n"
-    JSON.generate("body" => body, "projectItems" => items, "state" => "OPEN")
+    @shell.on("gh issue view #{id} --repo acme/shop --json body,state", JSON.generate("body" => body, "state" => "OPEN"))
+    nodes = [ { "id" => "PVTI_other", "project" => { "id" => "PVT_9" }, "status" => { "optionId" => "opt-x", "name" => "Done" } },
+              { "id" => "PVTI_#{id}", "project" => { "id" => "PVT_1" }, "status" => { "optionId" => option, "name" => name }.compact } ]
+    @shell.on(/^gh api graphql -f query=\{ repository\(owner: "acme", name: "shop"\) \{ issue\(number: #{id}\)/,
+              JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => nodes } } } }))
   end
 
   # The graphql lookup that finds the issue's item on the app's board.
@@ -388,9 +390,9 @@ class AutopilotFeatureTest < Minitest::Test
   def test_tick_edits_the_feature_pr_body_through_a_file
     feature.tick(60, 71)
 
-    edit = @shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line]
-    assert_match(%r{--repo acme/shop --body-file \S+/tmp/autopilot/feature-pr-body.md$}, edit)
-    assert_includes File.read(edit.split.last), "- [x] #60"
+    edit = @shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line]
+    assert_match(%r{-F body=@\S+/tmp/autopilot/feature-pr-body.md --silent$}, edit)
+    assert_includes File.read(edit[/body=@(\S+)/, 1]), "- [x] #60"
   end
 
   # #50's step split #79 into the Slices list mid-slice; the driver then ticked
@@ -403,14 +405,14 @@ class AutopilotFeatureTest < Minitest::Test
 
     f.tick(50, 87)
 
-    edit = @shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line]
-    body = File.read(edit.split.last)
+    edit = @shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line]
+    body = File.read(edit[/body=@(\S+)/, 1])
     assert_includes body, "- [ ] #79 — split from #50"
     assert_includes body, "- [x] #50"
   end
 
   def test_a_failed_edit_raises
-    @shell.on(/^gh pr edit 53/, "HTTP 502", ok: false)
+    @shell.on(%r{^gh api -X PATCH repos/acme/shop/pulls/53}, "HTTP 502", ok: false)
 
     assert_raises(Autopilot::Error) { feature.tick(60, 71) }
   end
@@ -763,13 +765,14 @@ class AutopilotExpectTest < Minitest::Test
     refute @shell.ran?(/gh pr checks/)
   end
 
-  def reviews(*pages) = JSON.generate(pages)
+  # `gh api --paginate … --jq '.[]'`: one review per line, every page in turn.
+  def reviews(*pages) = pages.flatten(1).map(&:to_json).join("\n")
 
-  # --paginate --slurp returns one array per page; a pass on page 2 counts.
+  # A pass on page 2 counts.
   def test_reviewed_counts_self_review_passes_across_pages
     page1 = [ { "body" => "Looks fine", "commit_id" => "x" } ] * 30
     page2 = [ { "body" => "Self-review pass 1\n\n…", "commit_id" => "c1" } ]
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews}, reviews(page1, page2))
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]}, reviews(page1, page2))
 
     assert_nil @expect.reviewed(70, 1)
     assert_match(/Self-review pass 2/, @expect.reviewed(70, 2))
@@ -779,7 +782,7 @@ class AutopilotExpectTest < Minitest::Test
   # "Could not read the reviews" must not look like "no pass yet", or the
   # retry posts the same pass twice.
   def test_unreadable_reviews_raise_rather_than_count_as_none
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews}, "HTTP 502", ok: false)
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]}, "HTTP 502", ok: false)
 
     assert_raises(Autopilot::Error) { @expect.reviewed(70, 1) }
   end
@@ -787,7 +790,7 @@ class AutopilotExpectTest < Minitest::Test
   # The driver reads pass 1's own count to decide on pass 2 (pr_review, Two passes at most).
   def test_findings_reads_blockers_and_suggestions_from_the_pass_s_findings_line
     body = "Self-review pass 1\n\n## PR #70 Review Summary\n\n**Findings:** 1 blocking, 2 suggestions, 3 nitpicks\n"
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews},
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]},
               reviews([ { "body" => body, "commit_id" => "c1" } ]))
 
     assert_equal 3, @expect.findings(70, 1)
@@ -795,7 +798,7 @@ class AutopilotExpectTest < Minitest::Test
 
   # Reviews posted before the line existed: unknown, not zero.
   def test_findings_is_nil_when_the_pass_has_no_findings_line
-    @shell.on(%r{gh api --paginate --slurp repos/acme/shop/pulls/70/reviews},
+    @shell.on(%r{gh api --paginate repos/acme/shop/pulls/70/reviews --jq \.\[\]},
               reviews([ { "body" => "Self-review pass 1\n\n**Overall assessment:** approve", "commit_id" => "c1" } ]))
 
     assert_nil @expect.findings(70, 1)
@@ -987,8 +990,31 @@ class AutopilotRunTest < Minitest::Test
     assert_includes File.read(File.join(@dir, @feature.log_path)), "| #48 | `CI wait, PR #70` | 20m 0s | $0.00 | 0 | 0 |"
   end
 
+  # One workflow passed while another's run had no jobs yet, so --watch had
+  # nothing left to wait on and the slice merged before its tests ran.
+  def test_a_workflow_run_still_unfinished_after_the_watch_is_watched_again
+    runs = [ "CI\n", "" ]
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs\?head_sha=c1 }) { Autopilot::Shell::Result.new(runs.shift, true, false) }
+
+    run_with(happy_script).slice(48)
+
+    assert_equal 2, @shell.calls.count { |c| c[:line].match?(/^gh pr checks 70 .*--watch$/) }
+    assert_equal [ @clock.now + 15 ], @clock.slept_until
+    assert @shell.ran?(/^gh pr merge 70 /)
+  end
+
+  def test_a_workflow_run_that_never_finishes_stops_the_run_unmerged
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs}, "CI\n")
+    @shell.on(/^gh pr checks 70 .*--watch$/) { (@clock.advance(600) && Autopilot::Shell::Result.new("", true, false)) }
+
+    error = assert_raises(Autopilot::Error) { run_with(happy_script).slice(48) }
+
+    assert_match(/did not finish within 45 minutes/, error.message)
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
   def test_red_ci_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, "test\tfail\t4m\thttps://ci/1\n", ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, "test\tfail\t4m\thttps://ci/1\n", ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
 
@@ -1002,7 +1028,7 @@ class AutopilotRunTest < Minitest::Test
 
   # A flaky test gets one rerun of the failed jobs before it halts the run.
   def test_red_ci_that_a_rerun_turns_green_merges
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
 
     run_with(happy_script).slice(48)
 
@@ -1014,7 +1040,7 @@ class AutopilotRunTest < Minitest::Test
   end
 
   def test_red_ci_after_its_rerun_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
     @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
@@ -1027,52 +1053,33 @@ class AutopilotRunTest < Minitest::Test
 
   CODEQL_RED = "CodeQL\tfail\t3m\thttps://github.com/o/r/actions/runs/500/job/9\n"
 
-  def checks_json(*buckets) = JSON.generate(buckets.map { |name, bucket| { "name" => name, "bucket" => bucket } })
+  # gh 2.23.0's plain listing: name, bucket, elapsed, link, tab-separated.
+  def checks_list(*buckets) = buckets.map { |name, bucket| "#{name}\t#{bucket}\t1m\thttps://ci/1\n" }.join
 
-  # --fail-fast stops at CodeQL's red while the real checks still run. The
-  # driver waits them out without it and merges when only CodeQL is red, as
-  # /pr_review's Land it does.
-  def test_an_informational_red_alone_waits_out_the_rest_and_merges
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test pass], %w[lint pass]), ok: false)
+  # Only CodeQL is red: the driver merges, as /pr_review's Land it does.
+  def test_an_informational_red_alone_merges
+    @shell.on(/^gh pr checks 70 .*--watch$/, CODEQL_RED, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop$/, checks_list(%w[CodeQL fail], %w[test pass], %w[lint pass]), ok: false)
 
     run_with(happy_script).slice(48)
 
-    assert @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/), "the rest waited for without --fail-fast"
     refute @shell.ran?(/^gh run rerun/), "an informational check is never rerun"
     assert @shell.ran?(/^gh pr merge 70/)
   end
 
-  def test_an_informational_red_with_a_real_one_behind_it_is_rerun_without_it
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED, ok: false)
-    @shell.on(/^gh pr checks 70 --repo acme\/shop --watch$/, CODEQL_RED + RED_RUN, ok: false)
-    answers = [ checks_json(%w[CodeQL fail], %w[test pending]), checks_json(%w[CodeQL fail], %w[test fail]) ]
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/) { Autopilot::Shell::Result.new(answers.shift || answers.last, false, false) }
-    @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
-
-    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
-
-    assert_match(/still red after one rerun/, error.message)
-    assert @shell.ran?(/^gh run rerun 371 --failed/)
-    refute @shell.ran?(/^gh run rerun 500/), "CodeQL's run is not rerun"
-    refute @shell.ran?(/^gh pr merge/)
-  end
-
-  def test_a_real_red_beside_an_informational_one_is_not_waited_past
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, CODEQL_RED + RED_RUN, ok: false)
-    @shell.on(/^gh pr checks 70 .*--json name,bucket/, checks_json(%w[CodeQL fail], %w[test fail]), ok: false)
+  def test_a_real_red_beside_an_informational_one_is_rerun_without_it
+    @shell.on(/^gh pr checks 70 .*--watch$/, CODEQL_RED + RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 --repo acme\/shop$/, checks_list(%w[CodeQL fail], %w[test fail]), ok: false)
 
     run_with(happy_script).slice(48)
 
-    refute @shell.ran?(/^gh pr checks 70 --repo acme\/shop --watch$/)
     assert @shell.ran?(/^gh run rerun 371 --failed/)
     refute @shell.ran?(/^gh run rerun 500/)
     assert @shell.ran?(/^gh pr merge 70/), "the rerun turned the real check green"
   end
 
   def test_a_rerun_gh_refuses_halts_without_merging
-    @shell.on(/^gh pr checks 70 .*--watch --fail-fast/, RED_RUN, ok: false)
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
     @shell.on(/^gh run rerun 371/, "run 371 cannot be rerun", ok: false)
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
@@ -1117,12 +1124,45 @@ class AutopilotRunTest < Minitest::Test
     git.("update-ref", "refs/remotes/origin/main", "main")
     git.("checkout", "-q", "feature/foo")
 
-    out, status = Open3.capture2e(*Autopilot::Run::MERGE_MAIN, chdir: repo)
+    out, status = Open3.capture2e(*Autopilot::Run.merge_main, chdir: repo)
 
     assert status.success?, out
     assert_equal "", git.("rev-list", "HEAD..origin/main").first
   ensure
     FileUtils.remove_entry(repo)
+  end
+
+  def test_the_default_branch_comes_from_the_config_and_falls_back_to_main
+    assert_equal "main", Autopilot::Config.new({}).default_branch
+    assert_equal "main", Autopilot::Config.new("DEFAULT_BRANCH" => "n/a").default_branch
+
+    Autopilot.config = Autopilot::Config.new("DEFAULT_BRANCH" => "master")
+
+    assert_equal "origin/master", Autopilot::Run.merge_main.last
+  ensure
+    Autopilot.config = nil
+  end
+
+  def test_initials_follow_the_commands_rule
+    assert_equal "me", Autopilot::Config.initials("Mark Evans")
+    assert_equal "ms", Autopilot::Config.initials("Mary Jo Smith")
+    assert_equal "ch", Autopilot::Config.initials("Cher")
+    assert_equal "", Autopilot::Config.initials("")
+  end
+
+  def test_an_initials_prefix_is_each_developers_own
+    config = Autopilot::Config.new("BRANCH_PREFIX" => "<initials>")
+
+    config.define_singleton_method(:git_user_name) { "Isaac Hale" }
+    assert_equal "ih", config.branch_prefix
+    assert_equal "feat", Autopilot::Config.new("BRANCH_PREFIX" => "feat").branch_prefix
+  end
+
+  def test_an_initials_prefix_with_no_git_user_is_refused
+    config = Autopilot::Config.new("TRACKER" => "labels", "GITHUB_ORG" => "o", "GITHUB_REPO" => "r", "BRANCH_PREFIX" => "<initials>")
+
+    config.define_singleton_method(:git_user_name) { "" }
+    assert_match(/git config user.name` is empty/, config.problems.join)
   end
 
   def conflicting!
@@ -1419,7 +1459,7 @@ class AutopilotRunTest < Minitest::Test
 
     assert_raises(Autopilot::Halted) { run_with(script).slice(48) }
 
-    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_48 --field-id PVTSSF_1 --single-select-option-id opt-blocked")
+    assert @shell.ran?(/updateProjectV2ItemFieldValue\(input: \{ projectId: "PVT_1", itemId: "PVTI_48", fieldId: "PVTSSF_1", value: \{ singleSelectOptionId: "opt-blocked" \}/)
     refute @shell.ran?(/gh issue edit/), "no status labels on a board tier"
     comment = @shell.calls.find { |c| c[:line].start_with?("gh issue comment 48") }[:line]
     assert_includes comment, "#### HALT · `halt` · /task_plan 48"
@@ -1811,7 +1851,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
   def test_board_a_blocked_card_stops_the_run_at_its_slice
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-blocked"))
+    board_issue!(60, "#47 first.", option: "opt-blocked")
 
     slice = feature.next_slice
 
@@ -1821,7 +1861,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
   def test_board_reads_the_card_on_this_apps_board_by_option_id
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#47 first.", option: "opt-doing"))
+    board_issue!(60, "#47 first.", option: "opt-doing")
 
     assert_equal "in-progress", feature.tracker.state(60)
     refute feature.next_slice.blocked, "the other board's Done card does not count"
@@ -1831,16 +1871,15 @@ class AutopilotTrackerTiersTest < Minitest::Test
   # names its columns the way WORKFLOW.md does.
   def test_board_falls_back_to_the_status_name
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state",
-              board_issue_json("", option: "opt-unknown", name: "Up for Review"))
+    board_issue!(60, "", option: "opt-unknown", name: "Up for Review")
 
     assert_equal "up-for-review", feature.tracker.state(60)
   end
 
   def test_board_dependencies_come_from_the_issue_body
     board!
-    @shell.on("gh issue view 60 --repo acme/shop --json body,projectItems,state", board_issue_json("#48 first.", option: "opt-todo"))
-    @shell.on("gh issue view 48 --repo acme/shop --json body,projectItems,state", board_issue_json("", option: "opt-todo"))
+    board_issue!(60, "#48 first.", option: "opt-todo")
+    board_issue!(48, "", option: "opt-todo")
 
     assert_equal 48, feature.next_slice.issue
   end
@@ -1854,14 +1893,14 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
     resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
 
-    assert @shell.ran?("gh project item-edit --project-id PVT_1 --id PVTI_60 --field-id PVTSSF_1 --single-select-option-id opt-review")
+    assert @shell.ran?(/updateProjectV2ItemFieldValue\(input: \{ projectId: "PVT_1", itemId: "PVTI_60", fieldId: "PVTSSF_1", value: \{ singleSelectOptionId: "opt-review" \}/)
   end
 
   def test_board_leaves_a_card_already_in_the_right_column
     board!
     resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
 
-    refute @shell.ran?(/gh project item-edit/)
+    refute @shell.ran?(/updateProjectV2ItemFieldValue/)
   end
 
   def test_board_an_issue_missing_from_the_board_is_not_written
@@ -1869,7 +1908,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
     @shell.on(/^gh api graphql -f query=\{ repository/, JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => [] } } } }))
 
     refute feature.tracker.set(60, "blocked")
-    refute @shell.ran?(/gh project item-edit/)
+    refute @shell.ran?(/updateProjectV2ItemFieldValue/)
   end
 
   def test_board_halts_are_read_from_the_issue
@@ -1916,7 +1955,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
     assert_equal "bd-b2", feature.next_slice.issue
 
     feature.tick("bd-b2", 71)
-    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line][/body=@(\S+)/, 1])
     assert_includes body, "- [x] acme-b2 — Checkout (PR #71)\n"
   end
 
@@ -2008,7 +2047,7 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
     feature.tick("bd-b2", 71)
 
-    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh pr edit 53") }[:line].split.last)
+    body = File.read(@shell.calls.find { |c| c[:line].start_with?("gh api -X PATCH repos/acme/shop/pulls/53") }[:line][/body=@(\S+)/, 1])
     assert_includes body, "- [x] bd-b2 — Checkout (PR #71)\n"
     refute_includes body, "Closes"
   end
@@ -2432,10 +2471,12 @@ class AutopilotCLITest < Minitest::Test
     assert @shell.ran?("git worktree add #{@worktree} feature/foo")
     dev = @shell.calls.find { |c| c[:line] == "bin/rails db:prepare" }
     assert_equal({ "DB_SUFFIX" => "_autopilot" }, dev[:env], "development is prepared, and seeded for walkthroughs")
-    # db:prepare seeds a database it creates; seeded rows in a test database
-    # outlive every test. The test databases get the schema only.
+    # db:prepare seeds a database it creates, and in development it creates
+    # the test databases too. The test databases get the schema only.
     test = @shell.calls.find { |c| c[:line] == "bin/rails db:test:prepare" }
     assert_equal({ "DB_SUFFIX" => "_autopilot" }, test && test[:env])
+    assert_operator @shell.calls.index(test), :<, @shell.calls.index(dev),
+                    "the test databases are prepared first, so db:prepare finds them initialized and does not seed them"
     refute @shell.calls.any? { |c| c[:env].to_h["RAILS_ENV"] == "test" && c[:line] == "bin/rails db:prepare" }
 
     @shell.calls.clear
@@ -2724,7 +2765,6 @@ end
 class AutopilotDatabaseSuffixTest < Minitest::Test
   ROOT = File.expand_path("../..", __dir__)
   DATABASE_YML = File.join(ROOT, "config/database.yml")
-  ROLES = %w[primary queue cable cache].freeze
 
   def setup
     return if File.exist?(DATABASE_YML) && File.read(DATABASE_YML).include?("DB_SUFFIX")
@@ -2735,38 +2775,56 @@ class AutopilotDatabaseSuffixTest < Minitest::Test
   def test_names_are_unchanged_without_a_suffix
     config = render(nil)
 
-    assert_match(/_development\z/, config.dig("development", "primary", "database"))
-    assert_match(/_development_queue\z/, config.dig("development", "queue", "database"))
-    assert_match(/_test\z/, config.dig("test", "primary", "database"))
-    assert_match(/_test_cache\z/, config.dig("test", "cache", "database"))
+    assert_match(/_development\z/, config.dig("development", "primary"))
+    assert_match(/_development_queue\z/, config.dig("development", "queue")) if config["development"].key?("queue")
+    assert_match(/_test\z/, config.dig("test", "primary"))
+    assert_match(/_test_cache\z/, config.dig("test", "cache")) if config["test"].key?("cache")
   end
 
   def test_every_development_and_test_database_carries_the_suffix
     config = render("_autopilot")
 
     %w[development test].each do |env|
-      ROLES.each do |role|
-        name = config.dig(env, role, "database")
-        assert name.end_with?("_autopilot"), "#{env}.#{role} is #{name.inspect}"
-      end
+      refute_empty config[env], "#{env} names no database"
+      config[env].each { |role, name| assert name.end_with?("_autopilot"), "#{env}.#{role} is #{name.inspect}" }
     end
   end
 
   def test_production_ignores_the_suffix
     config = render("_autopilot")
 
-    ROLES.each do |role|
-      refute_match(/_autopilot\z/, config.dig("production", role, "database").to_s, "production.#{role}")
-    end
+    config.fetch("production", {}).each { |role, name| refute_match(/_autopilot\z/, name, "production.#{role}") }
   end
 
   private
 
+  # { env => { role => database name } }, for one database per env or several
+  # roles. Rendered in StandIn's scope, where `Rails` is a stand-in: an adopted
+  # app's file may read Rails.application.credentials, and a plain test has no
+  # app to answer.
   def render(suffix)
     previous = ENV.fetch("DB_SUFFIX", nil)
     suffix ? ENV["DB_SUFFIX"] = suffix : ENV.delete("DB_SUFFIX")
-    YAML.safe_load(ERB.new(File.read(DATABASE_YML)).result, aliases: true)
+    text = ERB.new(File.read(DATABASE_YML)).result(StandIn.scope)
+    YAML.safe_load(text, aliases: true).transform_values { |env| databases(env) }
   ensure
     previous ? ENV["DB_SUFFIX"] = previous : ENV.delete("DB_SUFFIX")
+  end
+
+  # `Rails.application.credentials.dig(...)` is nil here, so a credentials
+  # lookup falls through to its `||` default as it would with none set.
+  module StandIn
+    Rails = Object.new
+    def Rails.method_missing(name, *) = %i[application credentials].include?(name) ? self : nil
+    def Rails.respond_to_missing?(*) = true
+
+    def self.scope = binding
+  end
+
+  def databases(env)
+    return {} unless env.is_a?(Hash)
+
+    roles = env.key?("database") ? { "primary" => env } : env.select { |_, value| value.is_a?(Hash) && value.key?("database") }
+    roles.transform_values { |config| config["database"].to_s }
   end
 end

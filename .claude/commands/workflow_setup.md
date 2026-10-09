@@ -78,7 +78,7 @@ Personal (non-org) repos use `user(login: "<USER>")` instead of `organization(lo
 ### Step 3: Ask — conventions
 
 Group 2:
-- Branch prefix (default: user's initials, e.g. `jd` → `jd/<issue>/<slug>`)
+- Branch prefix (default: user's initials, e.g. `jd` → `jd/<issue>/<slug>`). A team whose prefixes differ per developer records `<initials>` in the config (Step 5): `bin/autopilot` then derives each developer's own from `git config user.name`, first and last initial, lowercased
 - PR title prefix (default: same initials uppercase → `JD | 123 | Fix thing`)
 - Review-ready label (default: `ready for review`; create if missing: `gh label create "<label>"`)
 - LLM persona for the task template (default: `Staff Rails Engineer, TDD advocate`) → write into `.llm/tasks/task_template.md`
@@ -134,7 +134,7 @@ diff -r .claude/commands .cursor/commands    # mirrors must stay identical
 Must return nothing. Leftovers → fill them.
 
 Write the record to `.claude/workflow.config.md` — a table of every token and its value, plus the date. Re-running this wizard reads that file as the starting defaults. <!-- lint-docs:ignore -->
-One token per row, name and value each in backticks, `n/a` for a board token the tier does not use. `bin/autopilot` reads this file at run time, so commit it:
+One token per row, name and value each in backticks, `n/a` for a board token the tier does not use. Add a `DEFAULT_BRANCH` row when the default branch is not `main`; the driver merges `origin/main` without one. `bin/autopilot` reads this file at run time, so commit it:
 
 ```
 | Token | Value |
