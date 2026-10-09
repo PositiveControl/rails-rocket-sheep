@@ -1,7 +1,6 @@
 # frozen_string_literal: true
 
 require "minitest/autorun"
-require "minitest/mock"
 require "erb"
 require "yaml"
 require "active_support/core_ext/object/blank" # database.yml's production block calls present?
@@ -1154,14 +1153,16 @@ class AutopilotRunTest < Minitest::Test
   def test_an_initials_prefix_is_each_developers_own
     config = Autopilot::Config.new("BRANCH_PREFIX" => "<initials>")
 
-    config.stub(:git_user_name, "Isaac Hale") { assert_equal "ih", config.branch_prefix }
+    config.define_singleton_method(:git_user_name) { "Isaac Hale" }
+    assert_equal "ih", config.branch_prefix
     assert_equal "feat", Autopilot::Config.new("BRANCH_PREFIX" => "feat").branch_prefix
   end
 
   def test_an_initials_prefix_with_no_git_user_is_refused
     config = Autopilot::Config.new("TRACKER" => "labels", "GITHUB_ORG" => "o", "GITHUB_REPO" => "r", "BRANCH_PREFIX" => "<initials>")
 
-    config.stub(:git_user_name, "") { assert_match(/git config user.name` is empty/, config.problems.join) }
+    config.define_singleton_method(:git_user_name) { "" }
+    assert_match(/git config user.name` is empty/, config.problems.join)
   end
 
   def conflicting!
