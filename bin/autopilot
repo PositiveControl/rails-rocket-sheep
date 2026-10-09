@@ -1891,7 +1891,9 @@ module Autopilot
         problems << "the autopilot log #{feature.log_path} does not exist"
       end
       status = sh("git", "status", "--porcelain", chdir: worktree).out
-      problems << "uncommitted changes in #{worktree}" unless status.strip.empty?
+      unless status.strip.empty? || mid_slice?
+        problems << "uncommitted changes in #{worktree}: #{status.lines.first(3).map(&:strip).join(', ')}"
+      end
       problems << "no open feature PR for feature/#{@slug}" unless feature.pr
       # With nothing it can read, every slice would look landed and the run would "finish".
       if feature.pr && feature.slices.empty?
@@ -1908,6 +1910,15 @@ module Autopilot
       gates = sh("bin/gates", chdir: worktree)
       problems << "bin/gates is red:\n#{gates.out}" unless gates.ok
       problems
+    end
+
+    # Uncommitted work on the next slice's own branch is what a stopped step
+    # left behind; the rerun's /implement starts from `git status` and picks
+    # it up. Anywhere else it is the developer's, and the run is not started.
+    def mid_slice?
+      slice = feature.pr && feature.next_slice or return false
+
+      sh("git", "branch", "--show-current", chdir: worktree).out.strip.start_with?("#{Autopilot.branch_prefix}/#{slice.issue}/")
     end
 
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,

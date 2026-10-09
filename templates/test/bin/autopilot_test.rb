@@ -2419,6 +2419,29 @@ class AutopilotCLITest < Minitest::Test
     assert_empty @shell.lines.grep(MUTATING)
   end
 
+  # A stopped step leaves its work uncommitted on the slice branch; the
+  # rerun's /implement starts from `git status` and carries on with it.
+  def test_preflight_lets_a_rerun_pick_up_uncommitted_work_on_the_next_slice_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+
+    assert_equal 0, cli("foo", "--dry-run").call
+    refute_match(/uncommitted changes/, @out.string)
+  end
+
+  def test_preflight_refuses_uncommitted_work_on_any_other_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/48/top-down\n")
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+  end
+
+  def test_preflight_does_not_take_a_longer_issue_number_s_branch_for_the_next_slice
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/600/top-down\n")
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(/uncommitted changes in /, @out.string)
+  end
+
   def test_preflight_refuses_a_run_without_the_workflow_config
     FileUtils.rm(File.join(@worktree, ".claude/workflow.config.md"))
 
