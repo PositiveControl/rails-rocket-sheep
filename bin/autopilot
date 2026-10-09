@@ -172,10 +172,14 @@ module Autopilot
   # Tries a failed gh read again before the caller hears "unreadable": one
   # network blip must not end a run. Writes go once, since a failed one may
   # still have landed. `gh pr checks` is left alone: its non-zero exit for
-  # pending or red checks is an answer, not a blip.
+  # pending or red checks is an answer, not a blip. `git fetch` is a read, and
+  # `git push` of a ref is safe to repeat: one that landed is a no-op the
+  # second time, and one the branch moved under is refused as non-fast-forward.
+  # No other git command is retried.
   class RetryingShell
     DELAYS = [ 5, 15 ].freeze
     READS = [ %w[pr view], %w[pr list], %w[issue view] ].freeze
+    GIT_RETRIES = %w[fetch push].freeze
     WRITE_FLAGS = %w[-X --method -f -F --field --raw-field --input].freeze
 
     def initialize(shell, sleep: ->(seconds) { Kernel.sleep(seconds) })
@@ -203,6 +207,7 @@ module Autopilot
     private
 
     def read?(cmd)
+      return GIT_RETRIES.include?(cmd[1]) if cmd.first == "git"
       return false unless cmd.first == "gh"
       # A GraphQL query is sent with -f like a write; only a mutation is one.
       # The driver passes every query inline, so `mutation` is in argv; one

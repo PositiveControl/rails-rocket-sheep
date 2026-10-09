@@ -2139,14 +2139,35 @@ class AutopilotRetryingShellTest < Minitest::Test
     assert_empty @slept
   end
 
+  # One 500 on land's push stopped a run 13s after the slice merged.
+  def test_a_git_push_that_fails_once_is_tried_again
+    replies = [ false, true ]
+    @fake.on(/git push/) { Autopilot::Shell::Result.new("", replies.shift, false) }
+
+    assert @shell.run("git", "push", "origin", "HEAD:feature/x", chdir: "/w").ok
+    assert_equal [ Autopilot::RetryingShell::DELAYS.first ], @slept
+    assert_equal [ "/w" ], @fake.calls.map { |call| call[:chdir] }.uniq
+  end
+
+  def test_a_git_fetch_that_keeps_failing_returns_the_last_failure
+    @fake.on(/git fetch/, "boom", ok: false)
+
+    refute @shell.run("git", "fetch", "origin", "main").ok
+    assert_equal Autopilot::RetryingShell::DELAYS.size + 1, @fake.calls.size
+    assert_equal Autopilot::RetryingShell::DELAYS, @slept
+  end
+
   # `gh pr checks` exits non-zero for pending or red checks: that is an answer.
-  def test_pr_checks_and_non_gh_commands_are_not_retried
+  def test_pr_checks_and_other_git_commands_are_not_retried
     @fake.on(//, ok: false)
 
     @shell.run("gh", "pr", "checks", "130", "--json", "name,state")
-    @shell.run("git", "fetch")
+    @shell.run("git", "commit", "-m", "x")
+    @shell.run("git", "merge", "origin/main")
+    @shell.run("git", "merge-base", "--is-ancestor", "origin/main", "HEAD")
 
-    assert_equal 2, @fake.calls.size
+    assert_equal 4, @fake.calls.size
+    assert_empty @slept
   end
 
   def test_the_rest_of_the_shell_passes_through

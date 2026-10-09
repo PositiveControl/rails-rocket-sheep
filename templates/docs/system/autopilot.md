@@ -183,6 +183,12 @@ between review passes. Writes go once, since a failed write may still have
 landed. `gh pr checks` is not retried either: it exits non-zero when checks are
 pending or red, and that is an answer.
 
+`git fetch` and `git push` get the same two retries; no other `git` command
+does. A fetch is a read, and a push of a ref is safe to repeat: one that landed
+is a no-op the second time, and one the branch moved under is refused as
+non-fast-forward. A single GitHub 500 on `land`'s push once stopped a run
+unattended, 13 seconds after the slice's PR merged.
+
 | Step | Expectation (read from real state) |
 |---|---|
 | `/task_plan <n>` | Task file `.llm/tasks/<n>_*.md`, branch `<branch-prefix>/<n>/…`, the slice In Progress (`autopilot-steps.md`, *Tracker tiers*) |
