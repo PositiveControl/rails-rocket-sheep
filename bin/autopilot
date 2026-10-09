@@ -1924,8 +1924,8 @@ module Autopilot
 
       prs = sh("gh", "pr", "list", "--repo", Autopilot.repo, "--head", branch, "--state", "open", "--json", "number")
       prs.ok && JSON.parse(prs.out).empty?
-    rescue JSON::ParserError
-      false
+    rescue Error, JSON::ParserError
+      false # refused by name, rather than a backtrace in place of the list
     end
 
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,

@@ -2439,6 +2439,16 @@ class AutopilotCLITest < Minitest::Test
     assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
   end
 
+  # Preflight lists problems; a tracker it cannot read is one, named by the
+  # tier probe, not a crash.
+  def test_preflight_lists_a_dirty_tree_when_the_next_slice_cannot_be_read
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", "HTTP 502", ok: false)
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+  end
+
   def test_preflight_refuses_uncommitted_work_on_any_other_branch
     @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/48/top-down\n")
 
