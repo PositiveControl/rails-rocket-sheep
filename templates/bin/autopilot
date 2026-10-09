@@ -1891,9 +1891,7 @@ module Autopilot
         problems << "the autopilot log #{feature.log_path} does not exist"
       end
       status = sh("git", "status", "--porcelain", chdir: worktree).out
-      unless status.strip.empty? || mid_slice?
-        problems << "uncommitted changes in #{worktree}: #{status.lines.first(3).map(&:strip).join(', ')}"
-      end
+      problems.concat(dirty_tree(status))
       problems << "no open feature PR for feature/#{@slug}" unless feature.pr
       # With nothing it can read, every slice would look landed and the run would "finish".
       if feature.pr && feature.slices.empty?
@@ -1912,6 +1910,17 @@ module Autopilot
       problems
     end
 
+    def dirty_tree(status)
+      return [] if status.strip.empty?
+
+      dirty = "uncommitted changes in #{worktree}: #{status.lines.first(3).map(&:strip).join(', ')}"
+      mid_slice? ? [] : [ dirty ]
+    rescue Error => e
+      # It may be resumable work: say why preflight could not tell, so it is
+      # not discarded over a gh outage.
+      [ dirty, "cannot tell whether the dirty tree is a stopped step's: #{e.message}" ]
+    end
+
     # Uncommitted work on the next slice's own branch, before its PR is open,
     # is what a stopped step left behind; the rerun's /implement starts from
     # `git status` and picks it up. Once the PR is open, /implement would run
@@ -1923,9 +1932,11 @@ module Autopilot
       return false unless branch.start_with?("#{Autopilot.branch_prefix}/#{slice.issue}/")
 
       prs = sh("gh", "pr", "list", "--repo", Autopilot.repo, "--head", branch, "--state", "open", "--json", "number")
-      prs.ok && JSON.parse(prs.out).empty?
-    rescue Error, JSON::ParserError
-      false # refused by name, rather than a backtrace in place of the list
+      raise Error, "cannot list PRs for #{branch}: #{prs.out.strip}" unless prs.ok
+
+      JSON.parse(prs.out).empty?
+    rescue JSON::ParserError
+      raise Error, "cannot read the PR list for #{branch}"
     end
 
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,

@@ -2439,14 +2439,23 @@ class AutopilotCLITest < Minitest::Test
     assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
   end
 
-  # Preflight lists problems; a tracker it cannot read is one, named by the
-  # tier probe, not a crash.
-  def test_preflight_lists_a_dirty_tree_when_the_next_slice_cannot_be_read
+  # The dirty tree may be resumable work: preflight says why it could not
+  # tell, so nobody discards it over a passing gh outage. Listed, not a crash.
+  def test_preflight_names_why_it_cannot_tell_a_dirty_tree_is_a_stopped_step_s
     @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
     @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", "HTTP 502", ok: false)
 
     assert_equal 1, cli("foo", "--dry-run").call
     assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+    assert_match(/cannot tell whether the dirty tree is a stopped step's: cannot read issue #60: HTTP 502/, @out.string)
+  end
+
+  def test_preflight_names_a_slice_pr_list_it_cannot_read
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, "HTTP 502", ok: false)
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{cannot tell whether the dirty tree is a stopped step's: cannot list PRs for feat/60/top-down: HTTP 502}, @out.string)
   end
 
   def test_preflight_refuses_uncommitted_work_on_any_other_branch

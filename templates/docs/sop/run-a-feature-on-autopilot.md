@@ -158,7 +158,9 @@ What is left behind:
   before you rerun, edits and new files both:
   `git -C ../<repo>-autopilot-<slug> checkout -- . && git -C ../<repo>-autopilot-<slug> clean -fd`.
   A dirty tree anywhere else, or once the slice PR is open, is refused with
-  the files named: commit the work if it is sound, or discard it.
+  the files named: commit the work if it is sound, or discard it. Refused
+  because gh or bd could not be read? Preflight says so; rerun once it
+  answers, and the work may still be resumed.
 - **The state file** has no row for the step you stopped. Its usage is not
   counted in the log's metrics.
 
