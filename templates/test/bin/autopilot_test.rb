@@ -2419,6 +2419,59 @@ class AutopilotCLITest < Minitest::Test
     assert_empty @shell.lines.grep(MUTATING)
   end
 
+  # A stopped step leaves its work uncommitted on the slice branch; the
+  # rerun's /implement starts from `git status` and carries on with it.
+  def test_preflight_lets_a_rerun_pick_up_uncommitted_work_on_the_next_slice_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, "[]")
+
+    assert_equal 0, cli("foo", "--dry-run").call
+    refute_match(/uncommitted changes/, @out.string)
+  end
+
+  # Past /implement, its expectation fails on any dirty tree: a rerun would
+  # run /implement again over a review step's half-done work.
+  def test_preflight_refuses_uncommitted_work_once_the_slice_pr_is_open
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, JSON.generate([ { "number" => 70 } ]))
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+  end
+
+  # The dirty tree may be resumable work: preflight says why it could not
+  # tell, so nobody discards it over a passing gh outage. Listed, not a crash.
+  def test_preflight_names_why_it_cannot_tell_a_dirty_tree_is_a_stopped_step_s
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", "HTTP 502", ok: false)
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+    assert_match(/cannot tell whether the dirty tree is a stopped step's: cannot read issue #60: HTTP 502/, @out.string)
+  end
+
+  def test_preflight_names_a_slice_pr_list_it_cannot_read
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+    @shell.on(%r{gh pr list .*--head feat/60/top-down --state open}, "HTTP 502", ok: false)
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{cannot tell whether the dirty tree is a stopped step's: cannot list PRs for feat/60/top-down: HTTP 502}, @out.string)
+  end
+
+  def test_preflight_refuses_uncommitted_work_on_any_other_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/48/top-down\n")
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+  end
+
+  def test_preflight_does_not_take_a_longer_issue_number_s_branch_for_the_next_slice
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/600/top-down\n")
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(/uncommitted changes in /, @out.string)
+  end
+
   def test_preflight_refuses_a_run_without_the_workflow_config
     FileUtils.rm(File.join(@worktree, ".claude/workflow.config.md"))
 
