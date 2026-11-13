@@ -149,6 +149,9 @@ module Autopilot
     # end the command the way the timeout does. `abort_on` is a pattern in the
     # output that ends it at once (a suite ran 82 minutes after its database
     # died): not ok, not timed out, the output so far.
+    # --verbose: every command's output as it arrives, as well as captured.
+    attr_accessor :echo
+
     def run(*cmd, env: {}, chdir: nil, timeout: DEFAULT_TIMEOUT, heartbeat: nil, idle: nil, abort_on: nil)
       options = { pgroup: true }
       options[:chdir] = chdir if chdir
@@ -160,6 +163,7 @@ module Autopilot
           until out.eof?
             chunk = out.readpartial(65_536)
             buffer << chunk
+            echo&.write(chunk)
             hit ||= abort_on.match?(chunk) if abort_on
           end
           # readpartial hands over bytes; IO#read gave the external encoding.
@@ -308,6 +312,11 @@ module Autopilot
       result
     end
 
+    def echo=(io)
+      @shell.echo = io
+    end
+
+    def echo = @shell.echo
     def kill_group(...) = @shell.kill_group(...)
     def kill_pids(...) = @shell.kill_pids(...)
     def orphans(...) = @shell.orphans(...)
@@ -643,6 +652,24 @@ module Autopilot
       nil
     end
 
+    # The open slices in the order a run takes them if each lands: next_slice
+    # again and again. It stops at a blocked one, as the run does, and leaves
+    # out any that would never start.
+    def run_order
+      all = slices
+      ticked = all.select(&:done).map(&:issue)
+      listed = all.map(&:issue)
+      items = all.reject(&:done).to_h { |slice| [ slice.issue, tracker.item(slice.issue) ] }
+      order = []
+      while (issue = items.keys.find { |id| ((items[id][:dependencies] & listed) - ticked).empty? })
+        order << Slice.new(issue: issue, done: false, blocked: items.delete(issue)[:state] == "blocked")
+        break if order.last.blocked
+
+        ticked << issue
+      end
+      order
+    end
+
     def reload = @pr = nil
 
     # The slice's PR once it has merged into the feature branch. A rerun after
@@ -723,14 +750,18 @@ module Autopilot
     end
   end
 
-  # The developer's model, effort and attribution for the steps, from a
-  # git-ignored file beside their checkout: a default for every step, and a
-  # command's own model and effort under `steps` (a plan on a stronger model
-  # than the build). `--model` / `--effort` win over both for one run. Only
-  # these reach a step; the rest of their user settings stays out (Step#argv).
+  # The model, effort and attribution for the steps. The team's committed
+  # file sets a default for every step and a command's own model and effort
+  # under `steps` (a plan on a stronger model than the build); the developer's
+  # git-ignored file beside their checkout wins over it key by key, a step's
+  # entry included, and alone holds attribution and env. `--model` /
+  # `--effort` win over both for one run. Only these reach a step; the rest
+  # of their user settings stays out (Step#argv).
   class Preferences
     PATH = ".claude/autopilot.local.json"
+    TEAM_PATH = ".claude/autopilot.json"
     KEYS = %w[model effort attribution steps env].freeze
+    TEAM_KEYS = %w[model effort steps].freeze
     NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
     STEP_KEYS = %w[model effort].freeze
     EFFORTS = %w[low medium high xhigh max].freeze # claude --help
@@ -740,38 +771,54 @@ module Autopilot
 
     attr_reader :problem
 
-    def self.read(path, model: nil, effort: nil)
-      values = File.exist?(path) ? JSON.parse(File.read(path)) : {}
-      problem = problem_with(values)
-      problem ? new(problem: problem) : new(values, flags: { "model" => model, "effort" => effort }.compact)
-    rescue JSON::ParserError => e
-      new(problem: "cannot read #{PATH}: #{e.message.lines.first.to_s.strip}")
+    def self.read(path, team: nil, model: nil, effort: nil)
+      team_values = load(team, TEAM_PATH, TEAM_KEYS)
+      own = load(path, PATH, KEYS)
+      new(merge(team_values, own), flags: { "model" => model, "effort" => effort }.compact)
+    rescue Unusable => e
+      new(problem: e.message)
     end
 
-    def self.problem_with(values)
-      return "#{PATH} is not a JSON object" unless values.is_a?(Hash)
+    class Unusable < StandardError; end
 
-      unknown = values.keys - KEYS
-      return "#{PATH} has unknown keys: #{unknown.join(', ')} (it takes #{KEYS.join(', ')})" if unknown.any?
+    def self.load(file, path, keys)
+      values = file && File.exist?(file) ? JSON.parse(File.read(file)) : {}
+      problem = problem_with(values, path: path, keys: keys)
+      problem ? raise(Unusable, problem) : values
+    rescue JSON::ParserError => e
+      raise Unusable, "cannot read #{path}: #{e.message.lines.first.to_s.strip}"
+    end
+
+    # The developer's over the team's, key by key: a step's entry merges too,
+    # so their own effort for task_plan keeps the team's model for it.
+    def self.merge(team, own)
+      team.merge(own) { |key, ours, theirs| key == "steps" ? ours.merge(theirs) { |_, a, b| a.merge(b) } : theirs }
+    end
+
+    def self.problem_with(values, path: PATH, keys: KEYS)
+      return "#{path} is not a JSON object" unless values.is_a?(Hash)
+
+      unknown = values.keys - keys
+      return "#{path} has unknown keys: #{unknown.join(', ')} (it takes #{keys.join(', ')})" if unknown.any?
 
       steps = values.fetch("steps", {})
-      return "#{PATH}: steps maps a command to its model and effort" unless steps.is_a?(Hash) && steps.values.all?(Hash)
+      return "#{path}: steps maps a command to its model and effort" unless steps.is_a?(Hash) && steps.values.all?(Hash)
 
       strangers = steps.keys - COMMANDS
-      return "#{PATH} names steps it does not run: #{strangers.join(', ')} (it runs #{COMMANDS.join(', ')})" if strangers.any?
+      return "#{path} names steps it does not run: #{strangers.join(', ')} (it runs #{COMMANDS.join(', ')})" if strangers.any?
 
       steps.each do |command, entry|
         unknown = entry.keys - STEP_KEYS
-        return "#{PATH}: #{command} has unknown keys: #{unknown.join(', ')} (it takes #{STEP_KEYS.join(', ')})" if unknown.any?
+        return "#{path}: #{command} has unknown keys: #{unknown.join(', ')} (it takes #{STEP_KEYS.join(', ')})" if unknown.any?
       end
-      return "#{PATH}: attribution is not a JSON object" if values.key?("attribution") && !values["attribution"].is_a?(Hash)
+      return "#{path}: attribution is not a JSON object" if values.key?("attribution") && !values["attribution"].is_a?(Hash)
 
       env = values.fetch("env", {})
-      return "#{PATH}: env maps variable names to text" unless env.is_a?(Hash) && env.all? { |name, value| name.match?(NAME) && value.is_a?(String) }
+      return "#{path}: env maps variable names to text" unless env.is_a?(Hash) && env.all? { |name, value| name.match?(NAME) && value.is_a?(String) }
 
       [ [ nil, values ], *steps ].each do |command, entry|
         problem = value_problem(entry)
-        return "#{PATH}: #{[ command, problem ].compact.join(': ')}" if problem
+        return "#{path}: #{[ command, problem ].compact.join(': ')}" if problem
       end
       nil
     end
@@ -841,7 +888,7 @@ module Autopilot
     SPOKEN_RESET = /resets? (?:at )?(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i
 
     Outcome = Struct.new(:kind, :session_id, :result, :usage_usd, :tokens, :turns, :metrics, :gate, :reason, :reset_at,
-                         keyword_init: true)
+                         :model, :effort, keyword_init: true)
 
     def self.allowlist(path)
       File.readlines(path).filter_map do |line|
@@ -996,6 +1043,10 @@ module Autopilot
                           heartbeat: transcript(resume || session_id), idle: IDLE)
       outcome = self.class.classify(result)
       outcome.session_id ||= resume || session_id
+      # What the step was asked to run on, for the log: `models` says which
+      # model answered, but only this says the effort.
+      outcome.model = @preferences.model(settings_of || command)
+      outcome.effort = @preferences.effort(settings_of || command)
       outcome
     end
 
@@ -1396,7 +1447,7 @@ module Autopilot
     module_function
 
     HEADING = /^\#{1,4} /
-    RANKS = { "one-way" => 0, "costly" => 1 }.freeze
+    RANKS = { "one-way" => 0, "costly" => 1, "risk accepted" => 1 }.freeze
     # A dropped finding outside the template's heading, as the review sections
     # write one: `- Dropped — …`, `- Dropped (nit, …)`, `` - `fix-drop` · Dropped … ``.
     DROPPED = /\A- (?:`fix-drop` · )?Dropped\b/
@@ -1443,10 +1494,13 @@ module Autopilot
       lines = text.lines.reject { |line| line.start_with?("| #{Autopilot.ref(issue)} |") }
       at = section_end(lines, "## Metrics") or raise Error, "the autopilot log has no ## Metrics section"
       rows = step_rows(usage).map do |step|
-        "| #{Autopilot.ref(issue)} | `#{step[:step]}` | #{duration(step[:seconds])} | #{usd(step[:usd])} | #{step[:retries]} | #{step[:pauses]} |\n"
+        "| #{Autopilot.ref(issue)} | `#{step[:step]}` | #{duration(step[:seconds])} | #{usd(step[:usd])} | #{step[:retries]} | " \
+          "#{step[:pauses]} | #{step[:ran_on]} |\n"
       end
+      # Model last: a log begun before the column has a six-column header,
+      # and a renderer drops the extra cell rather than shifting the rest.
       unless lines.any? { |line| line.start_with?("| Slice | Step |") }
-        rows.unshift("| Slice | Step | Wall time | Usage | Retries | Pauses |\n", "|---|---|---|---|---|---|\n")
+        rows.unshift("| Slice | Step | Wall time | Usage | Retries | Pauses | Model |\n", "|---|---|---|---|---|---|---|\n")
       end
       lines.insert(at, *rows)
       tidy(lines.join)
@@ -1456,8 +1510,18 @@ module Autopilot
       usage.to_a.chunk_while { |a, b| a["step"] == b["step"] }.map do |attempts|
         pauses = attempts.count { |a| a["kind"] == "usage_limit" }
         { step: attempts.first["step"], seconds: attempts.sum { |a| a["seconds"].to_i },
-          usd: attempts.sum { |a| a["usd"].to_f }, retries: retries(attempts, pauses), pauses: pauses }
+          usd: attempts.sum { |a| a["usd"].to_f }, retries: retries(attempts, pauses), pauses: pauses,
+          ran_on: ran_on(attempts.last) }
       end
+    end
+
+    # The model that answered (the costliest, beside a subagent's cheaper
+    # one), else the one asked for, and the effort asked for.
+    def ran_on(row)
+      return "—" if row["kind"] == "driver"
+
+      model = row["models"]&.max_by { |_, m| m["usd"].to_f }&.first || row["model"]
+      "#{model || 'default model'}, #{row['effort'] || 'default effort'}"
     end
 
     # A driver row is a wait, not an attempt with an expectation: two in a
@@ -1495,13 +1559,136 @@ module Autopilot
       tidy(lines.join)
     end
 
+    QA = /<!-- qa -->.*<!-- \/qa -->\n/m
+
+    # The QA section's driver-written part, for the feature PR's reviewer:
+    # the walkthroughs as finalize ran them, then every slice's Not checked by
+    # a human items, collected.
+    def qa(text, walkthroughs)
+      runs = walkthroughs.map do |w|
+        line = "- `bin/qa-walkthrough #{w[:name]}` — #{w[:ok] ? 'passed' : 'FAILED'} (#{duration(w[:seconds])})\n"
+        w[:ok] ? line : "#{line}\n  ```\n#{w[:output].to_s.chomp.gsub(/^/, '  ')}\n  ```\n"
+      end
+      items = unchecked(text)
+      block = "<!-- qa -->\n**Walkthroughs**, every one the feature added or changed, run once at the finish in the order " \
+              "it first touched them:\n\n#{runs.any? ? runs.join : "None: the feature added or changed no walkthrough.\n"}\n" \
+              "**Not checked by a human**, from every slice:\n\n#{items.any? ? items.join : "None recorded.\n"}<!-- /qa -->\n"
+      return text.sub(QA) { block } if text.match?(QA)
+
+      lines = text.lines
+      at = section_end(lines, "## QA — how to check the whole feature") or raise Error, "the autopilot log has no ## QA section"
+      lines.insert(at, "\n", block)
+      tidy(lines.join)
+    end
+
+    # Each slice's Not checked by a human items, a continuation line kept
+    # with its item, under the slice's id.
+    def unchecked(text)
+      slice = nil
+      inside = false
+      comment = false
+      text.lines.each_with_object([]) do |line, items|
+        comment = true if line.start_with?("<!--")
+        if comment
+          comment = false if line.include?("-->")
+          next
+        end
+        slice = line[/^### (#{SLICE_ID})/, 1] if line.start_with?("### ")
+        inside = line.chomp == "#### Not checked by a human" if line.match?(HEADING)
+        next unless inside
+
+        if line.start_with?("- ")
+          items << "- #{slice} · #{line[2..]}"
+        elsif line.start_with?("  ") && items.any?
+          items[-1] += line
+        end
+      end
+    end
+
+    SUMMARY = /<!-- summary -->.*<!-- \/summary -->\n/m
+
+    def summary(text, lines)
+      block = "<!-- summary -->\n#{lines.map { |line| "- #{line}\n" }.join}<!-- /summary -->\n"
+      return text.sub(SUMMARY) { block } if text.match?(SUMMARY)
+
+      lines = text.lines
+      at = lines.index { |line| line.chomp == "## Metrics" } or raise Error, "the autopilot log has no ## Metrics section"
+      lines.insert(at + 1, "\n", block, "\n")
+      tidy(lines.join)
+    end
+
+    # The run as a whole, from the state's usage rows and each slice's added
+    # lines and SLOC: what --usage ends with and the log's Metrics open with.
+    def summary_lines(usage, added, sloc = [])
+      steps, waits = usage.partition { |row| row["kind"] != "driver" }
+      by_model = Hash.new { |h, k| h[k] = { usd: 0.0, tokens: 0 } }
+      steps.each do |row|
+        models = row["models"] || { row["model"] || "model not recorded" => { "usd" => row["usd"], **tokens_of(row) } }
+        models.each do |name, m|
+          by_model[name][:usd] += m["usd"].to_f
+          by_model[name][:tokens] += %w[input output cache_read cache_write].sum { |key| m[key].to_i }
+        end
+      end
+      usd = steps.sum { |row| row["usd"].to_f }
+      tokens = by_model.values.sum { |m| m[:tokens] }
+      lines = added.sum(&:to_i)
+      code = sloc.sum(&:to_i)
+      per = lambda do |value, &shown|
+        parts = [ [ lines, "added lines" ], [ code, "SLOC" ] ].select { |n, _| n.positive? }
+        parts.any? ? " (#{parts.map { |n, unit| "#{shown.call(value * 1000.0 / n)} per 1,000 #{unit}" }.join(', ')})" : ""
+      end
+      spans = usage.filter_map { |row| row["at"] && [ Time.iso8601(row["at"]), Time.iso8601(row["at"]) + row["seconds"].to_i ] }
+      elapsed = spans.any? ? duration(spans.map(&:last).max - spans.map(&:first).min) : "—"
+      [ "Usage: #{usd(usd)}#{per.call(usd) { |v| usd(v) }}",
+        "Tokens: #{count(tokens)}#{per.call(tokens) { |v| count(v.round) }}",
+        added.any? ? "Added: #{delimit(lines)} lines, #{sloc.any? ? "#{delimit(code)} SLOC, " : ''}over #{added.size} slices" : "Added: not recorded (slices landed before it was)",
+        "Time: #{duration(steps.sum { |r| r['seconds'].to_i })} in steps, #{duration(waits.sum { |r| r['seconds'].to_i })} " \
+        "in driver waits, #{elapsed} elapsed",
+        *by_model.sort_by { |_, m| -m[:usd] }.map do |name, m|
+          "#{name}: #{usd(m[:usd])}, #{count(m[:tokens])} tokens, #{usd(m[:tokens].positive? ? m[:usd] * 1e6 / m[:tokens] : 0)} per 1M"
+        end ]
+    end
+
+    # A row from before `models` was recorded: its main-conversation tokens.
+    def tokens_of(row)
+      t = row["tokens"] || {}
+      { "input" => t["input"], "output" => t["output"], "cache_read" => t["cache_read"],
+        "cache_write" => t["cache_write_5m"].to_i + t["cache_write_1h"].to_i }
+    end
+
+    def count(n)
+      return n.to_s if n < 1_000
+      return format("%.1fk", n / 1e3) if n < 1_000_000
+
+      format("%.1fM", n / 1e6)
+    end
+
+    # Source lines a diff adds: not blank, not a comment alone (Ruby, JS,
+    # CSS, Slim), and not in prose (Markdown, docs/, .llm/). Tests count: they
+    # are code the run wrote.
+    PROSE = %r{\A(docs/|\.llm/)|\.md\z}
+    COMMENT = %r{\A(#|//|/\*|\*|-#|/(\s|\z)|<!--)}
+
+    def sloc(diff)
+      file = nil
+      diff.lines.count do |line|
+        file = line[%r{\A\+\+\+ b/(.+)}, 1] || file if line.start_with?("+++ ")
+        next false if line.start_with?("+++ ") || !line.start_with?("+") || file.nil? || file.match?(PROSE)
+
+        code = line[1..].strip
+        !code.empty? && !code.match?(COMMENT)
+      end
+    end
+
+    def delimit(n) = n.to_s.reverse.scan(/\d{1,3}/).join(",").reverse
+
     def run_line(text, started:, finished:, usd:)
       text.sub(/^\*\*Run:\*\*.*$/, "**Run:** #{started} → #{finished} · **Usage:** #{usd(usd)} (estimate)")
     end
 
     # Every costly and one-way entry, every drop, every issue filed, every
-    # opinion, every HALT: one-way first, then costly, then the rest in log
-    # order.
+    # risk accepted, every opinion, every HALT: one-way first, then costly and
+    # risks, then the rest in log order.
     def read_this_first(text)
       items = attention(text).each_with_index.sort_by { |item, i| [ RANKS.fetch(item[:rank], 2), i ] }.map(&:first)
       body = items.empty? ? "Nothing costly, one-way, dropped, filed, opinion or halted.\n" : items.map { |item| "#{item[:line]}\n" }.join
@@ -1542,6 +1729,10 @@ module Autopilot
           items << entry_item(text.lines.drop(i)) if line.match?(/^#### (D(?:\d+|bd-[\w.]+)-\d+|HALT) /)
         elsif line.start_with?("- ") && (subsection == "#### Dropped review findings" || (slices && line.match?(DROPPED)))
           items << { rank: "dropped", slice: slice, line: "- **dropped** · #{slice} · #{line[2..].strip.delete_prefix('`fix-drop` · ')}" }
+        elsif (failed = line[/^- `bin\/qa-walkthrough \S+` — FAILED/])
+          items << { rank: "walkthrough", line: "- **walkthrough FAILED** · #{failed[2..].delete_suffix(' — FAILED')} · output in the QA section" }
+        elsif line.start_with?("- ") && subsection == "#### Risks accepted"
+          items << { rank: "risk accepted", line: "- **risk accepted** · #{slice} · #{line[2..].strip}" }
         elsif line.start_with?("- ") && subsection == "#### Issues filed"
           items << { rank: "one-way", line: "- **one-way** · issue filed in #{slice} · #{line[2..].strip}" }
         end
@@ -1661,8 +1852,9 @@ module Autopilot
     def self.merge_main = [ "git", "merge", "--no-edit", "--no-ff", "origin/#{Autopilot.default_branch}" ]
 
     def initialize(step:, expect:, notifier:, state:, shell:, worktree:, feature: nil, branch: nil, clock: Clock.new,
-                   resolver: :fresh, server: nil)
+                   resolver: :fresh, server: nil, out: nil)
       @step = step
+      @out = out
       @server = server
       @expect = expect
       @notifier = notifier
@@ -1735,16 +1927,37 @@ module Autopilot
       path = File.join(@worktree, @feature.log_path)
       before = File.read(path)
       usage = @state.all("usage")
-      text = Log.read_this_first(before)
+      text = Log.qa(before, walkthroughs)
+      text = Log.read_this_first(text)
       text = capture(text)
       if usage.any?
         text = Log.run_line(text, started: usage.filter_map { |u| u["at"] && Time.iso8601(u["at"]) }.min&.iso8601, finished: @clock.now.iso8601,
                                   usd: usage.sum { |u| u["usd"].to_f })
+        text = Log.summary(text, Log.summary_lines(usage, @state.all("added"), @state.all("sloc")))
       end
       return if text == before
 
       File.write(path, text)
       branch.commit([ @feature.log_path ], "Finish the autopilot log")
+    end
+
+    # Every walkthrough the feature added or changed, in the order its commits
+    # first touched them, run once one after another on the run's server. A
+    # slice ran only its own, so two that clash (the same record made twice)
+    # meet only here. Evidence, like the capture: a failure is written down
+    # and put first in Read this first, never halted on.
+    def walkthroughs
+      touched = @shell.run("git", "log", "--reverse", "--format=", "--name-only", "origin/#{Autopilot.default_branch}..HEAD",
+                           "--", "script/qa", chdir: @worktree).out.lines.map(&:strip)
+      names = touched.select { |path| File.dirname(path) == "script/qa" && path.end_with?(".rb") && File.exist?(File.join(@worktree, path)) }
+                     .uniq.map { |path| File.basename(path, ".rb") }
+      names.map do |name|
+        started = @clock.now
+        result = say("bin/qa-walkthrough #{name}") do
+          @shell.run("bin/qa-walkthrough", name, env: Step.env, chdir: @worktree, timeout: Step::TIMEOUT).then { |r| [ r, r.ok ? "passed" : "FAILED" ] }
+        end
+        { name: name, ok: result.ok, seconds: (@clock.now - started).round, output: result.out.lines.last(20).join }
+      end
     end
 
     # script/qa/<slug>-capture, for a client the walkthroughs cannot drive
@@ -1911,7 +2124,7 @@ module Autopilot
     # time in the log is the whole of it.
     def timed(issue, label)
       started = @clock.now
-      result = yield
+      result = say(label) { [ yield, "done" ] }
       @state.append(issue, "usage", { "step" => label, "kind" => "driver", "usd" => 0.0, "at" => started.iso8601,
                                       "seconds" => (@clock.now - started).round })
       result
@@ -2015,6 +2228,10 @@ module Autopilot
       text = Log.slice_section(before, issue: issue, title: @feature.title(issue), pr: merged["number"],
                                        sha: merged.dig("mergeCommit", "oid").to_s[0, 7], row: row)
       text = Log.pauses(Log.metrics(text, issue, usage), @state.get(issue, "pauses"))
+      @state.set(issue, "added", merged["additions"])
+      sha = merged.dig("mergeCommit", "oid")
+      diff = @shell.run("git", "diff", "--unified=0", "#{sha}^", sha, chdir: @worktree)
+      @state.set(issue, "sloc", Log.sloc(diff.out)) if diff.ok
       return if text == before
 
       File.write(path, text)
@@ -2132,10 +2349,13 @@ module Autopilot
       pauses = 0
       loop do
         started = @clock.now
-        outcome = @step.run(command, arg, resume: resume, note: note, settings_of: settings_of)
+        outcome = say("/#{command} #{arg}") do
+          @step.run(command, arg, resume: resume, note: note, settings_of: settings_of).then { |o| [ o, "#{o.kind}, #{Log.usd(o.usage_usd)}" ] }
+        end
         row = { "step" => "/#{command} #{arg}", "kind" => outcome.kind.to_s, "usd" => outcome.usage_usd,
                 "at" => started.iso8601, "seconds" => (@clock.now - started).round, "session" => outcome.session_id }
-        row.merge!({ "tokens" => outcome.tokens, "turns" => outcome.turns, "variant" => variant }.compact, outcome.metrics || {})
+        row.merge!({ "tokens" => outcome.tokens, "turns" => outcome.turns, "variant" => variant,
+                     "model" => outcome.model, "effort" => outcome.effort }.compact, outcome.metrics || {})
         # Why an attempt failed, for the developer reading the state after
         # a retry; an ok exit whose expectation failed is a failure too.
         unless %i[halt usage_limit].include?(outcome.kind)
@@ -2191,6 +2411,19 @@ module Autopilot
       stop(issue, gate, reason)
     end
 
+    # One line per step or wait: its name as it starts, then how it ended and
+    # its time. The block returns the value and the word for its ending.
+    def say(label)
+      return yield.first unless @out
+
+      started = @clock.now
+      @out.print("#{label} … ")
+      @out.flush
+      value, word = yield
+      @out.puts("#{word} (#{Log.duration(@clock.now - started)})")
+      value
+    end
+
     def halt_entry(issue, gate, reason)
       branch = git("branch", "--show-current")
       status = git("status", "--short")
@@ -2221,8 +2454,8 @@ module Autopilot
       groups = rows.group_by { |row| [ row["step"].split.first, row["variant"] && "(#{row["variant"]})" ].compact.join(" ") }.sort_by { |_, group| -sum(group, "usd") }
       lines = [ HEADER ] + groups.map { |step, group| line(step, group) } + [ line("total", rows) ]
       widths = HEADER.each_index.map { |i| lines.map { |cells| cells[i].length }.max }
-      lines.map { |cells| cells.each_with_index.map { |cell, i| i.zero? ? cell.ljust(widths[i]) : cell.rjust(widths[i]) }.join("  ").rstrip }
-           .join("\n")
+      table = lines.map { |cells| cells.each_with_index.map { |cell, i| i.zero? ? cell.ljust(widths[i]) : cell.rjust(widths[i]) }.join("  ").rstrip }
+      [ *table, "", *Log.summary_lines(@state.all("usage"), @state.all("added"), @state.all("sloc")) ].join("\n")
     end
 
     private
@@ -2252,20 +2485,14 @@ module Autopilot
 
     def sum(rows, key) = rows.sum { |row| row[key].to_f }
     def money(usd) = format("$%.2f", usd)
-
-    def count(n)
-      return n.to_s if n < 1_000
-      return format("%.1fk", n / 1e3) if n < 1_000_000
-
-      format("%.1fM", n / 1e6)
-    end
+    def count(n) = Log.count(n)
   end
 
   # The command line: setup, preflight, dry run, and one slice per run.
   # Exit status: 0 done (or nothing to do), 1 not ready to run, 2 halted or blocked.
   class CLI
     USAGE = "usage: bin/autopilot <slug> [--setup | --dry-run | --usage] [--resolver fresh|resume] [--cli claude] " \
-            "[--model NAME] [--effort LEVEL]"
+            "[--model NAME] [--effort LEVEL] [--verbose]"
     CLIS = %w[claude codex cursor].freeze
     # Why only Claude Code drives a step (docs/adr/0016-an-accepted-design-may-run-itself.md).
     # A wrong adapter would be worse than none: the guard is the wall, and it
@@ -2288,6 +2515,7 @@ module Autopilot
 
     def initialize(argv, shell: RetryingShell.new(Shell.new), out: $stdout, desktop: true, run_factory: nil)
       @argv = argv.dup
+      @given = argv.dup
       @shell = shell
       @out = out
       @desktop = desktop
@@ -2297,13 +2525,15 @@ module Autopilot
     def call
       mode = parse or return say(USAGE, 1)
       return say(format(NO_ADAPTER, cli: @cli), 1) unless @cli == "claude"
+
+      @shell.echo = @out if @verbose
       # Set in the driver's own environment, so every command it starts, each
       # step included, inherits it.
       ENV.update(preferences.env)
       return setup if mode == :setup
       return usage if mode == :usage
 
-      problems = preflight
+      problems = progress("preflight") { preflight.then { |found| [ found, found.empty? ? "ok" : "#{found.size} to fix" ] } }
       return say("Not ready to run:\n#{problems.map { |p| "  - #{p}" }.join("\n")}", 1) if problems.any?
 
       mode == :dry_run ? dry_run : run_once
@@ -2325,6 +2555,7 @@ module Autopilot
         o.on("--cli NAME", CLIS) { |v| @cli = v }
         o.on("--model NAME") { |v| @model = v }
         o.on("--effort LEVEL", Preferences::EFFORTS) { |v| @effort = v }
+        o.on("--verbose") { @verbose = true }
       end.parse!(@argv)
       @slug = @argv.shift
       @slug && @argv.empty? ? mode : nil
@@ -2345,9 +2576,13 @@ module Autopilot
     # What preflight verified, handed to every step (Step#step_rules).
     def activation = { branch: feature.branch, design_doc: feature.design_doc.delete_prefix("#{worktree}/"), log: feature.log_path }
 
-    # Beside the main checkout: the worktree is a fresh checkout, without the
-    # developer's ignored files.
-    def preferences = @preferences ||= Preferences.read(File.join(root, Preferences::PATH), model: @model, effort: @effort)
+    # The developer's beside the main checkout: the worktree is a fresh
+    # checkout, without their ignored files. The team's from the feature
+    # branch, once the worktree has it.
+    def preferences
+      @preferences ||= Preferences.read(File.join(root, Preferences::PATH), model: @model, effort: @effort,
+                                        team: File.join(Dir.exist?(worktree) ? worktree : root, Preferences::TEAM_PATH))
+    end
 
     # Reads only; safe while a run is going.
     def usage
@@ -2366,14 +2601,14 @@ module Autopilot
       # A branch rather than a detached HEAD, which FeatureBranch#reattach
       # would refuse on a worktree with no branch to go back to.
       unless Dir.exist?(worktree)
-        result = sh("git", "fetch", "origin", "feature/#{@slug}", chdir: root)
+        result = task("git", "fetch", "origin", "feature/#{@slug}", chdir: root)
         return say("git fetch origin feature/#{@slug} failed:\n#{result.out}", 1) unless result.ok
 
-        result = sh("git", "worktree", "add", "-B", own_branch, worktree, "origin/feature/#{@slug}", chdir: root)
+        result = task("git", "worktree", "add", "-B", own_branch, worktree, "origin/feature/#{@slug}", chdir: root)
         return say("git worktree add failed:\n#{result.out}", 1) unless result.ok
       end
       suffix = { "DB_SUFFIX" => Step::DB_SUFFIX }
-      result = sh("bundle", "install", env: suffix, chdir: worktree)
+      result = task("bundle", "install", env: suffix, chdir: worktree)
       return say("bundle install failed:\n#{result.out}", 1) unless result.ok
 
       # Opt-in: an app whose seeds cannot build a usable database (they need
@@ -2384,7 +2619,7 @@ module Autopilot
       # (db:version exits 0 on a missing database; a connection does not).
       if File.exist?(File.join(worktree, CLONE_TASK)) &&
          !sh("bin/rails", "runner", "ActiveRecord::Base.connection.verify!", env: suffix, chdir: worktree).ok
-        result = sh("bin/rails", "db:autopilot:clone", chdir: worktree)
+        result = task("bin/rails", "db:autopilot:clone", chdir: worktree)
         return say("bin/rails db:autopilot:clone failed:\n#{result.out}", 1) unless result.ok
       end
       [
@@ -2395,7 +2630,7 @@ module Autopilot
         [ %w[bin/rails db:test:prepare], suffix ],
         [ %w[bin/rails db:prepare], suffix ]
       ].each do |cmd, env|
-        result = sh(*cmd, env: env, chdir: worktree)
+        result = task(*cmd, env: env, chdir: worktree)
         return say("#{cmd.join(' ')} failed:\n#{result.out}", 1) unless result.ok
       end
       say("Ready: #{worktree}\nRun: bin/autopilot #{@slug}   (or --dry-run first)", 0).tap { enter_worktree }
@@ -2477,7 +2712,9 @@ module Autopilot
     def dry_run
       slice = feature.next_slice
       return say("No open slice left. A run would finish the feature: /update_docs on its Draft placeholders, " \
-                 "the log's Read this first, the capture hook, gh pr ready.\nDry run: nothing was started, posted or committed.", 0) unless slice
+                 "every walkthrough once, the log's QA, Read this first and summary, the capture hook, gh pr ready.\n" \
+                 "Dry run: nothing was started, posted or committed.", 0) unless slice
+      return say(dry_run_steps, 0) unless @verbose
 
       step = Step.new(shell: @shell, worktree: worktree, allowed_tools: Step.allowlist(File.join(worktree, ALLOWLIST)),
                       activation: activation, preferences: preferences)
@@ -2485,7 +2722,7 @@ module Autopilot
       say(<<~PLAN, 0)
         Preflight: ready. Worktree #{worktree}, feature PR ##{feature.pr['number']}.
         Next slice: #{Autopilot.ref(slice.issue)}#{slice.blocked ? ' (BLOCKED: a run stops here)' : ''}
-        Steps run on: #{preferences} (#{Preferences::PATH} beside your checkout, or --model / --effort).
+        Steps run on: #{preferences} (#{Preferences::TEAM_PATH}, then #{Preferences::PATH} beside your checkout, or --model / --effort).
         Steps, each a fresh process (skipped when its expectation already holds):
         #{plan.map { |line| "  #{line}" }.join("\n")}
           then /pr_review <PR> (new session), /pr_comment_resolver <PR> (#{resolver_session}),
@@ -2496,6 +2733,35 @@ module Autopilot
         Then the next slice, until none is left, and the feature PR is finished and readied.
         Dry run: nothing was started, posted or committed.
       PLAN
+    end
+
+    # The short dry run: each open slice in order, a line per step with what
+    # it runs on, then the command that starts the run, alone on its line so
+    # a paste cannot wrap it.
+    def dry_run_steps
+      resolver = @resolver == :resume ? "implement" : "pr_comment_resolver"
+      steps = [ [ "task_plan", "<id>" ], [ "implement", "<id>" ], [ "pr_submit", "<id>" ], [ "pr_review", "<PR>" ],
+                [ "pr_comment_resolver", "<PR>", resolver ] ]
+      slices = feature.run_order.map do |slice|
+        lines = steps.map do |command, arg, own|
+          shown = arg == "<id>" ? Autopilot.ref(slice.issue).delete_prefix("#") : arg
+          "  #{"/#{command} #{shown}".ljust(28)} #{ran_on(own || command)}"
+        end
+        [ "#{Autopilot.ref(slice.issue)}#{' (BLOCKED: a run stops here)' if slice.blocked}", *lines,
+          "  land: checks green, squash merge, sync, log, tick" ]
+      end
+      <<~PLAN
+        Preflight: ready. Worktree #{worktree}, feature PR ##{feature.pr['number']}.
+        Steps run on: #{preferences} (#{Preferences::TEAM_PATH}, then #{Preferences::PATH} beside your checkout, or --model / --effort).
+        #{slices.flatten.join("\n")}
+        finish: /update_docs on Draft placeholders, every walkthrough once, the log, gh pr ready
+        Dry run: nothing was started, posted or committed. --verbose shows the full commands.
+        bin/autopilot #{(@given - %w[--dry-run --verbose]).join(' ')}
+      PLAN
+    end
+
+    def ran_on(command)
+      "#{preferences.model(command) || 'default model'}, #{preferences.effort(command) || 'default effort'}"
     end
 
     # Slice after slice until none is left, then the finish. Each turn reads
@@ -2516,6 +2782,7 @@ module Autopilot
 
         warn_unwritten(resume.restore_state(@slice))
         server.start # only once there is something to run
+        @out.puts("#{Autopilot.ref(@slice.issue)}")
         run.slice(@slice.issue)
         landed = @slice.issue
       end
@@ -2599,13 +2866,32 @@ module Autopilot
       @run_factory.call(step: step, expect: Expect.new(shell: @shell, worktree: worktree, feature: feature),
                         notifier: notifier, state: State.new(state_path),
                         shell: @shell, worktree: worktree, feature: feature, resolver: @resolver || :fresh,
-                        branch: FeatureBranch.new(feature: feature, shell: @shell, worktree: worktree), server: server)
+                        branch: FeatureBranch.new(feature: feature, shell: @shell, worktree: worktree), server: server, out: @out)
     end
 
     def server = @server ||= Server.new(worktree: worktree, shell: @shell)
     def notifier = Notifier.new(shell: @shell, feature_pr: feature.pr.fetch("number"), desktop: @desktop)
 
     def sh(*cmd, env: {}, chdir: nil) = @shell.run(*cmd, env: env, chdir: chdir)
+
+    # A command that can take a while, said as it starts and as it ends.
+    def task(*cmd, env: {}, chdir: nil)
+      progress(cmd.take_while { |part| !part.start_with?("/") }.join(" ")) do
+        sh(*cmd, env: env, chdir: chdir).then { |result| [ result, result.ok ? "ok" : "failed" ] }
+      end
+    end
+
+    # Its label as it starts, then the block's word for how it ended and the
+    # time. --verbose ends the label's line, since the output follows it.
+    def progress(label)
+      started = Time.now
+      @verbose ? @out.puts("#{label} …") : @out.print("#{label} … ")
+      @out.flush
+      value, word = yield
+      seconds = (Time.now - started).round
+      @out.puts("#{word} (#{seconds < 60 ? "#{seconds}s" : Log.duration(seconds)})")
+      value
+    end
 
     def warn_unwritten(note) = note && @out.puts("Warning: #{note}")
 

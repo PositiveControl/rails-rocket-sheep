@@ -97,6 +97,8 @@ Per comment:
 3. **Make fix** — edit file, address comment
 4. **Verify fix** — no obvious breakage
 
+A comment that names a real production failure and is **not** fixed here (declined, or deferred to an issue) is an accepted risk: record it per `docs/risks/INDEX.md`, *Recording a risk*, in the same commit, and say so in the reply. **Autopilot:** list it under the slice's `#### Risks accepted` in the log as `/pr_submit` Step 3 does.
+
 Group related fixes into logical commits. After all fixes:
 
 ```bash

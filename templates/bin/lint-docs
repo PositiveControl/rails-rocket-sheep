@@ -537,6 +537,39 @@ host_scan.reject { |p| p.include?("/.git/") }.sort.each do |path|
   end
 end
 
+# --- 14. Accepted risks: every risk file listed once, with its status -------
+# docs/risks/INDEX.md is how a risk stays in sight, and it merges with git's
+# union driver so branches that each add a line do not conflict. A union merge
+# can leave a duplicate, or two lines for a file whose status one side changed;
+# and a risk file the index does not list is one nobody reads.
+RISKS_DIR = File.join(DOCS_ROOT, "docs/risks")
+RISKS_INDEX = File.join(RISKS_DIR, "INDEX.md")
+RISK_STATUSES = %w[open retired realized].freeze
+RISK_LINE = /\A- \[[^\]]+\]\(([^)\/]+\.md)\) — (\S+)\s*\z/
+
+if File.exist?(RISKS_INDEX)
+  lines = File.read(RISKS_INDEX)[/<!-- risks:start -->\n(.*?)<!-- risks:end -->/m, 1].to_s.lines.reject { |line| line.strip.empty? }
+  listed = lines.filter_map { |line| line.match(RISK_LINE) }
+  stray = lines.size - listed.size
+  findings << "#{rel(RISKS_INDEX)}: #{stray} line(s) in the list are not `- [<title>](<file>) — <status>`" if stray.positive?
+  listed.group_by { |m| m[1] }.each do |file, matches|
+    findings << "#{rel(RISKS_INDEX)}: lists #{file} #{matches.size} times" if matches.size > 1
+  end
+  files = Dir.glob(File.join(RISKS_DIR, "*.md")).map { |path| File.basename(path) } - [ "INDEX.md" ]
+  (files - listed.map { |m| m[1] }).sort.each { |file| findings << "#{rel(RISKS_INDEX)}: does not list #{file}" }
+  listed.uniq { |m| m.to_a }.each do |m|
+    path = File.join(RISKS_DIR, m[1])
+    next findings << "#{rel(RISKS_INDEX)}: lists #{m[1]}, which does not exist" unless File.exist?(path)
+
+    status = File.read(path)[/^\*\*Status:\*\* (\S+)/, 1]
+    if !RISK_STATUSES.include?(status)
+      findings << "#{rel(path)}: **Status:** #{status.inspect} is not one of #{RISK_STATUSES.join(', ')}"
+    elsif status != m[2]
+      findings << "#{rel(RISKS_INDEX)}: lists #{m[1]} as #{m[2]}, the file says #{status}"
+    end
+  end
+end
+
 # --- Report ------------------------------------------------------------------
 if findings.empty?
   puts "lint-docs: clean (#{rule_paths.size} rules, #{command_paths.size} commands)"

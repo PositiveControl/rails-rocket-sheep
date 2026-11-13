@@ -38,13 +38,14 @@ Create `docs/plans/YYYY-MM-DD-<slug>-design.md`. Its first line under the title 
 - **Constraints** — technical, product, and prior decisions
 - **Approach** — the chosen shape, at component level
 - **Rejected alternatives** — and why (stops re-litigation later)
+- **Risks** — ways the approach can fail in production that the design ships with anyway (`docs/risks/INDEX.md`, *What earns an entry*), and any open risk in `docs/risks/` whose **Area** the feature changes: whether it makes it worse, retires it, or leaves it. "None" is an answer, having looked
 - **Open questions** — anything unresolved (settle before issues, or mark explicitly deferred)
 - **Decomposition** — proposed vertical slices (model → service → UI → notifications → e2e → docs, as applicable)
 - **Docs impact** — which `docs/sop/` and `docs/system/` files will need creating or updating
 
 ### Step 4: GATE — design approval
 
-Present a short summary: problem, approach, slice list with size estimates, open questions. **Wait for explicit approval.** The design doc is a proposal; issues are commitment. Iterate until approved. On approval, change its status line to `**Status:** Approved at G1 (YYYY-MM-DD)`: Step 1 and Step 4b read it.
+Present a short summary: problem, approach, slice list with size estimates, open questions. **Wait for explicit approval.** The design doc is a proposal; issues are commitment. Iterate until approved. On approval, change its status line to `**Status:** Approved at G1 (YYYY-MM-DD)`: Step 1 and Step 4b read it. Each risk the approved design accepts is recorded now (`docs/risks/INDEX.md`, *Recording a risk*) and committed with the design doc.
 
 Open questions the user cannot answer off the top of their head, or an approach resting on assumptions nobody has tested → suggest `/grill "<the feature>"` before asking for approval again. Arriving at the gate with an empty frontier is the point; the approval is still theirs.
 

@@ -87,7 +87,9 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 8. **Your model and effort, optional, once per developer.** A step loads the
    repo's settings only, so your effort and attribution settings don't reach it.
    Its model is the one you last picked with `/model`, in any session, so
-   switching it during a run changes the run's model. To pin both, put
+   switching it during a run changes the run's model. The team's defaults, if it
+   has set any, are in the committed `.claude/autopilot.json` (`model`, `effort`,
+   `steps`; it ships empty). To pin your own over them, put
    `.claude/autopilot.local.json` in your main checkout (git-ignored; any checkout
    or worktree of the repo reads it from there):
 
@@ -106,9 +108,12 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    any command the driver runs as a step its own (`task_plan`, `implement`,
    `pr_review` and the rest; preflight lists them if a name is wrong), here the
    plan and the review on Opus and the rest on Sonnet. Each step is a new
-   session, so its model is set once, when it starts. Every key is optional; a missing one
-   is Claude Code's default. `--model` and `--effort` win over the whole file for
-   one run. The dry run prints the default and each command that differs from it.
+   session, so its model is set once, when it starts. Every key is optional; a
+   missing one is the team file's, then Claude Code's default. Yours wins over the
+   team's a key at a time, inside a command's entry too: your `effort` for
+   `task_plan` keeps the team's `model` for it. `--model` and `--effort` win over
+   both files for one run. The dry run prints the default and each command that
+   differs from it, and every step's model and effort.
    With `--resolver resume`, the resolver continues `implement`'s session, so it
    runs on `implement`'s model and effort; its own entry applies when it starts
    fresh.
@@ -120,9 +125,13 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 ## Start a run
 
 ```bash
-bin/autopilot <slug> --dry-run   # preflight, the next slice, the exact commands
+bin/autopilot <slug> --dry-run   # each open slice's steps in run order, then the command to start
 bin/autopilot <slug>
 ```
+
+Each prints a line per command or step as it starts and its time when it ends.
+Add `--verbose` to see every command's output as it runs, and the dry run's full
+commands.
 
 Run it from any checkout of the repo, the worktree setup opened included: the
 driver finds the main checkout and the worktree itself.
@@ -142,8 +151,10 @@ Preflight names every problem at once. Fix them and rerun:
 - no feature PR
 - `gh auth status` signed out, or, on the board tier, a token without the
   `project` scope (`gh auth refresh -h github.com -s project`)
-- a `.claude/autopilot.local.json` that is not JSON, has a key or a command it
-  does not take, or holds a model, effort or attribution a step cannot use
+- a `.claude/autopilot.local.json` or `.claude/autopilot.json` that is not
+  JSON, has a key or a command it does not take, or holds a model, effort or
+  attribution a step cannot use (the team's file takes `model`, `effort` and
+  `steps` only)
 - no `claude` on `PATH`
 - red `bin/gates`
 - the guard not wired in `.claude/settings.json`
@@ -203,7 +214,11 @@ night costs you the least.
 average minutes, and the cache **hit** (cache reads over all input tokens). A low
 hit on a step means it paid for a cold start. It only reads, so run it mid-run, after
 a run, or before and after changing a step to compare. Rows from before token
-capture count toward cost only.
+capture count toward cost only. It ends with the run's summary: usage and tokens
+in total and per 1,000 added lines and per 1,000 SLOC (added lines less blanks,
+comments and prose), time in steps, in waits and elapsed, and each
+model's usage, tokens and cost per million tokens. To compare two features'
+runs, or one feature on two models, compare these.
 
 ## Abort
 
@@ -282,11 +297,16 @@ The log is `docs/plans/<date>-<slug>-autopilot.md`, named in the design doc's
 - ***Read this first*** is what you are most likely to want undone, hardest to
   undo first:
   - `one-way` entries and filed issues
-  - `costly` entries
+  - `costly` entries, and every risk a slice accepted (each links its file in
+    `docs/risks/`)
   - then dropped review findings, HALTs and `opinion` entries
 
   Each line names its entry (`D<issue>-<n>`), which you can search for.
 - **`**Run:**`** is the span of the run and its total usage estimate.
+- ***QA — how to check the whole feature*** is your checklist: every
+  walkthrough the feature touched, in order, as the finish ran them together
+  (each slice ran only its own), then every slice's *Not checked by a human*
+  items in one list. A failed walkthrough is also in *Read this first*.
 - ***Policy accepted at G1*** is the policy this run answered under, whatever
   the system doc says today.
 - ***Slices***, one section per slice in merge order. Each has a header row
@@ -294,7 +314,8 @@ The log is `docs/plans/<date>-<slug>-autopilot.md`, named in the design doc's
   every decision the steps took, by gate id. Each entry gives the options, the
   choice and why, its trade-off, how reversible it is, and its evidence.
 - ***Halts and pauses*** has every stop and what answered it.
-- ***Metrics*** has one row per step: wall time, usage, retries, pauses. Rows
+- ***Metrics*** opens with the run's summary, then one row per step: wall time,
+  usage, retries, pauses, and the model and effort it ran on. Rows
   for the driver's own waits sit beside them: the CI wait before each merge, and
   `bin/test` after a conflict. A step with retries is one where its expectation
   failed once. Each attempt is in the worktree's `tmp/autopilot/<slug>.json`

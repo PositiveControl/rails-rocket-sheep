@@ -134,6 +134,11 @@ why the code is the way it is.
   *Slices*, creating that heading if it is missing, and commits them on the slice
   branch: in the commit of the work they explain, or in a commit of their own when
   there is no such work. They reach the feature branch when the slice merges.
+- A risk a step ships with is recorded in `docs/risks/` as on any branch
+  (`docs/risks/INDEX.md`), and listed under the slice's `#### Risks accepted`, so
+  *Read this first* puts it in front of the feature PR's reviewer. Under the
+  policy a step accepts a risk only where a command would have asked the
+  developer to: a plan's risks at `G2`, a declined comment at `comments`.
 - After the merge, the driver completes the slice's section on the feature branch:
   - the heading, with the PR and the merge SHA
   - the header row
@@ -141,8 +146,10 @@ why the code is the way it is.
 
   It also moves any `#### D<issue>-` entry that landed elsewhere in the file under
   the slice's *Decisions*. Every write here can run twice and change nothing.
-- At finalize, the driver regenerates *Read this first* and the `**Run:**` line,
-  and puts the capture hook's output under *QA*.
+- At finalize, the driver regenerates *Read this first*, the `**Run:**` line and
+  the summary that opens *Metrics*, and fills *QA*: the whole feature's
+  walkthroughs, run once in order, every slice's *Not checked by a human* items,
+  and the capture hook's output.
 
 **Entry shape.** Every decision is one entry, never batched:
 

@@ -31,6 +31,7 @@ Issue has a parent (or links a design doc)? Read the matching `docs/plans/*-desi
 2. Find relevant models, controllers, views, services, Stimulus controllers
 3. Read key files — understand current behavior
 4. Find existing tests for the affected area
+4b. Open accepted risks in the affected area: `grep -l` the files you will change (and their directories) across `docs/risks/*.md`, and read each `open` one whose **Area** matches
 5. Check for an existing `.llm/tasks/` file for this issue number (exists → consider `/implement $ARGUMENTS` instead)
 
 Be thorough — understanding current code is critical for a good plan. Use a dedicated search pass (a subagent, if your tool has them) or plain glob/grep/read. Blocked on a decision the issue doesn't answer? Suggest `/grill "<the decision>"` for something this session can settle with the user, or `/segue <question>` for something needing its own session.
@@ -58,7 +59,7 @@ Conventions live in `CLAUDE.md` — the task file references it, never copies ru
 4. **New tests**: coverage to add
 5. **Size forecast**: estimated added lines and files vs the 200–~3,000 / 50 target — over → propose a split now
 5b. **Walkthrough**: the steps the change adds to the QA walkthrough, or why it has nothing to show — the developer can strike it here
-6. **Risks/Questions**: anything needing clarification
+6. **Risks/Questions**: first the open accepted risks from Step 3 (each linked, and whether this change makes it worse, retires it, or leaves it), then any new risk this plan would ship with (`docs/risks/INDEX.md`, *What earns an entry*), then anything needing clarification. The risks the developer approves go in the task file's *Accepted risks*; `/pr_submit` records them
 7. **Flagged decisions**: architecture choices or new patterns (ALWAYS need user approval)
 
 **Wait for approval** — approve, adjust, or answer questions before proceeding. More than a couple of flagged decisions, or risks nobody can price → `/grill "<the issue title>"` and come back to this gate.
