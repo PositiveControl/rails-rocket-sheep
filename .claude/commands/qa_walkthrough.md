@@ -14,7 +14,8 @@ Write the reviewer walkthrough for a change: a script in `script/qa/` that build
 1. `gh issue view <n>`; if it has a parent, view the parent and its sub-issues too; read the design doc in `docs/plans/`.
 2. Read every `docs/system/` and `docs/sop/` file the change touched — they name the surfaces, the services and the selectors.
 3. Read `lib/qa_walkthrough.rb` (the two primitives: `step`, `spotlight`) and an existing `script/qa/*.rb` for the shape.
-4. **Extend or create?** A script already exists for the parent feature (`script/qa/<feature_slug>.rb`, named in the parent's design doc) → this issue's steps go into it, in the slice's place in the flow. No script → create one, named for the feature if there is a parent, else for this issue.
+4. **Extend or create?** A script already exists for the parent feature (`script/qa/<feature_slug>.rb`, named in the parent's design doc) and covers the same small feature this issue changes → this issue's steps go into it, in the slice's place in the flow. No script, or the existing one is about something else → create one, named for the feature if there is a parent, else for this issue.
+5. **Size: about 10 steps per new script.** A target, not a cap. Cut by **one small, testable feature** a reviewer can check in a sitting (an address form, a carrier pick), not by a whole workflow or a whole epic. An extension that would take a script well past 10 → start a sibling script for the new part instead. Existing long scripts are not split just because they are long.
 
 Two situations end here instead:
 
@@ -27,6 +28,7 @@ Two situations end here instead:
 
 Write or extend `script/qa/<slug>.rb`. Rules:
 
+- **About 10 steps** (Step 1.5). More is fine when the feature really needs them; past that, split.
 - **One `step` per surface the change touches**, in the order a reviewer would meet them. The caption states what the reviewer should see; `note:` says where the number comes from (service, constant, record).
 - **Build data with services and models, never by clicking.** The browser is for showing the result. Click only when the click IS the change (a toggle whose effect is the point).
 - **Anything unique is found-or-created** (`User.find_or_create_by!(email:)`), because the development database keeps every run's records. Wrap repeated setups in a lambda inside the block.

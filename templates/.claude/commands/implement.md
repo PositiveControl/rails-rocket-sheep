@@ -43,7 +43,7 @@ Work through Next Actions in order. Per logical unit:
 Rules in force:
 
 - **Conventions**: `docs/rules/` is the single source, routed by `docs/rules/INDEX.md` — do not restate rules in the task file
-- **Scope escape**: forecast passes ~1,500 added lines or 25 files, or new acceptance criteria surface → STOP. Split a sub-issue (`gh issue create`, link to parent), note it in the task file, land the current slice clean
+- **Scope escape**: forecast passes ~3,000 added lines or 50 files, or new acceptance criteria surface → STOP. Split a sub-issue (`gh issue create`, link to parent), note it in the task file, land the current slice clean
 - **Segue valve**: rabbit hole, plan contradiction, or theory-war debugging → suggest `/segue <question>` instead of burning the session
 - Remove all debugging code before finishing
 
@@ -99,6 +99,6 @@ Criteria remain → keep looping or report the blocker.
 - Task files: `.llm/tasks/<id>_<slug>.md`
 - Branch convention: `{{BRANCH_PREFIX}}/<id>/<slug>` — `<id>` is a number or `bd-<hash>`
 - Test runner: `bin/test` (specific file: `bin/test <path-to-test-file>`), system: `bin/rails test:system`
-- Sizing: PR target 200–1,500 added lines / ≤25 files
+- Sizing: PR target 200–~3,000 added lines / ≤50 files; no maximum for a feature branch's PR into `main`
 - Pre-PR review: `/pr_review --local <base>` in a new-context agent: one round for a slice, two at most into `main` (Step 5)
 - Autopilot: `docs/system/autopilot-steps.md` — activation check, policy by gate id (`split`, `fix-drop`, `pass-2`, `out-of-slice`, `issue`, `choice`, `halt` here), log entry shape, halt protocol

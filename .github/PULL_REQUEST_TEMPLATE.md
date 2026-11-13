@@ -42,4 +42,4 @@ CLOSING LINE — depends on your tracker tier (see WORKFLOW.md §2):
 - [ ] `bin/test` passes locally
 - [ ] `bin/rubocop` and `bin/brakeman` are clean
 - [ ] Docs updated, or no doc change needed — **no `Status: Draft` placeholder left behind** (a slice PR leaves the feature's placeholders for the feature PR)
-- [ ] Added lines are within the 200–1,500 target, or the split is explained above
+- [ ] Added lines are within the 200–~3,000 target (no maximum for a feature branch into `main`), or the split is explained above

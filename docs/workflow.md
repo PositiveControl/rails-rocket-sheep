@@ -88,20 +88,22 @@ The bound is what one review pass can hold with every changed file read in full,
 | Size | Added lines | Guidance |
 |---|---|---|
 | XS | <200 | Fine; consider batching with related work |
-| S | 200–600 | Ideal |
-| M | 600–1,000 | Healthy |
-| L | 1,000–1,500 | Upper bound; expect a third review pass |
-| XL | 1,500+ | Must split |
+| S | 200–1,000 | Ideal |
+| M | 1,000–2,000 | Healthy |
+| L | 2,000–3,000 | Upper bound; expect a third review pass |
+| XL | 3,000+ | Must split |
 
 An issue fits when its acceptance criteria fit in ≤5 testable bullets. More than that is an epic — decompose it.
 
-**Scope-escape rule:** if a forecast passes 1,500 added lines or 25 files mid-implementation, or new acceptance criteria appear, stop. Split a sub-issue and land the current slice clean. This is the rule that prevents the runaway PR.
+The bound is about 3,000, not a hard number, and governs slice PRs and single-slice PRs. A feature branch's PR into `main` has no maximum: it is the sum of slices each reviewed at the bound.
+
+**Scope-escape rule:** if a forecast passes ~3,000 added lines or 50 files mid-implementation, or new acceptance criteria appear, stop. Split a sub-issue and land the current slice clean. This is the rule that prevents the runaway PR.
 
 ---
 
 ## Feature branches
 
-A feature with more than one slice does not land on `main` one slice at a time. `/task_plan` for the first slice creates `feature/<slug>`, named after the design doc, and opens a draft PR from it to `main`. Every slice branches from that branch and its PR targets it. Each slice PR is reviewed by `/pr_review` run from a fresh session — a new context per pass, two passes at most, the second reviewing only the first's fixes — and you merge it there on that review rather than your own reading. The feature reaches `main` as one PR, reviewed by a human as a walk over the design doc's slice list and the slice reviews rather than as one enormous diff.
+A feature with more than one slice does not land on `main` one slice at a time. `/feature_plan` creates `feature/<slug>` at design approval, named after the design doc, commits the design doc on it, and opens a draft PR from it to `main`. Every slice branches from that branch and its PR targets it. Each slice PR is reviewed by `/pr_review` run from a fresh session — a new context per pass, two passes at most, the second reviewing only the first's fixes — and you merge it there on that review rather than your own reading. The feature reaches `main` as one PR, reviewed by a human as a walk over the design doc's slice list and the slice reviews rather than as one enormous diff.
 
 Two consequences are easy to miss. GitHub's `Closes #n` only fires on a merge to the default branch, so slice PRs carry no `Closes` line and the feature PR carries one per landed slice: Done still means *in `main`*, on every tier. And doc placeholders belong to the feature, so a slice completes what it can and the "no Draft left behind" rule is enforced on the feature PR.
 
