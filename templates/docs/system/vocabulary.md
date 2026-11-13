@@ -51,9 +51,10 @@ only findings come back. Its artifact is a **thread** file in `.llm/threads/`, a
 you discuss it, the thread is the file.
 
 **Sizing**
-The budget on one unit of work: 200 to 1,500 added lines and at most 25 files per
-PR, at most five acceptance criteria per issue. A forecast crossing 1,500 lines
-mid-implementation is a signal to stop, split, and land the current slice.
+The budget on one unit of work: 200 to about 3,000 added lines and at most 50 files
+per PR, at most five acceptance criteria per issue. A forecast crossing ~3,000 lines
+mid-implementation is a signal to stop, split, and land the current slice. A feature
+branch's PR into `main` has no line maximum.
 
 **Slice**
 One vertical cut of a feature, sized to one PR: one sub-issue, one branch, one

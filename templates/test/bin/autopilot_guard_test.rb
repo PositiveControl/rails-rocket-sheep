@@ -170,7 +170,11 @@ class AutopilotGuardTest < Minitest::Test
     "graphql branch moves" => [ %q(gh api graphql -f query='mutation { mergeBranch(input: {}) { clientMutationId } }'),
                                 %q(gh api graphql -f query='mutation { createCommitOnBranch(input: {}) { clientMutationId } }'),
                                 %q(gh api graphql -f query='mutation { updateRef(input: {refId: "x", oid: "y", force: true}) { clientMutationId } }') ],
-    "credentials" => [ "cat config/credentials/production.key", "rm -rf .github/workflows/ci.yml" ],
+    "credentials" => [ "cat config/credentials/production.key", "grep secret config/credentials.yml.enc", "rm -rf .github/workflows/ci.yml" ],
+    "workflow writes" => [ "sed -i 's/x/y/' .github/workflows/ci.yml", "grep node .github/workflows/ci.yml > tmp/ci.txt",
+                           "cat .github/workflows/ci.yml | tee .github/workflows/x.yml", "git log --output=x -- .github/workflows/",
+                           "cat $(echo .github/workflows/ci.yml)", "git grep -O vim node -- .github/workflows/",
+                           "grep -l node .github/workflows/*.yml | xargs rm", "git -c diff.external=x diff -- .github/workflows/" ],
     "wiring" => [ "sed -i '' 's/x/y/' .claude/settings.json", "rm bin/hooks/autopilot_guard", "echo Bash >> .claude/autopilot-allowed-tools.txt" ],
     "destructive migration" => [ "bin/rails g migration RemoveEmailFromPlayers email:string", "bin/rails generate migration drop_old_table",
                                  %q(ruby -e 'File.write("db/migrate/1_x.rb", "drop_table :x")') ]
@@ -188,6 +192,16 @@ class AutopilotGuardTest < Minitest::Test
     define_method("test_lets_#{rule.tr(' -', '__')}_through_without_autopilot") do
       commands.each { |command| assert_equal 0, guard(bash(command), autopilot: false).first, command }
     end
+  end
+
+  # A read of CI config is how a step learns how a suite runs. Only
+  # `.github/workflows/`: credentials stay denied, reads included.
+  def test_reads_of_workflows_pass
+    [
+      "grep -n 'mjs' bin/test .github/workflows/*.yml", "cat .github/workflows/ci.yml | head -40",
+      "git log --oneline -- .github/workflows/ci.yml", "cd /w && grep -rn node .github/workflows/ 2>/dev/null",
+      "ls .github/workflows/", "git show HEAD:.github/workflows/ci.yml | wc -l", "tail -n 20 .github/workflows/ci.yml 2>&1"
+    ].each { |command| assert_equal 0, guard(bash(command)).first, "denied: #{command}" }
   end
 
   def test_everyday_commands_pass

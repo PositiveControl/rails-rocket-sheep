@@ -143,9 +143,9 @@ Command-driven lifecycle. Full spec and diagrams in `WORKFLOW.md`.
 
 - `/pick` is the entry door for every session — it surfaces ready work and routes it
 - Four gates: design approved (G1), plan approved (G2), suite green (G3), comments resolved (G4)
-- Sizing: 200–1,500 added lines and ≤25 files per PR; issue acceptance criteria ≤5
-  bullets. Forecast passes 1,500 lines mid-implementation → stop, split, land the
-  current slice
+- Sizing: 200–~3,000 added lines and ≤50 files per PR (a feature branch's PR into
+  `main` has no maximum); issue acceptance criteria ≤5 bullets. Forecast passes
+  ~3,000 lines mid-implementation → stop, split, land the current slice
 - Multi-slice features land on `feature/<slug>`. A slice is reviewed by `/pr_review`
   run from a fresh session, two passes at most (the second only after pass 1
   found blockers or suggestions), and merged there on that review;

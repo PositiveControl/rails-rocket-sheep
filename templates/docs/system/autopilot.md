@@ -99,11 +99,14 @@ steps below, lands the slice, and moves on to the next. When none is left, it
 finishes the feature.
 
 ```
-bin/autopilot <slug> --setup     once: worktree, bundle, the _autopilot databases
+bin/autopilot <slug> --setup     once: worktree, bundle, the _autopilot databases, then a shell there
 bin/autopilot <slug> --dry-run   preflight, the next slice, the exact commands
 bin/autopilot <slug> --usage     cost and cache use per step, from the state file
 bin/autopilot <slug>             run it
 ```
+
+`--model NAME` and `--effort LEVEL` (with `--dry-run` or a run) set the steps'
+model and effort for that run, over `.claude/autopilot.local.json` (*A step*).
 
 Claude Code drives every step. `--cli codex` and `--cli cursor` exit 1 and name
 what an adapter would need: a non-interactive mode that denies unlisted tools, a
@@ -131,23 +134,67 @@ the developer's checkout and databases are never touched:
   (`config/database.yml`).
 - `bin/dev` runs on port 3100 (`QA_HOST`) for walkthroughs (`docs/system/qa_walkthrough.md`; an API-mode app has none, ADR 0009). It is started at the
   beginning of a run and stopped on every way out, and its pid is kept in the
-  worktree's `tmp/autopilot/`.
+  worktree's `tmp/autopilot/`. Its worker runs no recurring jobs
+  (`SOLID_QUEUE_SKIP_RECURRING=true`): a development schedule may call outside
+  services.
+- Setup's development database is seeded, or, when the app defines
+  `db:autopilot:clone` in `lib/tasks/autopilot.rake`, a copy of the developer's
+  (the run guide, *Set up the worktree*). Every command the driver runs
+  has `GIT_TERMINAL_PROMPT=0` and an ssh in batch mode (unless the developer set
+  their own: `GIT_SSH_COMMAND`, `GIT_SSH` or `core.sshCommand`): a prompt in the command's own process group stops it
+  instead of failing it, and setup once sat for minutes on a fetch.
 
 **A step** is `claude -p "/<command> <arg>"`, a fresh process each time:
 
 - `--permission-mode dontAsk --permission-prompts none`: nothing prompts, and
   anything unlisted is denied.
+- `--setting-sources project,local`, with `verbose` off (`--settings`). A step runs
+  on the repo's settings alone: a developer's user-level deny rules would refuse the
+  commits the policy makes (a first run halted on `git add`), and their hooks
+  and their `CLAUDE.md` stay out too. `verbose`, which `~/.claude.json` can also
+  hold, makes `--output-format json` print every message as a list instead of the
+  one result the driver reads. The model is the exception: without `--model`, a
+  step runs on whichever model the developer last picked with `/model`, in any
+  session.
+- The developer's own model, effort and attribution can be set instead:
+  `--model` and, in the `--settings` JSON, `effortLevel` and `attribution`, from
+  `.claude/autopilot.local.json` beside the main checkout (git-ignored; the
+  worktree is a fresh checkout without it): a default for every step, and a
+  command's own under `steps` (a resumed resolver keeps `implement`'s, the
+  session it continues). `--model` / `--effort` win over the file for one
+  run. Preflight refuses a file that is not JSON, has another key, names a
+  command the driver does not run, or holds a value a step cannot take (a model
+  that is not text, an effort other than low, medium, high, xhigh or max, an
+  attribution that is not an object, an `env` that is not names to text);
+  `--effort` takes the same five. The file's `env` goes into the driver's own
+  environment before setup or a run, so every command it starts inherits it. The
+  dry run prints what the steps will run on, and the names `env` adds.
 - `--allowedTools` from `.claude/autopilot-allowed-tools.txt`. A rule matches
   by prefix and a compound command needs every part listed, so a step passes
   values as arguments, never as a `VAR=` prefix (`bin/flay origin/<BASE>`).
 - `--append-system-prompt` with the driver's standing rules (`Step::STEP_RULES`):
   run everything in the foreground, since a `-p` session ends with its turn and a
-  background task's notification never arrives; read a denial as that
-  command's alone, splitting it into listed parts; and never read the guard's
-  wiring. The allowlist itself is appended to the rules, so no step has to look
+  background task's notification never arrives; treat a test run that hangs at
+  its timeout or fails on `Lock wait timeout exceeded` as the environment's fault,
+  ending the step rather than rerunning serially (the driver clears the run's
+  test-database connections before each slice, before the post-merge suite and
+  before a timed-out step's retry, with `psql` when `config/database.yml` names
+  `postgresql` and `mysql -uroot` otherwise: a killed run's workers can keep
+  their locks for days); read a denial as that command's alone, splitting it into listed parts;
+  and never read the guard's wiring. The allowlist itself is appended to the rules, so no step has to look
   it up (the guard denies naming those files, reads included).
-- `AUTOPILOT=1`, `DB_SUFFIX` and `QA_HOST` set.
-- A 90-minute timeout that kills the step's whole process group.
+- `AUTOPILOT=1`, `DB_SUFFIX` and `QA_HOST` set, with `QA_AUTO=1` and `QA_HEADLESS=1`
+  for unattended walkthroughs: a `VAR=` prefix is denied, and
+  the standing rules say the server is already up, since the steps of one run
+  each left their walkthrough unrun, believing no server could start. Background tasks off
+  (`CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`) and a 20-minute ceiling on a foreground
+  command (`BASH_MAX_TIMEOUT_MS`): a command that outruns its timeout stops and the
+  step sees it, instead of being moved to the background with `claude -p` waiting
+  on it (one step's last test run never came back, and the step hung).
+- A 90-minute timeout, and a 25-minute watchdog on the session's transcript
+  (`~/.claude/projects/<worktree>/<session>.jsonl`): no write for that long, or no
+  transcript at all, is a hung session. Either kills the step's whole process tree,
+  a backgrounded command that left the process group included.
 - A new session id for every step. The resolver starts from
   `tmp/autopilot/handoff-<issue>.md`, which the driver writes: the task file's path,
   `/implement`'s closing summary, earlier resolver passes' summaries, and how to see the
@@ -166,7 +213,7 @@ Its JSON result is one of:
 | `halt` | an `AUTOPILOT-HALT:` line in `result` | Stops at once; the step followed the protocol |
 | `usage_limit` | `is_error` and (HTTP 429, or limit wording), not `error_max_budget_usd` | Pauses until the stated reset (an epoch, or "resets 3pm"), or 30 min; reruns the same attempt; halts after 12 |
 | `error` | anything else, including output that isn't JSON | Treats it as a failed expectation |
-| `timeout` | 90 minutes | Treats it as a failed expectation |
+| `timeout` | 90 minutes, or 25 minutes without a transcript write | Checks the step's expectation: a step killed after finishing its work passes; otherwise a failed expectation |
 
 The subscription limit's response is not documented, so the detector is
 deliberately narrow. A wrong guess costs a halt, never an endless wait.
@@ -212,9 +259,26 @@ unattended, 13 seconds after the slice's PR merged.
 
    Any other red check first gets one rerun of its run's failed jobs (`gh run rerun
    --failed`, after the run finishes), so a flaky test does not stop the
-   feature; the driver notifies and logs a `CI rerun` row. A wrong base, a
-   moved head, or a check still red after that rerun is a `halt`. Checks
-   still running at 45 minutes stop the run.
+   feature; the driver notifies and logs a `CI rerun` row. A red `lint` or
+   `gates` skips the rerun and halts at once: they read only the
+   commit, so a rerun reds the same way. It watches the
+   rerun only once the run has left `completed`: until the new attempt
+   starts, the run still reads as the old attempt's red. The watch only
+   waits: the new attempt's jobs, every one `success` or `skipped`, are the
+   verdict, since gh 2.23.0's `run watch` exit is wrong both ways (a
+   green rerun has exited 1; an API error mid-watch exits 0). A wrong base, a
+   moved head, or a check still red after that rerun is a `halt`, unless the
+   feature's policy has a `ci-fix` row (`autopilot-steps.md`, *Policy*). Then,
+   once per slice, red after the rerun (or a red `lint` or
+   `gates`) runs a `/pr_fix_ci <PR>` step, expected to leave a pushed commit
+   past the red head and a clean tree. A self-review pass of that fix alone
+   follows, the resolver runs if the pass found blockers or suggestions, and
+   the gate checks again from the top on the new head. Red again is a `halt`,
+   and so is red on a rerun of the driver after the fix step has started.
+   A layout change can break a system test that a slice's own test run never
+   reaches, and only CI catches it. Checks
+   still running at 45 minutes, or a rerun not started within 2 minutes,
+   stop the run.
 2. **Merge.** `gh pr merge --squash --delete-branch --match-head-commit <head>`,
    with `--repo`, so gh leaves the worktree's branches alone.
 3. **Bring the feature branch up to date**, detached on `origin/feature/<slug>`
@@ -222,14 +286,24 @@ unattended, 13 seconds after the slice's PR merged.
    the developer's own checkout is no obstacle:
    - `origin/main` is merged in.
    - On a conflict, a `/resolve_conflicts feature/<slug>` step runs. It is
-     expected to finish the merge cleanly. Then the driver runs `bin/test` itself,
-     and red is a `halt`. A halt here leaves the merge commit unpushed; the HALT
-     entry's **Where** names its SHA.
+     expected to finish the merge cleanly. Then the driver stops the dev server
+     and runs `bin/test` itself with four workers (one per core can fill the box). A suite
+     whose database went away under it (the server killed for memory) is cut short
+     at the first such error and run once more; red after that is a `halt`
+     naming Minitest's summary and the first failing tests, or the database.
+     The merge commit stays unpushed, kept on the local branch
+     `autopilot/<slug>/sync`, with the suite's output in
+     `tmp/autopilot/suite-<n>.log`. Fix it there (commit on that branch from any
+     checkout) or leave it. The rerun fast-forwards to it instead of resolving
+     again, runs `bin/test` again, and deletes the branch once it is pushed. A
+     kept merge the feature branch has since moved past is ignored.
    - A clean merge is pushed without a local suite run. The feature PR's CI runs
      on it, and the developer reads that CI at the feature PR.
    - The slice is written into the log (*The autopilot log*, *Who writes what*).
 
-   One push carries both.
+   One push carries both. A run killed in the middle of this step leaves the
+   worktree detached. If the tree is clean, the rerun checks out the branch
+   that run left (`@{-1}`) and carries on; if the tree is dirty, it stops.
 4. **Tick** the slice in the feature PR's **Slices** list, naming its PR, and add
    `Closes #<n>` after the last one.
 
@@ -251,13 +325,25 @@ that is still open after it landed stops the run rather than looping on it.
 2. **The log.** *Read this first* is regenerated:
    - every `one-way` entry and every filed issue, first
    - then every `costly` entry
-   - then drops, HALTs and `opinion` entries, in log order
+   - then drops, HALTs and `opinion` entries, in log order. A drop here is a
+     bullet under `#### Dropped review findings`, or one that starts `Dropped`
+     (or `` `fix-drop` · Dropped ``) anywhere in a slice's section, where the
+     review passes write theirs. A slice's Dropped column counts them too, when
+     they outnumber `/implement`'s own count. A `` #### D<n>-<k> · `fix-drop` ``
+     entry is not counted: its **Chose** line records a fix as often as a drop,
+     so it shows only when it is `costly` or `one-way`.
 
    The `**Run:**` line gets the first step's start, the finish time and the
    total usage estimate.
 3. **Capture.** `script/qa/<slug>-capture` runs if it is executable, and its last
    lines go under *QA*. A failure there is recorded, not halted on.
 4. **Ready.** The push, then `gh pr ready`, then a notice naming the log.
+5. **Clean up.** The dev server stops, the `*_autopilot` databases are dropped
+   (`bin/rails runner` in the worktree) unless another `-autopilot-*` worktree
+   remains, since `DB_SUFFIX` is the same for every feature, then
+   `git worktree remove`, then `git branch -D autopilot/<slug>/worktree` (the
+   driver's own branch, never pushed). What it could not take down, it names in
+   the *Finished* line.
 
 The feature PR's merge into `main` stays the developer's.
 
@@ -336,8 +422,8 @@ it. Under it, it denies:
 | `gh issue close`, a `state=closed` field, the `closeIssue` and `deleteIssue` mutations. `bd close`, `bd delete`, `bd update --status` or `-s closed`, global flags first or not | Issues and beads close when the feature merges to `main` (`/pick` reconciles beads) |
 | `gh project delete`, `close`, `item-delete`, `item-archive`, `field-delete`, and their mutations (`deleteProjectV2Item`, `archiveProjectV2Item`, `deleteProjectV2Field`, `deleteProjectV2`) | A step moves a card on the board, nothing more |
 | `gh pr edit --base` or `-B`, a `base=` PATCH | A slice PR targets the feature branch |
-| Any edit under `config/credentials*` or `.github/workflows/`, and any command naming them | The halt list. Reads go through the Read tool; the settings' deny list covers the keys |
-| A migration that removes, drops or renames a column, table or reference: written by an edit, written by a command, or generated (`rails g migration Remove…`) | The halt list |
+| Any edit under `config/credentials*` or `.github/workflows/`. Any command naming `config/credentials*`, reads included. Any command naming `.github/workflows/` unless it only reads: every part is `cd`, `grep`, `cat`, `head`, `tail`, `ls`, `wc` or `git show\|log\|diff\|grep\|ls-files`, with no redirection into a file, `$(…)`, backticks, `tee`, `xargs`, `git -c`, or `--output`/`-O`/`--ext-diff`/`--textconv` | The halt list. CI config is how a step learns how a suite runs, so reading it is safe; credentials are secrets, so even a read is refused. The settings' deny list covers the keys |
+| A migration that removes, drops or renames a column, table or reference: written by an edit, written by a command, or generated (`rails g migration Remove…`) | The halt list, and no G1 exception lifts it: a slice plans `ignored_columns`, and a person runs the drop later |
 | Edits to the guard's own wiring (`.claude/settings*.json`, `bin/hooks/`, the allowlist, `bin/autopilot`), and any command naming them | A step that can unwire the guard, or the driver's merge check, has no guard |
 
 **It matches the whole command, never its prefix.** `ruby -e 'system("gh pr merge 70")'`

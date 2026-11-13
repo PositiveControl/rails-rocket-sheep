@@ -54,6 +54,9 @@ is the account to start from; a script that needs another finds-or-creates it.
 
 - **Data by service or model, never by clicking.** The browser is for showing. Clicking is
   reserved for when the click is the change being shown.
+- **About 10 steps per new script.** A target, not a cap: a feature that needs 12 takes 12.
+  Cut by one small, testable feature (an address form, a carrier pick), not by a whole
+  workflow, and when extending a script would take it well past 10, start a sibling instead.
 - **Spotlight by text**, not by utility classes. Text survives a restyle.
 - **No literal for anything a constant owns.** Read the constant into the caption; when product
   changes the number the walkthrough is still right.

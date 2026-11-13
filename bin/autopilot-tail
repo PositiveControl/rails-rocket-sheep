@@ -1,0 +1,196 @@
+#!/usr/bin/env ruby
+# Follows an autopilot run live: each step's Claude session as it starts, and
+# the subagents a step spawns, labelled by step.
+#
+# Usage: bin/autopilot-tail [slug] [--all]
+#   slug   the feature, as given to bin/autopilot; default: the run whose
+#          transcripts changed last
+#   --all  replay every session so far, not just the latest one's tail
+#
+# A step is `claude -p --output-format json`, which prints nothing until it
+# ends. Claude Code writes every session's transcript as it goes, as JSONL under
+# ~/.claude/projects/<the worktree's path, non-alphanumerics as "-">/, with
+# subagents under <session>/subagents/. This polls that directory once a second
+# and prints new lines from every file, so a new step or subagent shows up on
+# its own.
+require "json"
+require "time"
+
+module AutopilotTail
+  PROJECTS = File.expand_path("~/.claude/projects")
+  WIDTH = 160
+  COLORS = [ 36, 33, 35, 32, 34, 31 ].freeze
+
+  def self.project_dir(slug)
+    pattern = slug ? "*-autopilot-#{slug.gsub(/[^A-Za-z0-9]/, '-')}" : "*-autopilot-*"
+    Dir.glob(File.join(PROJECTS, pattern)).max_by { |dir| File.mtime(dir) }
+  end
+
+  # The step a session runs, from its first prompt: "/pr_submit 48".
+  def self.command(text)
+    name = text[%r{<command-name>(/[^<]+)</command-name>}, 1] or return
+    [ name, text[%r{<command-args>([^<]*)</command-args>}, 1] ].compact.join(" ").strip
+  end
+
+  # What a tool call is about, in one line.
+  def self.summary(input)
+    value = input.values_at("command", "file_path", "pattern", "description", "prompt", "url").compact.first
+    clip((value || input.to_json).to_s.lines.first.to_s)
+  end
+
+  def self.clip(text) = text.strip.length > WIDTH ? "#{text.strip[0, WIDTH - 1]}…" : text.strip
+
+  def self.result_text(content)
+    content.is_a?(Array) ? content.filter_map { |block| block["text"] }.join("\n") : content.to_s
+  end
+
+  # The lines one transcript event prints: [kind, text] pairs, [] for events
+  # with nothing to show (thinking, bookkeeping, attachments).
+  def self.render(event)
+    content = event.dig("message", "content")
+    case event["type"]
+    when "user"
+      return [ [ :step, command(content) || "▶ #{clip(content.lines.first.to_s)}" ] ] if content.is_a?(String)
+
+      Array(content).filter_map do |block|
+        case block["type"]
+        when "text" then [ :prompt, "▶ #{clip(block['text'].lines.first.to_s)}" ]
+        when "tool_result"
+          text = result_text(block["content"]).lines.reject { |line| line.strip.empty? }
+          next if text.empty? && !block["is_error"]
+
+          [ block["is_error"] ? :error : :result, "#{block['is_error'] ? '✗' : '←'} #{clip(text.first.to_s)}" ]
+        end
+      end
+    when "assistant"
+      Array(content).filter_map do |block|
+        case block["type"]
+        when "text" then [ :text, block["text"].strip ] unless block["text"].strip.empty?
+        when "tool_use" then [ :tool, "→ #{block['name']}: #{summary(block['input'] || {})}" ]
+        end
+      end
+    else
+      []
+    end
+  end
+
+  class Follower
+    def initialize(dir, replay_all:, out: $stdout)
+      @dir = dir
+      @out = out
+      @color = out.tty?
+      @offsets = {}
+      @partial = Hash.new { |hash, key| hash[key] = +"" }
+      @labels = {}
+      prime(replay_all)
+    end
+
+    def run
+      loop do
+        poll
+        sleep 1
+      end
+    end
+
+    def poll
+      files.each do |file|
+        size = File.size(file)
+        offset = @offsets.fetch(file) { announce(file) }
+        next if size <= offset
+
+        chunk = File.open(file) { |io| io.seek(offset) && io.read(size - offset) }
+        @offsets[file] = size
+        emit(file, chunk)
+      end
+    end
+
+    private
+
+    def files = Dir.glob(File.join(@dir, "**", "*.jsonl")).sort_by { |file| File.mtime(file) }
+
+    # Everything so far is skipped, except the latest session's last events,
+    # so the screen starts where the run is. --all replays it all instead.
+    def prime(replay_all)
+      return if replay_all
+
+      latest = files.reject { |file| file.include?("/subagents/") }.last
+      files.each do |file|
+        @offsets[file] = File.size(file)
+        File.foreach(file).first(50).each { |line| label(file, JSON.parse(line)) rescue nil } unless subagent?(file)
+      end
+      return unless latest
+
+      lines = File.readlines(latest).last(40)
+      emit(latest, lines.join)
+    end
+
+    def announce(file)
+      @out.puts(paint(file, "━━ #{subagent?(file) ? 'subagent' : 'new session'} #{session(file)} ━━"))
+      0
+    end
+
+    def emit(file, chunk)
+      buffer = @partial[file] << chunk
+      *complete, rest = buffer.split("\n", -1)
+      @partial[file] = rest.to_s
+      complete.each do |line|
+        event = JSON.parse(line)
+        label(file, event)
+        AutopilotTail.render(event).each { |kind, text| print_lines(file, event, kind, text) }
+      rescue JSON::ParserError
+        next
+      end
+    end
+
+    def label(file, event)
+      key = session(file)
+      return if @labels[key]
+
+      text = event.dig("message", "content")
+      step = text.is_a?(String) && AutopilotTail.command(text)
+      return unless step
+
+      @labels[key] = step
+      @out.puts(paint(file, "━━ step #{step} (session #{key[0, 8]}) ━━"))
+    end
+
+    def print_lines(file, event, kind, text)
+      return if kind == :step
+
+      time = event["timestamp"] ? Time.parse(event["timestamp"]).localtime.strftime("%H:%M:%S") : "--:--:--"
+      tag = "#{time} #{@labels[session(file)] || session(file)[0, 8]}#{' ›agent' if subagent?(file)}"
+      text.lines.each_with_index do |line, i|
+        @out.puts("#{paint(file, i.zero? ? tag : ' ' * tag.length)} #{style(kind, line.chomp)}")
+      end
+    end
+
+    # The step's session id: a subagent's file sits under its parent's.
+    def session(file) = subagent?(file) ? File.basename(File.dirname(file, 2)) : File.basename(file, ".jsonl")
+
+    def subagent?(file) = file.include?("/subagents/")
+
+    def paint(file, text)
+      return text unless @color
+
+      "\e[#{COLORS[session(file).sum % COLORS.size]}m#{text}\e[0m"
+    end
+
+    def style(kind, text)
+      return text unless @color
+
+      code = { tool: 1, result: 2, error: 31, prompt: 3 }[kind]
+      code ? "\e[#{code}m#{text}\e[0m" : text
+    end
+  end
+end
+
+if $PROGRAM_NAME == __FILE__
+  args = ARGV.reject { |arg| arg.start_with?("--") }
+  dir = AutopilotTail.project_dir(args.first)
+  abort "bin/autopilot-tail: no autopilot transcripts under #{AutopilotTail::PROJECTS}#{" for #{args.first}" if args.first}" unless dir
+
+  $stdout.sync = true
+  warn "Following #{dir} (Ctrl-C to stop)"
+  trap("INT") { exit 0 }
+  AutopilotTail::Follower.new(dir, replay_all: ARGV.include?("--all")).run
+end

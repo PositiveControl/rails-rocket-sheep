@@ -132,7 +132,7 @@ job, and that finding never comes out of reading the diff alone.
    met.
 4. Then the other direction: work in the diff that no criterion asked for. Small
    and adjacent is fine — say so and move on. A second feature riding along is a
-   **suggestion to split**, and past the 1,500-added-line guidance in `WORKFLOW.md`
+   **suggestion to split**, and at the XL size in `WORKFLOW.md`'s *Sizing* table
    it is blocking.
 5. A design doc whose rejected alternatives are being re-litigated in this diff is
    a blocking finding. The decision was made; reopening it belongs in a comment

@@ -150,7 +150,7 @@ One token per row, name and value each in backticks, `n/a` for a board token the
 
 The section must include:
 - Chain: `/pick` (entry) → `/feature_plan` → `/task_plan` → `/implement` → `/pr_submit` → human merge + automation
-- Sizing: PR target 200–1,500 added lines / ≤25 files; issue acceptance criteria ≤5 bullets; scope-escape rule
+- Sizing: PR target 200–~3,000 added lines / ≤50 files, no maximum for a feature branch's PR into `main`; issue acceptance criteria ≤5 bullets; scope-escape rule
 - Docs: `docs/rules` (conventions, one per file + `INDEX.md`) + canon (`docs/plans`, `docs/adr`, `docs/system`, `docs/sop`, `docs/qa`)
 - Single-source rule: conventions live in `docs/rules/`, one per file; CLAUDE.md and task files reference them rather than restating
 

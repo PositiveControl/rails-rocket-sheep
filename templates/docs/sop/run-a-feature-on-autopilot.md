@@ -11,13 +11,14 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 1. **Consent.** The feature's design doc has `**Autopilot:** on — log: <path>`,
    and the log exists with *Policy accepted at G1*. `/feature_plan` writes both
    when you say yes at G1. For a design already past G1, ask `/feature_plan` for a
-   **G1 amendment**. Either way the line has to reach `main` (fresh G1: a
-   small PR with the design doc and log, merged before the first slice is
-   planned) or `feature/<slug>` (amendment: `/feature_plan` commits and pushes it
-   there) before a run.
-2. **The feature branch and its draft PR exist.** `/task_plan` makes them for the
-   first slice. If no slice has been planned yet, plan the first one by hand, or
-   create the branch and draft PR as `/task_plan` Step 6 does.
+   **G1 amendment**. Either way the line lands on `feature/<slug>`: a fresh G1
+   commits the design doc and log there in `/feature_plan` Step 7, and an
+   amendment commits and pushes the line there. Nothing has to reach `main`
+   before a run; the driver reads consent in its worktree on that branch.
+2. **The feature branch and its draft PR exist.** `/feature_plan` Step 7 makes
+   them at G1. For a feature approved before that step existed, `/task_plan`
+   makes them for the first slice, or create the branch and draft PR by hand as
+   its Step 6 fallback does.
 3. **The guard is wired.** `.claude/settings.json` has
    `bin/hooks/autopilot_guard` under `PreToolUse`. A generated app has it, and
    preflight refuses to start a run without it. An app that adopted the template
@@ -55,13 +56,66 @@ driver does and why: `docs/system/autopilot.md`. The decision:
    bin/autopilot <slug> --setup
    ```
 
-   This makes `../<repo>-autopilot-<slug>` on `feature/<slug>`, runs
+   This makes `../<repo>-autopilot-<slug>` on `autopilot/<slug>/worktree`, a branch of the
+   driver's own cut from `origin/feature/<slug>` and never pushed, runs
    `bundle install`, and prepares `*_autopilot` databases: development with its
    seeds (walkthroughs sign in as the seeded accounts), test with the schema only.
-   Run it again any time; it only does what is missing.
+   The run's server starts with `SOLID_QUEUE_SKIP_RECURRING=true`, so a
+   development schedule that calls outside services never runs. A fetch that
+   fails stops setup, and git and ssh never wait on the terminal for a login:
+   they fail instead. If you set your own ssh for git (`GIT_SSH_COMMAND`,
+   `GIT_SSH` or `core.sshCommand`), the driver leaves it as it is, and it may
+   still ask. Run it again any time; it only does what is missing. From a terminal it ends by opening a shell in
+   the worktree; `exit` returns you to the old one.
 
-   If `git worktree add` fails with *already checked out*, another worktree has
-   `feature/<slug>` checked out. Switch that one to another branch first.
+   `feature/<slug>` can stay checked out wherever you have it: the driver never
+   checks out the local branch, and changes the feature branch only detached on
+   its remote copy. The finish deletes `autopilot/<slug>/worktree` with the worktree.
+
+   **Seeds that cannot build a usable database** (they need data git does not
+   carry) can be replaced by a copy of yours: define a `db:autopilot:clone` task
+   in `lib/tasks/autopilot.rake` that copies your development database into
+   `<name>_development_autopilot` and empties its job queue (in development the
+   queue lives in the same database, so your pending and failed jobs would come
+   with it). When that file exists and the run's development database does not,
+   `--setup` runs the task, without `DB_SUFFIX`, before `db:prepare`, which then
+   only migrates it. Run the task yourself to refresh the copy. If setup then
+   leaves `db/schema.rb` modified in the worktree, your database's schema
+   differs from `main`'s (tables from branches whose migrations you ran); run
+   `git checkout -- db/schema.rb` in the worktree, since preflight refuses a
+   dirty tree.
+8. **Your model and effort, optional, once per developer.** A step loads the
+   repo's settings only, so your effort and attribution settings don't reach it.
+   Its model is the one you last picked with `/model`, in any session, so
+   switching it during a run changes the run's model. To pin both, put
+   `.claude/autopilot.local.json` in your main checkout (git-ignored; any checkout
+   or worktree of the repo reads it from there):
+
+   ```json
+   {
+     "model": "sonnet",
+     "effort": "medium",
+     "steps": {
+       "task_plan": { "model": "opus", "effort": "high" },
+       "pr_review": { "model": "opus", "effort": "high" }
+     }
+   }
+   ```
+
+   The top-level `model` and `effort` are every step's default; `steps` gives
+   any command the driver runs as a step its own (`task_plan`, `implement`,
+   `pr_review` and the rest; preflight lists them if a name is wrong), here the
+   plan and the review on Opus and the rest on Sonnet. Each step is a new
+   session, so its model is set once, when it starts. Every key is optional; a missing one
+   is Claude Code's default. `--model` and `--effort` win over the whole file for
+   one run. The dry run prints the default and each command that differs from it.
+   With `--resolver resume`, the resolver continues `implement`'s session, so it
+   runs on `implement`'s model and effort; its own entry applies when it starts
+   fresh.
+   The attribution setting covers what Claude Code adds itself; the footer
+   `/pr_submit`'s PR template writes stays.
+   An optional `env` holds environment variables (names to text) the driver sets
+   for every command it runs, its own and every step's, from setup on.
 
 ## Start a run
 
@@ -69,6 +123,11 @@ driver does and why: `docs/system/autopilot.md`. The decision:
 bin/autopilot <slug> --dry-run   # preflight, the next slice, the exact commands
 bin/autopilot <slug>
 ```
+
+Run it from any checkout of the repo, the worktree setup opened included: the
+driver finds the main checkout and the worktree itself.
+
+To choose the model and effort the steps run on, see step 8 of *Before the first run*.
 
 `/pr_comment_resolver` runs in a new session that starts from a handoff file the
 driver writes (`tmp/autopilot/handoff-<issue>.md`). `--resolver resume` (with either
@@ -79,9 +138,12 @@ halts as well as cost: a cheaper resolver that misses fixes is not cheaper.
 
 Preflight names every problem at once. Fix them and rerun:
 - missing consent or log
-- a dirty tree in the worktree
+- a dirty tree in the worktree, unless it is on the next slice's branch
 - no feature PR
-- `gh auth status` signed out
+- `gh auth status` signed out, or, on the board tier, a token without the
+  `project` scope (`gh auth refresh -h github.com -s project`)
+- a `.claude/autopilot.local.json` that is not JSON, has a key or a command it
+  does not take, or holds a model, effort or attribution a step cannot use
 - no `claude` on `PATH`
 - red `bin/gates`
 - the guard not wired in `.claude/settings.json`
@@ -89,12 +151,18 @@ Preflight names every problem at once. Fix them and rerun:
 A run goes until the feature is finished, or until something needs you. For each
 slice it plans, implements, submits, reviews and lands it into `feature/<slug>`,
 then picks the next. It starts `bin/dev` on port 3100 for walkthroughs (web mode) and stops
-it when it ends.
+it when it ends. Each step is told the server is up, with `QA_AUTO` and `QA_HEADLESS`
+set, so a step runs its walkthrough instead of leaving it for you.
 
 Leave the Mac awake for a long run: `caffeinate -i bin/autopilot <slug>`.
 
 ## Watch it
 
+- **`bin/autopilot-tail [slug]`** follows the run live: each step's
+  session as it starts, and its subagents, one line per tool call, result and
+  message, labelled by step (`/implement 48`). A step prints nothing to the
+  driver until it ends; this reads the transcripts Claude Code writes as it goes.
+  `--all` replays the run so far.
 - **The feature PR** gets a comment at every halt, pause, landed slice and the
   finish, plus a macOS notification. Its **Slices** list ticks as slices land.
 - **The slice PR** carries the self-review passes as `Self-review pass <N>`
@@ -151,9 +219,11 @@ It labels nothing and posts nothing.
 What is left behind:
 - **The slice's state** is as the step left it: usually In Progress, or Up for
   Review once its PR is open.
-- **The worktree** may hold the step's uncommitted work. The next run's preflight
-  refuses a dirty tree. Look at it with `git -C ../<repo>-autopilot-<slug> status`.
-  Then commit it if it is sound, or `git stash` it if not.
+- **The worktree** may hold the step's uncommitted work. On the next slice's
+  branch, the next run keeps it: `/implement` starts from `git status` and
+  carries on from there. Don't want it? Discard it with
+  `git -C ../<repo>-autopilot-<slug> checkout -- .` before you rerun. A dirty
+  tree on any other branch is refused.
 - **The state file** has no row for the step you stopped. Its usage is not
   counted in the log's metrics.
 
@@ -162,8 +232,9 @@ Then pick one:
   skipped, and the step you stopped runs again from a new session.
 - **Stop for good:** for each open slice, close its slice PR and put the slice
   back to Todo. Remove the worktree (`git worktree remove
-  ../<repo>-autopilot-<slug>`) and drop the `*_autopilot` databases if you want
-  the space. The feature PR, the merged slices and the log stay. The feature
+  ../<repo>-autopilot-<slug>`) and its branch (`git branch -D
+  autopilot/<slug>/worktree`, never pushed), and drop the `*_autopilot`
+  databases if you want the space. The feature PR, the merged slices and the log stay. The feature
   goes on by hand from there, with the log as its record.
 
 Don't stop a run by killing `claude` processes one at a time. The driver reads
@@ -178,6 +249,11 @@ The run exits `0` with *Finished: feature PR #<n> is ready for review*. By then:
 - the feature's Draft placeholders are completed or deleted
 - the log is finished
 - the feature PR is out of draft
+- the worktree is removed (`git worktree remove`; one git refuses, with
+  modified or untracked files, is left and named), and the `*_autopilot`
+  databases are dropped unless another `../<repo>-autopilot-*` worktree still
+  uses them: every feature shares them. The next feature's setup
+  prepares them again.
 
 Nothing has gone to `main`. That merge is yours.
 
@@ -192,7 +268,8 @@ Nothing has gone to `main`. That merge is yours.
 5. Merge to `main` when you are satisfied, or comment, fix, and land the fixes
    as you would any feature branch.
 
-Rerunning a finished feature does nothing: it says so and exits `0`. The driver
+Rerunning a finished feature does nothing: with its worktree gone, preflight
+says to run `--setup`, and after that the run says it is finished and exits `0`. The driver
 reads "finished" from the feature PR being out of draft, so don't mark it ready
 by hand while a run still has work to do. If you did, put it back with
 `gh pr ready --undo <n>` and rerun.

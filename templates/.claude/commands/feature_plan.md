@@ -61,13 +61,13 @@ On **yes**, show the policy's defaults and the halt list, and ask for changes: a
 After approval:
 
 1. Single-slice feature → one issue, no parent, PR straight to `main`
-2. Multi-slice → parent issue + one sub-issue per slice, landing on a **feature branch** `feature/<slug>` (the design doc's slug). Write `**Feature branch:** feature/<slug>` at the top of the design doc and `Feature branch: feature/<slug>` in every sub-issue body — `/task_plan` reads it there and creates the branch when it plans the first slice. Spec: `WORKFLOW.md`, *Feature branches*.
+2. Multi-slice → parent issue + one sub-issue per slice, landing on a **feature branch** `feature/<slug>` (the design doc's slug). Write `**Feature branch:** feature/<slug>` at the top of the design doc and `Feature branch: feature/<slug>` in every sub-issue body — `/task_plan` reads it there as the slice's base. Step 7 creates the branch. Spec: `WORKFLOW.md`, *Feature branches*.
 
 Each sub-issue must have:
 - Goal (1-2 sentences) + link to the design doc
 - The feature branch line, when multi-slice
 - Acceptance criteria — **≤5 testable bullets** (more → split the slice)
-- Size forecast targeting **200–1,500 added lines** per PR
+- Size forecast targeting **200–~3,000 added lines** per slice PR (the feature branch's PR into `main` has no maximum)
 - Dependencies on sibling slices noted in the body
 
 Tier `{{TRACKER}}`. Follow only the matching branch.
@@ -120,7 +120,35 @@ Per the design doc's **Docs impact** section, create placeholder files in `docs/
 2. Create that file from the template in `docs/system/autopilot.md` (*The autopilot log template*): the header, and *Policy accepted at G1*. Copy the whole policy table and halt list from `docs/system/autopilot-steps.md` (*Policy*) into it, apply the developer's changes from Step 4b in place, and list those changes (or "none"). The copy is this feature's policy from now on; later edits to the system doc do not reach it.
 3. Index it in `.llm/README.md` beside the design doc.
 
-It ships in the same commit as the design doc, and has to reach `main` before the first slice is planned: the feature branch is cut from `main`, and the activation check reads the design doc on the feature branch the slice is cut from. Getting it there is yours: open a small PR with just the design doc, the log and the index line, and merge it (or push straight to `main` if branch protection allows). Until it lands, the first `/task_plan` cuts a feature branch whose design doc says nothing about autopilot, and the run will not start. The run starts with `bin/autopilot <slug>`, not `/pick`.
+It ships in the same commit as the design doc, on the feature branch (Step 7). The activation check reads the design doc in the checkout the slice is cut from, and the driver reads it in its worktree, cut from `origin/feature/<slug>`, so nothing has to reach `main` first. The run starts with `bin/autopilot <slug>`, not `/pick`.
+
+### Step 7: Cut the feature branch and open the feature PR — multi-slice features only
+
+A single-slice feature has no branch to cut: commit the design doc on a branch of its own and open an ordinary PR to `main`. For a multi-slice feature, the design doc, the placeholders, the index line and (on a yes at Step 4b) the autopilot log land on the feature branch, which this step creates so that `/task_plan` and `bin/autopilot` both find it. The working tree must be clean apart from the files this command wrote; anything else is the developer's to stash or commit first.
+
+```bash
+git fetch origin main && git push origin origin/main:refs/heads/feature/<slug>
+git checkout -b feature/<slug> origin/feature/<slug>
+git add docs/plans/<design doc> docs/plans/<autopilot log, if any> <placeholders> .llm/README.md
+git commit -m "Design doc for <PARENT>: <feature title>"
+git push -u origin feature/<slug>
+gh pr create --draft --base main --head feature/<slug> --title "{{PR_TITLE_PREFIX}} | <PARENT> | <feature title>" --body-file tmp/feature-pr-body-<slug>.md
+```
+
+`tmp/feature-pr-body-<slug>.md`, written with the Write tool first:
+
+```markdown
+## Feature
+<one line, and a link to docs/plans/<design doc> on the feature branch>
+
+## Slices
+- [ ] #<sub-issue> — <slice title>
+- [ ] …
+
+Closes #<PARENT>
+```
+
+`<PARENT>` and the `Closes` line follow the tracker tier as in `/task_plan` Step 6. Slice PRs never carry `Closes`; this body collects one per landed slice (`WORKFLOW.md`, *Feature branches*). `/task_plan` Step 6 finds the branch on the remote and skips its own creation; `bin/autopilot <slug> --setup` fetches it. Check `main` out again when done.
 
 ### Next step
 
@@ -128,13 +156,13 @@ It ships in the same commit as the design doc, and has to reach `main` before th
 Ready to start? Run: /pick   (or /task_plan <first-sub-issue>)
 ```
 
-On autopilot: `Ready to run. Start: bin/autopilot <slug>` (setup and resume: `docs/sop/run-a-feature-on-autopilot.md`).
+On autopilot: `Ready to run. Start: bin/autopilot <slug> --setup, then bin/autopilot <slug>` (setup and resume: `docs/sop/run-a-feature-on-autopilot.md`).
 
 ## Reference
 - Repo: {{GITHUB_ORG}}/{{GITHUB_REPO}}
 - Project: #{{PROJECT_NUMBER}} "{{PROJECT_NAME}}" (owner: {{GITHUB_ORG}}), Project ID: {{PROJECT_ID}}
 - Status field ID: {{STATUS_FIELD_ID}}; Todo option: {{STATUS_TODO}}
 - Design docs: `docs/plans/YYYY-MM-DD-<slug>-design.md`
-- Sizing: PR 200–1,500 added lines / ≤25 files; acceptance criteria ≤5 bullets per issue
+- Sizing: PR 200–~3,000 added lines / ≤50 files, no maximum for the feature branch's PR into `main`; acceptance criteria ≤5 bullets per issue
 - Issue node IDs: `gh issue view <n> --json id --jq .id`
 - Autopilot: `docs/system/autopilot-steps.md` — activation, policy; `docs/system/autopilot.md` — log template. Asked at Step 4b, multi-slice only, default no

@@ -61,7 +61,7 @@ flowchart TB
   PK -. "In Progress: resume" .-> IM
   TP -. blocked on a decision .-> SG1 -. findings merge .-> TP
   IM -. rabbit hole .-> SG2 -. findings merge .-> IM
-  IM -. "scope escape: forecast &gt;1,500 lines" .-> FP
+  IM -. "scope escape: forecast &gt;~3,000 lines" .-> FP
   FP -. "assumption unsettled" .-> GR -. "decisions settled" .-> FP
   TP -. "assumption unsettled" .-> GR
   IM -. "bug with no failing test" .-> DG -. "cause found" .-> IM
@@ -310,19 +310,21 @@ The bound is what one review pass can hold in context with every changed file re
 | Size | Added lines | Guidance |
 |---|---|---|
 | XS | <200 | Fine as-is; consider batching with related work |
-| S | 200–600 | Ideal |
-| M | 600–1,000 | Healthy |
-| L | 1,000–1,500 | Upper bound; expect a third review pass |
-| XL | 1,500+ | Must split |
+| S | 200–1,000 | Ideal |
+| M | 1,000–2,000 | Healthy |
+| L | 2,000–3,000 | Upper bound; expect a third review pass |
+| XL | 3,000+ | Must split |
 
-**Scope-escape rule:** mid-implementation forecast passes 1,500 added lines or 25 files, or new acceptance criteria appear → stop, split a sub-issue, land the current slice clean.
+The bound is about 3,000, not a hard number. It governs slice PRs and single-slice PRs. **A feature branch's PR into `main` has no maximum**: it is the sum of slices that were each reviewed at the bound, and its human review is an acceptance-criteria walk, not a line-by-line read (*Feature branches*, below).
+
+**Scope-escape rule:** mid-implementation forecast passes ~3,000 added lines or 50 files, or new acceptance criteria appear → stop, split a sub-issue, land the current slice clean.
 
 ## Feature branches
 
 A feature with more than one slice lands on a feature branch, not on `main`. Each slice is its own PR into that branch, and the feature reaches `main` as one PR once every slice has landed. A single-slice feature skips all of this: one issue, one PR against `main`.
 
 - **Name.** `feature/<slug>`, where `<slug>` is the design doc's — `docs/plans/2026-03-01-returns-design.md` gives `feature/returns`. `/feature_plan` writes the name into the design doc header and into every sub-issue body, so any tier can find it. `labels` has no parent issue to hang it off, and the design doc is the one artifact all three tiers share.
-- **Created by** `/task_plan` for whichever slice is planned first: branched from `main`, pushed, and opened as a **draft PR to `main`** so CI runs on it from day one and there is somewhere to watch the feature grow.
+- **Created by** `/feature_plan` at G1 (Step 7): branched from `main`, the design doc and placeholders committed on it, pushed, and opened as a **draft PR to `main`** so CI runs on it from day one and there is somewhere to watch the feature grow. Nothing has to reach `main` before the first slice. `/task_plan` creates it only as a fallback, for a feature approved before that step existed.
 - **Base.** Each slice branches from the feature branch and its PR targets it. `/task_plan` records `Base: feature/<slug>` in the task file, and every command that diffs, lints, or opens a PR reads that line instead of assuming `main`.
 - **Closing issues.** GitHub's `Closes #n` fires only on a merge to the default branch, so a slice PR carries no `Closes` line. The feature PR body carries `Closes #<sub>` for every slice that has landed plus `Closes #<parent>`, and is regenerated on each slice merge. Done therefore still means *in `main`*, on every tier: a slice sits in Up for Review from its merge into the feature branch until the feature merges. `/pick` reconciles `beads` and `labels` only against PRs whose base was `main`.
 - **Docs.** Placeholders belong to the feature. A slice completes the ones its work fills in and leaves the rest; the "no `Status: Draft` left behind" rule is enforced on the feature PR.

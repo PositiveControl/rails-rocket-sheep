@@ -45,7 +45,7 @@ Create `.llm/tasks/<issue_number>_<snake_case_slug>.md` from `.llm/tasks/task_te
 - **Background/Context**: synthesized from issue, comments, design doc, exploration
 - **Requirements & Acceptance Criteria**: from the issue (in scope AND out of scope explicit)
 - **Base**: `main`, unless the issue body, its parent, or the design doc names a feature branch `feature/<slug>` — then that. Every later command diffs and opens the PR against this line
-- **Next Actions**: concrete implementation steps — files to modify, approach, test strategy. **Last action is always the QA walkthrough** (`docs/system/qa_walkthrough.md`): which `step`s the change adds to `script/qa/<feature>.rb` (or a new script), or the one-line reason there is nothing to show (no user-facing change; API-only app). `/pr_submit` Step 3b checks this landed
+- **Next Actions**: concrete implementation steps — files to modify, approach, test strategy. **Last action is always the QA walkthrough** (`docs/system/qa_walkthrough.md`): which `step`s the change adds to `script/qa/<feature>.rb` (or a new script — about 10 steps each, cut by small testable feature, not whole workflow), or the one-line reason there is nothing to show (no user-facing change; API-only app). `/pr_submit` Step 3b checks this landed
 - **References**: issue, parent, design doc, key source files
 
 Conventions live in `CLAUDE.md` — the task file references it, never copies rules.
@@ -56,7 +56,7 @@ Conventions live in `CLAUDE.md` — the task file references it, never copies ru
 2. **Approach**: high-level fix/feature description
 3. **Files to change**: each file + brief change description
 4. **New tests**: coverage to add
-5. **Size forecast**: estimated added lines and files vs the 200–1,500 / 25 target — over → propose a split now
+5. **Size forecast**: estimated added lines and files vs the 200–~3,000 / 50 target — over → propose a split now
 5b. **Walkthrough**: the steps the change adds to the QA walkthrough, or why it has nothing to show — the developer can strike it here
 6. **Risks/Questions**: anything needing clarification
 7. **Flagged decisions**: architecture choices or new patterns (ALWAYS need user approval)
@@ -71,7 +71,7 @@ After approval:
 
 **Clean working tree:** `git status` — uncommitted changes → ask user: stash or commit first. **Autopilot:** `halt`. The driver starts every step on a clean tree, so changes here are a stranger's.
 
-**Feature branch, if the task file's `Base:` names one and it is not on the remote yet** — this is the feature's first slice, so create it and open its draft PR:
+**Feature branch — fallback only.** `/feature_plan` Step 7 creates the feature branch and its draft PR at G1, so `<BASE>` (the task file's `Base:` line) normally exists already. When the task file's `Base:` names one and `git ls-remote --heads origin <BASE>` prints nothing (a feature approved before Step 7 existed), create it and open its draft PR:
 
 ```bash
 git checkout main && git pull
@@ -139,5 +139,5 @@ Plan approved and branch ready. Run: /implement <ISSUE_NUMBER>
 - Project ID: n/a · Status field ID: n/a
 - Tracker tier: `labels`
 - Status option IDs (tier `github-projects`): Blocked=n/a, Todo=n/a, In Progress=n/a, Up for Review=n/a, Done=n/a
-- Sizing: PR target 200–1,500 added lines / ≤25 files
+- Sizing: PR target 200–~3,000 added lines / ≤50 files; no maximum for a feature branch's PR into `main`
 - Autopilot: `docs/system/autopilot-steps.md` — activation check, policy by gate id (`G2`, `split`, `choice`, `halt` here), log entry shape, halt protocol
