@@ -261,6 +261,12 @@ copy_template_file "test/bin/fixtures/autopilot/claude_success.json"
 copy_template_file "test/bin/fixtures/autopilot/log.md"
 copy_template_file "test/bin/fixtures/autopilot/workflow.config.md"
 
+# Follows a run live from the transcripts Claude Code writes as each step goes
+# (docs/sop/run-a-feature-on-autopilot.md, While it runs).
+copy_template_file "bin/autopilot-tail"
+chmod "bin/autopilot-tail", 0755
+copy_template_file "test/bin/autopilot_tail_test.rb"
+
 # The mechanical gates: rejected patterns, the pattern budget's directory count,
 # the command mirror, and unindexed foreign keys. One script, run from a git pre-push hook here and from
 # CI with --strict. The pre-push hook is the only enforcement in the layer that

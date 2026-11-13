@@ -29,7 +29,14 @@ exit 0 unless ENV["AUTOPILOT"] == "1"
 module AutopilotGuard
   MERGE = "only the driver merges, after checking the base (gate `merge`)"
   DESTRUCTIVE = /\b(remove_columns?|remove_reference|drop_table|drop_join_table|rename_column|rename_table)\b/
-  GUARDED_PATHS = %r{config/credentials|\.github/workflows/}
+  CREDENTIALS = %r{config/credentials}
+  WORKFLOWS = %r{\.github/workflows/}
+  GUARDED_PATHS = Regexp.union(CREDENTIALS, WORKFLOWS)
+  # A command that only reads: every part a plain reader, nothing redirected
+  # into a file, substituted, piped into tee or xargs, or a git flag that
+  # writes or runs something. `2>/dev/null` and `2>&1` are allowed.
+  READER = /\A(cd|grep|egrep|fgrep|cat|head|tail|ls|wc|git\s+(show|log|diff|grep|ls-files))(\s|\z)/
+  NOT_A_READ = /[`<>]|\$\(|\b(tee|xargs)\b|\s(-O|--open-files-in-pager|--output|--ext-diff|--textconv)\b/
   # The driver too: its merge check is part of the wall.
   WIRING = %r{\.claude/settings[^/\s]*\.json|bin/hooks/|\.claude/autopilot-allowed-tools\.txt|bin/autopilot\b}
   MAIN = "main is the developer's"
@@ -65,7 +72,8 @@ module AutopilotGuard
     [ /\b(createCommitOnBranch|updateRefs?|deleteRef)\b/, "moving a branch through GraphQL: branches move by push, and only forward" ],
     [ /\bforce=true\b|\bforce:\s*true\b/, "a forced ref update: history on the remote is never rewritten" ],
     [ /\balias\.\S|\bremote\.\S+\.push\b|\bpush\.default\b/, "redefining git commands or push targets: a renamed push escapes the push rules" ],
-    [ GUARDED_PATHS, "naming `config/credentials*` or `.github/workflows/` in a command: off limits to a step" ],
+    [ CREDENTIALS, "naming `config/credentials*` in a command: off limits to a step, reads included" ],
+    [ WORKFLOWS, "a command that writes or runs something and names `.github/workflows/`: off limits to a step (plain reads pass)" ],
     [ WIRING, "naming the guard's own wiring (settings, bin/hooks/, the allowlist, bin/autopilot) in a command" ],
     [ /\bg(enerate)?\s+migration\s+(remove|drop|rename)/i, "generating a destructive migration (halt list)" ]
   ].freeze
@@ -81,11 +89,18 @@ module AutopilotGuard
   end
 
   def command_denial(command)
-    rule = COMMAND_RULES.find { |pattern, _| command.match?(pattern) }
+    rule = COMMAND_RULES.find { |pattern, _| command.match?(pattern) && !(pattern.equal?(WORKFLOWS) && read_only?(command)) }
     return rule[1] if rule
     return "a destructive migration under db/migrate (halt list)" if command.include?("db/migrate") && command.match?(DESTRUCTIVE)
 
     push_denial(command)
+  end
+
+  def read_only?(command)
+    command = command.gsub(%r{\s\d?>\s*/dev/null|\s2>&1}, "")
+    return false if command.match?(NOT_A_READ)
+
+    command.split(/\|\|?|&&?|;|\n/).map(&:strip).reject(&:empty?).all? { |part| part.match?(READER) }
   end
 
   # Every `git push` in the command (git's own options allowed in between, so
