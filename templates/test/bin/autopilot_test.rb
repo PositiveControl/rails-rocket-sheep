@@ -33,9 +33,9 @@ class FakeShell
     self
   end
 
-  def run(*cmd, env: {}, chdir: nil, timeout: nil)
+  def run(*cmd, env: {}, chdir: nil, timeout: nil, heartbeat: nil, idle: nil, abort_on: nil)
     line = cmd.join(" ")
-    @calls << { line: line, env: env, chdir: chdir, timeout: timeout }
+    @calls << { line: line, env: env, chdir: chdir, timeout: timeout, heartbeat: heartbeat, idle: idle, abort_on: abort_on }
     rule = @rules.find { |pattern, _| pattern === line }
     rule ? rule[1].call(line) : Autopilot::Shell::Result.new("", true, false)
   end
@@ -46,8 +46,11 @@ class FakeShell
   end
 
   def kill_group(pid) = @calls << { line: "kill_group #{pid}" }
+  def kill_pids(pids) = @calls << { line: "kill_pids #{pids.join(' ')}" }
   def alive?(pid) = @alive.to_a.include?(pid)
   def alive!(*pids) = @alive = pids
+  def orphans(names) = (@calls << { line: "orphans #{names.join(' ')}" }) && @orphans.to_a
+  def orphans!(*pids) = @orphans = pids
 
   def ran?(pattern) = @calls.any? { |call| pattern === call[:line] }
   def lines = @calls.map { |call| call[:line] }
@@ -209,6 +212,69 @@ class AutopilotShellTest < Minitest::Test
     refute result.timed_out
   end
 
+  # The issue title is interpolated into a UTF-8 heading: bytes from
+  # readpartial once crashed Log.slice_section ("incompatible character
+  # encodings: UTF-8 and BINARY").
+  def test_output_is_in_the_external_encoding
+    result = Autopilot::Shell.new.run("printf", "cart \xe2\x80\x94 checkout")
+
+    assert_equal Encoding.default_external, result.out.encoding
+    assert_equal "cart — checkout", result.out
+  end
+
+  # Setup hung for minutes on a fetch over SSH that wanted to ask for a login:
+  # in its own process group, ssh was stopped at the terminal instead of failing.
+  def test_git_and_ssh_fail_rather_than_ask_for_a_login
+    saved = without_ssh_settings
+    result = with_core_ssh_command(false) do
+      Autopilot::Shell.new.run("sh", "-c", "echo \"$GIT_TERMINAL_PROMPT|$GIT_SSH_COMMAND\"")
+    end
+
+    assert_equal "0|ssh -o BatchMode=yes\n", result.out
+  ensure
+    ENV.update(saved)
+  end
+
+  # GIT_SSH_COMMAND outranks GIT_SSH and core.sshCommand, so the batch-mode
+  # default would have replaced a developer's own key with plain ssh.
+  def test_leaves_alone_an_ssh_the_developer_set_for_git_another_way
+    with_core_ssh_command(true) do
+      assert_equal({ "GIT_TERMINAL_PROMPT" => "0" }, Autopilot::Shell.no_prompts)
+    end
+
+    saved = without_ssh_settings
+    ENV["GIT_SSH"] = "/usr/local/bin/work-ssh"
+    with_core_ssh_command(false) do
+      assert_equal({ "GIT_TERMINAL_PROMPT" => "0" }, Autopilot::Shell.no_prompts)
+    end
+  ensure
+    ENV.delete("GIT_SSH")
+    ENV.update(saved)
+  end
+
+  # core_ssh_command? memoizes git's answer; a test sets the memo instead.
+  def with_core_ssh_command(value)
+    saved = Autopilot::Shell.instance_variable_get(:@core_ssh_command)
+    Autopilot::Shell.instance_variable_set(:@core_ssh_command, value)
+    yield
+  ensure
+    Autopilot::Shell.instance_variable_set(:@core_ssh_command, saved)
+  end
+
+  # Clears the ssh settings a machine running the suite may carry; returns
+  # them for the test to put back.
+  def without_ssh_settings = %w[GIT_SSH_COMMAND GIT_SSH].to_h { |name| [ name, ENV.delete(name) ] }.compact
+
+  def test_keeps_the_developer_s_own_ssh_command
+    saved = ENV["GIT_SSH_COMMAND"]
+    ENV["GIT_SSH_COMMAND"] = "ssh -i ~/.ssh/work"
+    result = Autopilot::Shell.new.run("sh", "-c", "echo \"$GIT_SSH_COMMAND\"")
+
+    assert_equal "ssh -i ~/.ssh/work\n", result.out
+  ensure
+    saved ? ENV["GIT_SSH_COMMAND"] = saved : ENV.delete("GIT_SSH_COMMAND")
+  end
+
   def test_reports_failure_with_output
     result = Autopilot::Shell.new.run("sh", "-c", "echo oops >&2; exit 3")
 
@@ -256,6 +322,58 @@ class AutopilotShellTest < Minitest::Test
     assert_operator Time.now - started, :<, 2
     sleep 2.2
     refute File.exist?(marker), "the backgrounded child outlived the timeout"
+  end
+
+  # A suite whose database died ran on for 82 minutes, every test erroring the
+  # same way, until the step timeout. The first such line ends it.
+  def test_abort_on_ends_the_command_at_the_first_matching_output
+    started = Time.now
+    result = Autopilot::Shell.new.run("sh", "-c", "echo one; echo 'Lost connection to MySQL server during query'; sleep 20",
+                                      abort_on: /Lost connection to MySQL server/)
+
+    refute result.ok
+    refute result.timed_out, "an abort is not a timeout: the caller reads the output for the cause"
+    assert_includes result.out, "one\nLost connection"
+    assert_operator Time.now - started, :<, 10
+  end
+
+  # Claude Code moves a command that outruns its timeout into a process group
+  # of its own, and one test run outlived its step by seventeen hours. The
+  # tree is read before the kill, so an escaped child still goes.
+  def test_timeout_kills_a_child_that_left_the_process_group
+    marker = File.join(Dir.mktmpdir, "escaped-alive")
+    escape = "Process.spawn('sleep 2; touch #{marker}', pgroup: true); sleep 5"
+    result = Autopilot::Shell.new.run(RbConfig.ruby, "-e", escape, timeout: 0.3)
+
+    assert result.timed_out
+    sleep 2.2
+    refute File.exist?(marker), "the child that left the group outlived the timeout"
+  end
+
+  def test_a_silent_heartbeat_ends_the_command_as_idle
+    heartbeat = File.join(Dir.mktmpdir, "never-written.jsonl")
+    started = Time.now
+    result = Autopilot::Shell.new.run("sleep", "5", heartbeat: heartbeat, idle: 0.3)
+
+    assert result.timed_out
+    assert result.idle
+    assert_operator Time.now - started, :<, 3
+  end
+
+  def test_a_heartbeat_that_keeps_writing_keeps_the_command_alive
+    heartbeat = File.join(Dir.mktmpdir, "session.jsonl")
+    writer = "for i in 1 2 3 4 5 6; do touch #{heartbeat}; sleep 0.5; done"
+    result = Autopilot::Shell.new.run("sh", "-c", writer, heartbeat: heartbeat, idle: 2)
+
+    assert result.ok
+    refute result.timed_out
+  end
+
+  def test_a_timed_out_command_is_not_idle
+    result = Autopilot::Shell.new.run("sleep", "5", timeout: 0.2)
+
+    assert result.timed_out
+    refute result.idle
   end
 end
 
@@ -564,9 +682,170 @@ class AutopilotStepTest < Minitest::Test
     assert_includes argv, "--permission-mode dontAsk --permission-prompts none"
     assert_includes argv, "--allowedTools Read Bash(git diff:*)"
     assert_includes argv, "--output-format json --session-id s-1"
-    assert_equal({ "AUTOPILOT" => "1", "DB_SUFFIX" => "_autopilot", "QA_HOST" => "http://localhost:3100" }, call[:env])
+    assert_equal({ "AUTOPILOT" => "1", "DB_SUFFIX" => "_autopilot", "QA_HOST" => "http://localhost:3100",
+                   "QA_AUTO" => "1", "QA_HEADLESS" => "1",
+                   "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS" => "1", "BASH_MAX_TIMEOUT_MS" => "1200000" }, call[:env])
     assert_equal "/w", call[:chdir]
     assert_equal 90 * 60, call[:timeout]
+  end
+
+  # The developer's own Claude settings stay out of a step. Their user-level deny
+  # rules refuse the commits the policy makes (a first run halted on
+  # `git add`), and `verbose` turns the JSON result into a list of every message,
+  # which `classify` cannot read.
+  def test_runs_a_step_on_the_repos_settings_alone
+    shell = FakeShell.new.on(/^claude /, JSON.generate(SUCCESS))
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [ "Read" ])
+
+    step.run("task_plan", 48, session_id: "s-1")
+
+    argv = shell.calls.last[:line]
+    assert_includes argv, "--setting-sources project,local"
+    assert_includes argv, %(--settings {"verbose":false})
+    refute_includes argv, "--model"
+  end
+
+  # The developer's model, effort and attribution (.claude/autopilot.local.json,
+  # or --model and --effort) reach the step; the rest of their user settings
+  # still does not.
+  def test_runs_a_step_on_the_developer_s_model_effort_and_attribution
+    shell = FakeShell.new.on(/^claude /, JSON.generate(SUCCESS))
+    preferences = Autopilot::Preferences.new({ "model" => "opus", "effort" => "high", "attribution" => { "commit" => "", "pr" => "" } })
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [ "Read" ], preferences: preferences)
+
+    step.run("task_plan", 48, session_id: "s-1")
+
+    argv = shell.calls.last[:line]
+    assert_includes argv, "--model opus"
+    assert_includes argv, "--setting-sources project,local"
+    assert_includes argv, %(--settings {"verbose":false,"effortLevel":"high","attribution":{"commit":"","pr":""}})
+  end
+
+  # A plan and a review on a stronger model, the build on a cheaper one: a
+  # `steps` entry wins over the top-level default for its command only.
+  def test_each_command_can_run_on_its_own_model_and_effort
+    preferences = Autopilot::Preferences.new({ "model" => "sonnet", "effort" => "medium",
+                                               "steps" => { "task_plan" => { "model" => "opus", "effort" => "high" } } })
+    step = Autopilot::Step.new(shell: FakeShell.new, worktree: "/w", allowed_tools: [ "Read" ], preferences: preferences)
+
+    plan = step.argv("task_plan", 48).join(" ")
+    build = step.argv("implement", 48).join(" ")
+
+    assert_includes plan, "--model opus"
+    assert_includes plan, %("effortLevel":"high")
+    assert_includes build, "--model sonnet"
+    assert_includes build, %("effortLevel":"medium")
+  end
+
+  def test_a_step_can_run_on_another_command_s_model_and_effort
+    preferences = Autopilot::Preferences.new({ "steps" => { "implement" => { "model" => "opus", "effort" => "high" },
+                                                            "pr_comment_resolver" => { "model" => "sonnet", "effort" => "low" } } })
+    step = Autopilot::Step.new(shell: FakeShell.new, worktree: "/w", allowed_tools: [ "Read" ], preferences: preferences)
+
+    argv = step.argv("pr_comment_resolver", 70, resume: "s-author", settings_of: "implement").join(" ")
+
+    assert_includes argv, "--model opus"
+    assert_includes argv, %("effortLevel":"high")
+    assert_includes argv, "--resume s-author"
+  end
+
+  # The list `steps` may name is a copy of the commands the driver starts; this
+  # keeps it whole when a step is added (/pr_fix_ci was one).
+  def test_every_step_the_driver_starts_can_be_configured
+    started = File.read(File.expand_path("../../bin/autopilot", __dir__)).scan(/ensure_step\("(\w+)"/).flatten.uniq
+
+    refute_empty started
+    assert_empty started - Autopilot::Preferences::COMMANDS,
+                 "bin/autopilot starts these as steps but Preferences::COMMANDS does not name them"
+  end
+
+  # Two workers of a killed run kept their transactions open
+  # for a day; every later parallel run waited on them until its timeout.
+  def test_release_databases_kills_every_connection_to_the_run_s_test_databases
+    shell = FakeShell.new.on(/^mysql -uroot -N -e SELECT ID FROM information_schema.PROCESSLIST/, "10996\n10998\n")
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [])
+
+    assert_equal 2, step.release_databases
+
+    select, kill = shell.lines.last(2)
+    assert_includes select, "DB LIKE '%\\_test_autopilot%' OR INFO LIKE '%\\_test_autopilot%'"
+    assert_equal "mysql -uroot -e KILL 10996; KILL 10998", kill
+  end
+
+  # A PostgreSQL app frees the same connections with pg_terminate_backend.
+  def test_release_databases_on_postgres_terminates_through_psql
+    Dir.mktmpdir do |dir|
+      FileUtils.mkdir_p(File.join(dir, "config"))
+      File.write(File.join(dir, "config/database.yml"), "default: &default\n  adapter: postgresql\n")
+      shell = FakeShell.new.on(/^psql -d postgres -Atc SELECT count\(pg_terminate_backend\(pid\)\)/, "2\n")
+      step = Autopilot::Step.new(shell: shell, worktree: dir, allowed_tools: [])
+
+      assert_equal 2, step.release_databases
+      assert_match(/datname LIKE '%\\_test_autopilot%'/, shell.lines.first)
+      refute shell.ran?(/^mysql/)
+    end
+  end
+
+  def test_release_databases_without_orphans_or_a_mysql_client_kills_nothing
+    shell = FakeShell.new.on(/^mysql -uroot -N/, "")
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [])
+    assert_equal 0, step.release_databases
+
+    shell = FakeShell.new.on(/^mysql -uroot -N/, "sh: mysql: not found", ok: false)
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [])
+    assert_equal 0, step.release_databases
+
+    refute shell.ran?(/KILL/)
+  end
+
+  # Two chromedrivers and a headless chromium from earlier walkthroughs were
+  # still up, reparented to init, when the suite ran out of memory.
+  def test_release_browsers_kills_orphaned_browsers_and_their_children
+    shell = FakeShell.new
+    shell.orphans!(1249887, 1249899, 1409112)
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [])
+
+    assert_equal 3, step.release_browsers
+
+    assert_equal [ "orphans chromedriver chromium chrome", "kill_pids 1249887 1249899 1409112" ], shell.lines.last(2)
+  end
+
+  def test_release_browsers_with_nothing_orphaned_kills_nothing
+    shell = FakeShell.new
+    step = Autopilot::Step.new(shell: shell, worktree: "/w", allowed_tools: [])
+
+    assert_equal 0, step.release_browsers
+
+    refute shell.ran?(/^kill_pids/)
+  end
+
+  def test_the_step_rules_treat_a_hung_test_run_as_the_environment_s_fault
+    step = Autopilot::Step.new(shell: FakeShell.new, worktree: "/w", allowed_tools: [])
+
+    assert_match(/Lock wait timeout exceeded.*not a slow suite/m, step.step_rules)
+    assert_match(/Do not\s+rerun it with one worker or file by file/, step.step_rules)
+  end
+
+  # An /implement hung with its transcript silent for hours; the retry's
+  # session never wrote one. The transcript is the heartbeat the shell watches.
+  def test_a_step_s_transcript_is_its_heartbeat
+    shell = FakeShell.new.on(/^claude /, JSON.generate(SUCCESS))
+    step = Autopilot::Step.new(shell: shell, worktree: "/w/shop-autopilot-foo", allowed_tools: [ "Read" ])
+
+    step.run("task_plan", 48, session_id: "s-1")
+    step.run("pr_comment_resolver", 70, resume: "author-1")
+
+    first, second = shell.calls.last(2)
+    assert_equal File.join(Autopilot::Step::PROJECTS, "-w-shop-autopilot-foo/s-1.jsonl"), first[:heartbeat]
+    assert_equal File.join(Autopilot::Step::PROJECTS, "-w-shop-autopilot-foo/author-1.jsonl"), second[:heartbeat]
+    assert_equal 25 * 60, first[:idle]
+  end
+
+  def test_an_idle_kill_says_so
+    outcome = Autopilot::Step.classify(Autopilot::Shell::Result.new("", false, true, true))
+
+    assert_equal :timeout, outcome.kind
+    assert_equal "no transcript activity for 25 minutes", outcome.reason
   end
 
   def test_resumes_an_existing_session_and_appends_the_retry_note
@@ -602,6 +881,21 @@ class AutopilotStepTest < Minitest::Test
   # guard denies any command naming its wiring, reads included: a halt.
   # Every review post started as a heredoc, which dontAsk denies: a wasted turn
   # per pass, and a `$(...)` activation check the same (a live run).
+  # Every slice of one run wrote its walkthrough steps and left them unrun,
+  # reasoning that a foreground-only step cannot start a server; the driver had
+  # one up all along. QA_AUTO=1 as a command prefix is denied, so it is set
+  # for the step instead.
+  def test_the_step_rules_say_the_walkthrough_server_is_already_up
+    step = Autopilot::Step.new(shell: FakeShell.new, worktree: "/w", allowed_tools: [ "Read" ])
+
+    argv = step.argv("pr_submit", 117)
+    rules = argv[argv.index("--append-system-prompt") + 1]
+
+    assert_includes rules, "already running at $QA_HOST"
+    assert_includes rules, "bin/qa-walkthrough <name>"
+    assert_match(/never start a server/, rules)
+  end
+
   def test_the_step_rules_steer_bodies_into_files_not_heredocs_or_substitution
     step = Autopilot::Step.new(shell: FakeShell.new, worktree: "/w", allowed_tools: [ "Read" ])
 
@@ -814,15 +1108,26 @@ end
 # Scripted collaborators for Autopilot::Run: a Step that replays outcomes and
 # an Expect whose answers change as steps "run".
 class FakeStep
-  attr_reader :runs
+  attr_reader :runs, :releases, :browser_releases
 
-  def initialize(script) = (@script = script) && (@runs = [])
+  def initialize(script) = (@script = script) && (@runs = []) && (@releases = []) && (@browser_releases = [])
 
-  def run(command, arg, resume: nil, note: nil, **)
-    @runs << { command: command, arg: arg, resume: resume, note: note }
+  def run(command, arg, resume: nil, note: nil, settings_of: nil, **)
+    @runs << { command: command, arg: arg, resume: resume, note: note, settings_of: settings_of }
     reply = @script.fetch(command).shift or raise "no scripted outcome left for #{command}"
     reply.respond_to?(:call) ? reply.call : reply
   end
+
+  # How many steps had run when the databases were released.
+  def release_databases = @releases << @runs.size
+  def release_browsers = @browser_releases << @runs.size
+end
+
+# The dev server, as Run sees it: stopped before the suite, recorded in the
+# shell's call order.
+class FakeServer
+  def initialize(shell) = @shell = shell
+  def stop = @shell.calls << { line: "server stop" }
 end
 
 class AutopilotRunTest < Minitest::Test
@@ -851,6 +1156,7 @@ class AutopilotRunTest < Minitest::Test
     def pass_commit(_pr, _n) = "c1"
     def pass_count(_pr) = @passes
     def findings(_pr, _pass) = @pass_one_findings
+    def ci_fixed(_head) = check(:pr_fix_ci)
   end
 
   # The feature as Run sees it: which slice PRs have merged, and the ticks.
@@ -929,7 +1235,8 @@ class AutopilotRunTest < Minitest::Test
   def run_with(script, resolver = :fresh)
     @step = FakeStep.new(script)
     Autopilot::Run.new(step: @step, expect: @expect, notifier: @notes, state: @state, clock: @clock,
-                       shell: @shell, worktree: @dir, feature: @feature, branch: @branch = FakeBranch.new(@shell), resolver: resolver)
+                       shell: @shell, worktree: @dir, feature: @feature, branch: @branch = FakeBranch.new(@shell), resolver: resolver,
+                       server: FakeServer.new(@shell))
   end
 
   def test_runs_a_slice_through_review_to_landed_with_a_fresh_resolver
@@ -967,6 +1274,17 @@ class AutopilotRunTest < Minitest::Test
     assert_empty @feature.ticks
   end
 
+  # A halt the tracker did not record leaves the slice looking runnable to the
+  # next run; the halt says so instead of the write failing quietly.
+  def test_a_halt_says_when_the_tracker_could_not_mark_the_slice_blocked
+    @expect.base = "main"
+    @shell.on(/^gh issue edit 48 .*--add-label status:blocked/, "HTTP 403: Resource not accessible", ok: false)
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
+
+    assert_match(/#48 could not be marked Blocked on the tracker/, error.message)
+  end
+
   def test_a_push_after_the_review_cycle_halts_rather_than_merging_unreviewed_code
     run = run_with(happy_script)
     @expect.define_singleton_method(:pr_state) { |_pr| { "baseRefName" => "feature/foo", "headRefOid" => "d9" } }
@@ -990,7 +1308,7 @@ class AutopilotRunTest < Minitest::Test
     assert_includes File.read(File.join(@dir, @feature.log_path)), "| #48 | `CI wait, PR #70` | 20m 0s | $0.00 | 0 | 0 |"
   end
 
-  # One workflow passed while another's run had no jobs yet, so --watch had
+  # Gates passed while CI's run had no jobs yet, so --watch had
   # nothing left to wait on and the slice merged before its tests ran.
   def test_a_workflow_run_still_unfinished_after_the_watch_is_watched_again
     runs = [ "CI\n", "" ]
@@ -1039,15 +1357,148 @@ class AutopilotRunTest < Minitest::Test
     assert(@state.get(48, "usage").any? { |u| u["step"] == "CI rerun, PR #70" })
   end
 
-  def test_red_ci_after_its_rerun_halts_without_merging
+  # `gh run rerun` returns before the new attempt starts, and until it does
+  # the run still reads as the old attempt's red: a watch then would halt on
+  # it (a rerun that went green seven minutes later).
+  def test_a_rerun_is_watched_only_once_its_new_attempt_has_started
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    statuses = %w[completed completed in_progress]
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371 --jq \.status}) { Autopilot::Shell::Result.new("#{statuses.shift}\n", true, false) }
+
+    run_with(happy_script).slice(48)
+
+    polls = @shell.lines.each_index.select { |i| @shell.lines[i].include?("runs/371 --jq .status") }
+    watch = @shell.lines.index { |line| line.match?(/^gh run watch 371 .*--exit-status/) }
+    assert_equal 3, polls.size
+    assert_operator watch, :>, polls.last, "watched before the new attempt started"
+    assert @shell.ran?(/^gh pr merge 70/)
+  end
+
+  def test_a_rerun_that_never_starts_stops_the_run
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371 --jq \.status}, "completed\n")
+
+    error = assert_raises(Autopilot::Error) { run_with(happy_script).slice(48) }
+
+    assert_match(/rerun of run 371 did not start/, error.message)
+    refute @shell.ran?(/^gh run watch 371 .*--exit-status/)
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  # gh 2.23.0's watch is no verdict: a rerun went green and the watch
+  # still exited 1 as the run finalized, and an API error mid-watch exits 0.
+  # The latest attempt's jobs decide.
+  def test_a_rerun_whose_jobs_all_passed_merges_whatever_the_watch_exits
     @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
     @shell.on(/^gh run watch 371 .*--exit-status/, ok: false)
+
+    run_with(happy_script).slice(48)
+
+    assert @shell.ran?(/^gh pr merge 70/)
+  end
+
+  def test_a_rerun_with_a_job_not_passed_halts_whatever_the_watch_exits
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
+
+    assert_match(/still red after one rerun/, error.message)
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  def test_red_ci_after_its_rerun_halts_without_merging
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
 
     error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
 
     assert_match(/CI is red on PR #70: .*still red after one rerun/, error.message)
     assert_equal 1, error.message.scan("test\tfail").size, "a check listed twice is reported once"
     assert_equal 1, @shell.lines.grep(/^gh run rerun/).size
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  # lint reads only the commit, so a rerun would red the same way.
+  def test_a_deterministic_red_halts_without_a_rerun
+    drift = "lint\tfail\t1m53s\thttps://github.com/o/r/actions/runs/372/job/112\n"
+    @shell.on(/^gh pr checks 70 .*--watch$/, drift + RED_RUN, ok: false)
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script).slice(48) }
+
+    assert_match(/CI is red on PR #70: lint\tfail/, error.message)
+    refute_match(/still red after one rerun/, error.message)
+    refute @shell.ran?(/^gh run rerun/)
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  # Gate `ci-fix`, only under a policy that has the row.
+  def allow_ci_fix = File.write(File.join(@dir, @feature.log_path), "| `ci-fix` | The merge gate | /pr_fix_ci once |\n", mode: "a")
+  def ci_fix(head = "f1") = -> { @expect.ran(:pr_fix_ci) && (@expect.head_sha = head) && ok("fixer") }
+  def red_then_green(red = RED_RUN)
+    checks = [ [ red, false ], [ "", true ] ]
+    @shell.on(/^gh pr checks 70 .*--watch$/) { |_| Autopilot::Shell::Result.new(*checks.shift, false) }
+  end
+
+  def test_red_ci_under_a_ci_fix_policy_fixes_reviews_the_fix_and_merges_its_head
+    allow_ci_fix
+    red_then_green
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
+
+    run_with(happy_script.merge("pr_fix_ci" => [ ci_fix ])).slice(48)
+
+    runs = @step.runs.map { |r| r[:command] }
+    assert_equal %w[pr_review pr_comment_resolver pr_fix_ci pr_review pr_comment_resolver], runs.last(5)
+    assert_match(/CI is red on PR #70: .*still red after one rerun/, @step.runs[-3][:note])
+    assert_match(/diff from c1 to HEAD/, @step.runs[-2][:note])
+    assert @shell.ran?(/gh pr merge 70 .*--match-head-commit f1$/)
+    assert(@notes.sent.any? { |note| note.include?("running /pr_fix_ci once") })
+  end
+
+  def test_a_ci_fix_pass_with_no_findings_skips_the_resolver
+    allow_ci_fix
+    red_then_green
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
+    @expect.pass_one_findings = 0
+
+    run_with(happy_script.merge("pr_fix_ci" => [ ci_fix ])).slice(48)
+
+    assert_equal %w[pr_fix_ci pr_review], @step.runs.map { |r| r[:command] }.last(2)
+    assert @shell.ran?(/gh pr merge 70 .*--match-head-commit f1$/)
+  end
+
+  # lint would red the same way on a rerun, but a commit can fix it.
+  def test_a_deterministic_red_under_a_ci_fix_policy_goes_straight_to_the_fix
+    allow_ci_fix
+    red_then_green("lint\tfail\t1m53s\thttps://github.com/o/r/actions/runs/372/job/112\n")
+
+    run_with(happy_script.merge("pr_fix_ci" => [ ci_fix ])).slice(48)
+
+    refute @shell.ran?(/^gh run rerun/)
+    assert @shell.ran?(/gh pr merge 70 .*--match-head-commit f1$/)
+  end
+
+  def test_red_ci_after_the_ci_fix_halts_without_a_second_fix
+    allow_ci_fix
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script.merge("pr_fix_ci" => [ ci_fix ])).slice(48) }
+
+    assert_match(/CI is red on PR #70/, error.message)
+    assert_equal 1, @step.runs.count { |r| r[:command] == "pr_fix_ci" }
+    refute @shell.ran?(/^gh pr merge/)
+  end
+
+  def test_a_fix_step_that_leaves_no_commit_halts_after_its_retry
+    allow_ci_fix
+    @shell.on(/^gh pr checks 70 .*--watch$/, RED_RUN, ok: false)
+    @shell.on(%r{^gh api repos/acme/shop/actions/runs/371/jobs}, "test (1)\n")
+    @expect.needs(:pr_fix_ci, runs: 3)
+
+    error = assert_raises(Autopilot::Halted) { run_with(happy_script.merge("pr_fix_ci" => [ ci_fix, ci_fix ])).slice(48) }
+
+    assert_match(%r{/pr_fix_ci 70: pr_fix_ci not done \(after one retry\)}, error.message)
     refute @shell.ran?(/^gh pr merge/)
   end
 
@@ -1144,7 +1595,7 @@ class AutopilotRunTest < Minitest::Test
   end
 
   def test_initials_follow_the_commands_rule
-    assert_equal "me", Autopilot::Config.initials("Mark Evans")
+    assert_equal "al", Autopilot::Config.initials("Ada Lovelace")
     assert_equal "ms", Autopilot::Config.initials("Mary Jo Smith")
     assert_equal "ch", Autopilot::Config.initials("Cher")
     assert_equal "", Autopilot::Config.initials("")
@@ -1181,19 +1632,82 @@ class AutopilotRunTest < Minitest::Test
     assert_equal "feature/foo", resolve[:arg], "the argument is <BASE> for the step's activation check"
     suite = @shell.calls.find { |c| c[:line] == "bin/test" }
     assert_equal "_autopilot", suite[:env]["DB_SUFFIX"]
+    assert_equal "4", suite[:env]["MAX_PARALLEL_WORKERS"], "eight workers fill the box"
+    assert_equal Autopilot::Run::DATABASE_GONE, suite[:abort_on]
+    assert_operator @shell.lines.index("server stop"), :<, @shell.lines.index("bin/test"), "the dev server's three processes stop first"
+    assert_equal [ 0, 6 ], @step.browser_releases, "as the slice starts, and before the suite"
     assert_equal [ [ 48, 70 ] ], @feature.ticks
   end
 
-  def test_a_conflict_still_red_after_the_step_halts_and_leaves_the_slice_unticked
+  GONE = "E\n\nActiveRecord::ConnectionNotEstablished: Can't connect to local MySQL server through socket '/tmp/mysql.sock' (111)\n"
+
+  # A database server killed for memory under the suite: thousands of errors,
+  # and a halt naming the first five as failing tests.
+  def test_a_suite_whose_database_went_away_runs_once_more
     conflicting!
-    @shell.on("bin/test", "3 failures", ok: false)
+    suites = [ Autopilot::Shell::Result.new(GONE, false, false), Autopilot::Shell::Result.new("", true, false) ]
+    @shell.on("bin/test") { suites.shift }
+    script = happy_script.merge("resolve_conflicts" => [ ok ])
+
+    run_with(script).slice(48)
+
+    assert_equal 2, @shell.lines.count("bin/test")
+    assert @shell.ran?("mysql -uroot -e SELECT 1"), "waits for the server to come back"
+    assert_equal [ 0, 6, 6 ], @step.releases, "as the slice starts, and before each suite run"
+    labels = @state.get(48, "usage").map { |u| u["step"] }.grep(/^bin\/test/)
+    assert_equal [ "bin/test after merging main", "bin/test again, after the database went away" ], labels
+    assert_equal [ [ 48, 70 ] ], @feature.ticks
+  end
+
+  def test_a_database_gone_twice_halts_as_the_environment_not_as_red_tests
+    conflicting!
+    @shell.on("bin/test", GONE, ok: false)
     script = happy_script.merge("resolve_conflicts" => [ ok ])
 
     error = assert_raises(Autopilot::Halted) { run_with(script).slice(48) }
 
-    assert_match(/suite is red after \/resolve_conflicts/, error.message)
+    assert_equal 2, @shell.lines.count("bin/test")
+    assert_match(/database went away during the suite twice after merging origin\/main/, error.message)
+    refute_match(/suite is red/, error.message)
+    assert_includes error.message, "kept on autopilot/foo/sync"
+    assert_empty @feature.ticks
+  end
+
+  def test_a_conflict_still_red_after_the_step_halts_and_leaves_the_slice_unticked
+    conflicting!
+    @shell.on("bin/test", "E\n\nbin/rails test test/models/box_test.rb:12\n\n9 runs, 9 assertions, 0 failures, 1 errors, 0 skips\n", ok: false)
+    script = happy_script.merge("resolve_conflicts" => [ ok ])
+
+    error = assert_raises(Autopilot::Halted) { run_with(script).slice(48) }
+
+    assert_match(/suite is red after merging origin\/main/, error.message)
+    assert_includes error.message, "9 runs, 9 assertions, 0 failures, 1 errors, 0 skips; test/models/box_test.rb:12"
+    assert_includes error.message, "kept on autopilot/foo/sync"
+    assert @shell.ran?("git branch -f autopilot/foo/sync HEAD"), "the resolved merge outlives the checkout back"
+    assert_includes File.read(File.join(@dir, "tmp/autopilot/suite-48.log")), "bin/rails test test/models/box_test.rb:12"
     assert_empty @feature.ticks, "a ticked slice would be skipped by the rerun, with main unmerged"
     assert @shell.ran?(/gh issue edit 48 .*--add-label status:blocked/)
+  end
+
+  def test_a_kept_merge_is_resumed_and_proven_instead_of_resolved_again
+    @shell.on("git rev-parse -q --verify refs/heads/autopilot/foo/sync", "abc\n")
+
+    run_with(happy_script).slice(48)
+
+    assert @shell.ran?("git merge --ff-only autopilot/foo/sync")
+    refute @step.runs.any? { |r| r[:command] == "resolve_conflicts" }
+    assert @shell.ran?("bin/test"), "a kept merge was red when kept"
+    assert @shell.ran?("git branch -D autopilot/foo/sync"), "landed, so a rerun must not resume it"
+  end
+
+  def test_a_kept_merge_the_feature_moved_past_is_not_resumed
+    @shell.on("git rev-parse -q --verify refs/heads/autopilot/foo/sync", "abc\n")
+    @shell.on("git merge-base --is-ancestor HEAD autopilot/foo/sync", "", ok: false)
+
+    run_with(happy_script).slice(48)
+
+    refute @shell.ran?("git merge --ff-only autopilot/foo/sync")
+    refute @shell.ran?("bin/test")
   end
 
   def test_a_conflict_the_step_cannot_finish_halts_after_one_retry
@@ -1221,6 +1735,19 @@ class AutopilotRunTest < Minitest::Test
 
     run.slice(48) # a rerun after a stop mid-landing
     assert_equal 1, @branch.commits.size, "nothing new to record, nothing committed"
+  end
+
+  # /implement counts only its own pre-PR drops; a review pass's drop is in the
+  # log alone, so the row takes the larger count.
+  def test_the_slice_row_counts_drops_the_review_passes_wrote
+    FileUtils.mkdir_p(File.join(@dir, ".llm/tasks"))
+    File.write(File.join(@dir, ".llm/tasks/48_top_down.md"), "- 2026-10-02: Pre-PR review: 1 round — 5 fixed, 0 dropped by developer\n")
+    write(@feature.log_path, log.sub("## QA", "### #48 — Top-down format\n\n#### Self-review pass 1 comments\n" \
+                                             "- `fix-drop` · Dropped (suggestion): `@x` unset. Probe: the sorted page raises\n\n## QA"))
+
+    run_with(happy_script).slice(48)
+
+    assert_includes log, "| 420 | 6 | 1 | 5 | 1 | 0m 0s | $5.00 |"
   end
 
   def write(path, text)
@@ -1296,6 +1823,14 @@ class AutopilotRunTest < Minitest::Test
     resolver = @state.get(48, "usage").find { |u| u["step"].start_with?("/pr_comment_resolver") }
     assert_equal "resume", resolver["variant"]
     assert_nil @state.get(48, "usage").find { |u| u["step"].start_with?("/implement") }["variant"]
+  end
+
+  # A continued session keeps the model it started on: another one would
+  # start its cache over, and the cache is the only reason to resume.
+  def test_a_resumed_resolver_runs_on_implement_s_model_and_effort
+    run_with(happy_script, :resume).slice(48)
+
+    assert_equal [ "implement" ], @step.runs.select { |r| r[:command] == "pr_comment_resolver" }.map { |r| r[:settings_of] }.uniq
   end
 
   # The experiment: a new session that starts from a handoff file instead of
@@ -1419,6 +1954,46 @@ class AutopilotRunTest < Minitest::Test
     assert_equal 2, plans.size
     assert_nil plans.first[:note]
     assert_match(/ended without: task_plan not done/, plans.last[:note])
+  end
+
+  # An /implement finished its work, then hung on one last test run and
+  # was killed. The work is there, so the step passes and nothing is retried.
+  def test_a_timed_out_step_whose_work_is_done_passes_without_a_retry
+    timeout = Autopilot::Step::Outcome.new(kind: :timeout, reason: "no result after 90 minutes", session_id: "t1")
+    script = happy_script.merge("implement" => [ step_doing(:implement, timeout) ])
+
+    run_with(script).slice(48)
+
+    assert_equal 1, @step.runs.count { |r| r[:command] == "implement" }
+    row = @state.get(48, "usage").find { |u| u["step"] == "/implement 48" }
+    assert_equal "timeout", row["kind"]
+    refute row.key?("failure")
+  end
+
+  def test_a_timed_out_step_whose_work_is_missing_is_retried_with_the_reason
+    @expect.needs(:implement, runs: 2)
+    timeout = Autopilot::Step::Outcome.new(kind: :timeout, reason: "no result after 90 minutes", session_id: "t1")
+    script = happy_script.merge("implement" => [ step_doing(:implement, timeout), step_doing(:implement, ok("author-1")) ])
+
+    run_with(script).slice(48)
+
+    implements = @step.runs.select { |r| r[:command] == "implement" }
+    assert_equal 2, implements.size
+    assert_match(/ended without: no result after 90 minutes/, implements.last[:note])
+  end
+
+  # Every retry after a hung test run hung the same way, on the
+  # locks the killed run's workers still held.
+  def test_a_timed_out_step_s_retry_starts_with_the_databases_released
+    @expect.needs(:implement, runs: 2)
+    timeout = Autopilot::Step::Outcome.new(kind: :timeout, reason: "no result after 90 minutes", session_id: "t1")
+    script = happy_script.merge("implement" => [ step_doing(:implement, timeout), step_doing(:implement, ok("author-1")) ])
+
+    run_with(script).slice(48)
+
+    commands = @step.runs.map { |r| r[:command] }
+    assert_equal %w[task_plan implement implement], commands.first(3)
+    assert_equal [ 0, 2 ], @step.releases, "as the slice starts, and after the timed-out attempt"
   end
 
   # The run guide sends the developer to the state file and the step's
@@ -1814,6 +2389,58 @@ class AutopilotResumeRealGitTest < Minitest::Test
     branch.change { |b| File.write(File.join(@worktree, LOG), "kept\n") && b.commit([ LOG ], "kept") }
     assert_equal "kept", git(@tmp, "--git-dir", @remote, "show", "feature/foo:#{LOG}")
   end
+
+  # A run killed inside change never ran its ensure: the rerun finds the
+  # worktree detached and goes back to the branch it left.
+  def test_a_change_from_a_detached_worktree_returns_to_the_branch_it_left
+    git(@worktree, "fetch", "-q", "origin", "feature/foo")
+    git(@worktree, "checkout", "-q", "--detach", "origin/feature/foo")
+    branch = Autopilot::FeatureBranch.new(feature: Autopilot::Feature.new("foo", shell: nil, root: @worktree),
+                                          shell: Autopilot::Shell.new, worktree: @worktree)
+
+    branch.change { nil }
+
+    assert_equal "feat/60/storage", git(@worktree, "branch", "--show-current")
+  end
+
+  # --setup for real while the developer's checkout holds feature/foo. git
+  # refuses a ref nested under another, so the driver's own branch and the
+  # kept merge (prove_suite's branch -f) must be siblings, in either order.
+  def setup_for_real
+    git(File.join(@tmp, "main"), "worktree", "remove", "--force", @worktree)
+    out = StringIO.new
+    status = Dir.chdir(File.join(@tmp, "main")) do
+      Autopilot::CLI.new(%w[foo --setup], shell: SplitShell.new(FakeShell.new), out: out, desktop: false).call
+    end
+    assert_equal 0, status, out.string
+  end
+
+  def test_setup_beside_the_checkout_holding_the_feature_branch_leaves_room_for_a_kept_merge
+    setup_for_real
+
+    assert_equal "autopilot/foo/worktree", git(@worktree, "branch", "--show-current")
+    assert_equal "feature/foo", git(File.join(@tmp, "main"), "branch", "--show-current")
+    git(@worktree, "branch", "-f", "autopilot/foo/sync", "HEAD")
+  end
+
+  def test_setup_beside_a_kept_merge
+    git(File.join(@tmp, "main"), "branch", "autopilot/foo/sync", "feature/foo")
+
+    setup_for_real
+
+    assert_equal "autopilot/foo/worktree", git(@worktree, "branch", "--show-current")
+  end
+
+  def test_a_dirty_detached_worktree_still_stops
+    git(@worktree, "checkout", "-q", "--detach")
+    File.write(File.join(@worktree, LOG), "half done\n")
+    branch = Autopilot::FeatureBranch.new(feature: Autopilot::Feature.new("foo", shell: nil, root: @worktree),
+                                          shell: Autopilot::Shell.new, worktree: @worktree)
+
+    error = assert_raises(Autopilot::Error) { branch.change { nil } }
+
+    assert_match(/detached HEAD/, error.message)
+  end
 end
 
 # The two tiers beside labels (docs/system/autopilot-steps.md, Tracker
@@ -1928,6 +2555,42 @@ class AutopilotTrackerTiersTest < Minitest::Test
 
     @shell.on(/^gh api graphql -f query=\{ node\(id: "PVT_1"\)/, JSON.generate("data" => { "node" => { "id" => "PVT_1" } }))
     assert_nil feature.tracker.probe
+  end
+
+  # Reading the board takes read:project; moving a card takes project, and
+  # without it every Status write failed quietly.
+  def test_board_probe_needs_the_project_scope
+    board!
+    @shell.on(/^gh api graphql -f query=\{ node\(id: "PVT_1"\)/, JSON.generate("data" => { "node" => { "id" => "PVT_1" } }))
+    @shell.on("gh auth status --hostname github.com", "  - Token scopes: 'gist', 'read:org', 'read:project', 'repo'\n")
+
+    assert_match(/gh's token cannot write the board .*gh auth refresh -h github.com -s project/, feature.tracker.probe)
+
+    @shell.on("gh auth status --hostname github.com", "  - Token scopes: 'gist', 'project', 'read:org', 'repo'\n")
+    assert_nil feature.tracker.probe
+  end
+
+  # gh 2.23.0, which the driver supports, prints the scopes without quotes.
+  def test_board_probe_reads_the_scopes_as_older_gh_prints_them
+    board!
+    @shell.on(/^gh api graphql -f query=\{ node\(id: "PVT_1"\)/, JSON.generate("data" => { "node" => { "id" => "PVT_1" } }))
+    @shell.on("gh auth status --hostname github.com", "  ✓ Token scopes: gist, project, read:org, repo\n")
+
+    assert_nil feature.tracker.probe
+
+    @shell.on("gh auth status --hostname github.com", "  ✓ Token scopes: gist, read:org, read:project, repo\n")
+    assert_match(/gh's token cannot write the board/, feature.tracker.probe)
+  end
+
+  def test_board_a_card_it_cannot_move_back_is_reported
+    board!
+    @shell.on(%r{git ls-remote --heads origin refs/heads/feat/60/\*}, "abc\trefs/heads/feat/60/storage\n")
+    @shell.on(%r{gh pr list --repo acme/shop --head feat/60/storage --state open}, JSON.generate([ { "number" => 71 } ]))
+    @shell.on(/^gh api graphql -f query=\{ repository/, JSON.generate("data" => { "repository" => { "issue" => { "projectItems" => { "nodes" => [] } } } }))
+
+    note = resume.restore_state(Autopilot::Slice.new(issue: 60, state: "todo"))
+
+    assert_match(/could not move #60 to up-for-review on the tracker/, note)
   end
 
   # beads
@@ -2219,7 +2882,8 @@ class AutopilotServerTest < Minitest::Test
     @server.start
 
     call = @shell.calls.find { |c| c[:line] == "spawn bin/dev" }
-    assert_equal({ "PORT" => "3100", "DB_SUFFIX" => "_autopilot" }, call[:env])
+    # No recurring jobs: the development schedule may call outside services.
+    assert_equal({ "PORT" => "3100", "DB_SUFFIX" => "_autopilot", "SOLID_QUEUE_SKIP_RECURRING" => "true" }, call[:env])
     assert_equal @worktree, call[:chdir]
     assert_equal "4242", File.read(File.join(@worktree, "tmp/autopilot/dev.pid")).strip
   end
@@ -2294,7 +2958,137 @@ class AutopilotCLITest < Minitest::Test
 
     assert_match(/Next slice: #60/, @out.string)
     assert_match(%r{claude -p /task_plan 60 --permission-mode dontAsk}, @out.string)
+    assert_match(/Steps run on: the default model, default effort, default attribution/, @out.string)
     assert_empty @shell.lines.grep(MUTATING), "dry run ran: #{@shell.lines.grep(MUTATING).inspect}"
+  end
+
+  # Read from beside the developer's checkout, not the worktree: the worktree
+  # is a fresh checkout, without the developer's ignored files.
+  def test_dry_run_shows_the_developer_s_model_effort_and_attribution
+    write_preferences("model" => "opus", "effort" => "high", "attribution" => { "commit" => "", "pr" => "" })
+
+    assert_equal 0, cli("foo", "--dry-run").call
+
+    assert_match(/Steps run on: model opus, effort high, no attribution/, @out.string)
+    assert_match(%r{claude -p /task_plan 60 .*--model opus}m, @out.string)
+  end
+
+  def test_the_model_and_effort_flags_win_over_the_preferences_file
+    write_preferences("model" => "opus", "effort" => "high")
+
+    assert_equal 0, cli("foo", "--dry-run", "--model", "sonnet", "--effort", "medium").call
+
+    assert_match(/Steps run on: model sonnet, effort medium, default attribution/, @out.string)
+  end
+
+  def test_preflight_refuses_a_preferences_file_it_cannot_use
+    write_preferences("{ model: opus")
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{cannot read \.claude/autopilot\.local\.json}, @out.string)
+
+    @out = StringIO.new
+    write_preferences("modle" => "opus")
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{\.claude/autopilot\.local\.json has unknown keys: modle}, @out.string)
+  end
+
+  def test_dry_run_shows_each_command_s_own_model_and_effort
+    write_preferences("model" => "sonnet", "effort" => "medium",
+                      "steps" => { "task_plan" => { "model" => "opus", "effort" => "high" }, "pr_review" => { "model" => "opus" } })
+
+    assert_equal 0, cli("foo", "--dry-run").call
+
+    assert_match(/Steps run on: model sonnet, effort medium, default attribution; task_plan: opus, high; pr_review: opus, medium/, @out.string)
+    assert_match(%r{claude -p /task_plan 60 .*--model opus}m, @out.string)
+    assert_match(%r{claude -p /implement 60 .*--model sonnet}m, @out.string)
+  end
+
+  # A one-off run on one model: the flags win over every entry in the file.
+  def test_the_flags_win_over_each_command_s_own_model_and_effort
+    write_preferences("steps" => { "task_plan" => { "model" => "opus", "effort" => "high" } })
+
+    assert_equal 0, cli("foo", "--dry-run", "--model", "sonnet", "--effort", "low").call
+
+    assert_match(/Steps run on: model sonnet, effort low, default attribution \(/, @out.string)
+    refute_match(/--model opus/, @out.string)
+  end
+
+  def test_preflight_refuses_steps_the_driver_does_not_run
+    write_preferences("steps" => { "task_plans" => { "model" => "opus" } })
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{\.claude/autopilot\.local\.json names steps it does not run: task_plans}, @out.string)
+
+    @out = StringIO.new
+    write_preferences("steps" => { "task_plan" => { "modle" => "opus" } })
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{\.claude/autopilot\.local\.json: task_plan has unknown keys: modle \(it takes model, effort\)}, @out.string)
+  end
+
+  # A wrong value used to pass preflight and the dry run, then crash the run
+  # at its first step (a number in argv) or reach claude as an effort it refuses.
+  def test_preflight_refuses_a_model_or_effort_a_step_cannot_take
+    { { "model" => 5 } => "model 5 is not a model name",
+      { "effort" => "hgih" } => %(effort "hgih" is not one of low, medium, high, xhigh, max),
+      { "effort" => nil } => "effort nil is not one of",
+      { "steps" => { "task_plan" => { "effort" => "hgih" } } } => %(task_plan: effort "hgih" is not one of),
+      { "attribution" => "none" } => "attribution is not a JSON object" }.each do |values, message|
+      @out = StringIO.new
+      write_preferences(values)
+
+      assert_equal 1, cli("foo", "--dry-run").call, values.inspect
+      assert_includes @out.string, ".claude/autopilot.local.json: #{message}"
+    end
+  end
+
+  # The same reason as the file's checks: an effort claude refuses should
+  # not get past the dry run.
+  def test_an_effort_flag_claude_does_not_take_is_refused
+    assert_equal 1, cli("foo", "--dry-run", "--effort", "hgih").call
+
+    assert_match(/\Ausage: bin\/autopilot/, @out.string)
+  end
+
+  # A developer's own environment for the run: set in the driver's before
+  # setup's first fetch, so everything it starts inherits it, steps included.
+  def test_the_preferences_env_reaches_every_command_the_driver_starts
+    write_preferences("env" => { "AUTOPILOT_TEST_SETTING" => "on" })
+    FileUtils.remove_entry(@worktree)
+    seen = nil
+    @shell.on("git fetch origin feature/foo") { (seen = ENV["AUTOPILOT_TEST_SETTING"]) && Autopilot::Shell::Result.new("", true, false) }
+
+    cli("foo", "--setup").call
+
+    assert_equal "on", seen
+  ensure
+    ENV.delete("AUTOPILOT_TEST_SETTING")
+  end
+
+  def test_the_dry_run_names_the_env_it_adds
+    write_preferences("env" => { "AUTOPILOT_TEST_SETTING" => "on" })
+
+    assert_equal 0, cli("foo", "--dry-run").call
+    assert_match(/Steps run on: .*; env: AUTOPILOT_TEST_SETTING/, @out.string)
+  ensure
+    ENV.delete("AUTOPILOT_TEST_SETTING")
+  end
+
+  def test_preflight_and_setup_refuse_an_env_that_is_not_names_and_text
+    [ { "env" => [ "X=1" ] }, { "env" => { "X" => 1 } }, { "env" => { "not a name" => "1" } } ].each do |values|
+      @out = StringIO.new
+      write_preferences(values)
+
+      assert_equal 1, cli("foo", "--dry-run").call, values.inspect
+      assert_includes @out.string, ".claude/autopilot.local.json: env maps variable names to text"
+      @out = StringIO.new
+      assert_equal 1, cli("foo", "--setup").call, values.inspect
+      assert_includes @out.string, ".claude/autopilot.local.json: env maps variable names to text"
+    end
+    refute @shell.ran?(/^git fetch/)
+  end
+
+  def write_preferences(content)
+    FileUtils.mkdir_p(File.join(@root, ".claude"))
+    File.write(File.join(@root, ".claude/autopilot.local.json"), content.is_a?(String) ? content : JSON.generate(content))
   end
 
   def write_state(data)
@@ -2419,6 +3213,20 @@ class AutopilotCLITest < Minitest::Test
     assert_empty @shell.lines.grep(MUTATING)
   end
 
+  def test_preflight_lets_a_rerun_pick_up_uncommitted_work_on_the_next_slice_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/60/top-down\n")
+
+    assert_equal 0, cli("foo", "--dry-run").call
+    refute_match(/uncommitted changes/, @out.string)
+  end
+
+  def test_preflight_refuses_uncommitted_work_on_any_other_branch
+    @shell.on("git status --porcelain", " M app/models/x.rb\n").on("git branch --show-current", "feat/48/top-down\n")
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{uncommitted changes in .*: M app/models/x\.rb}, @out.string)
+  end
+
   def test_preflight_refuses_a_run_without_the_workflow_config
     FileUtils.rm(File.join(@worktree, ".claude/workflow.config.md"))
 
@@ -2490,7 +3298,10 @@ class AutopilotCLITest < Minitest::Test
     end
 
     assert_equal 0, cli("foo", "--setup").call
-    assert @shell.ran?("git worktree add #{@worktree} feature/foo")
+    # A branch of the driver's own, from the remote: feature/foo is often
+    # checked out elsewhere, and git gives a branch to one worktree only.
+    assert @shell.ran?("git worktree add -B autopilot/foo/worktree #{@worktree} origin/feature/foo")
+    refute @shell.ran?(/^git worktree add .* feature\/foo$/), "never the local feature/foo"
     dev = @shell.calls.find { |c| c[:line] == "bin/rails db:prepare" }
     assert_equal({ "DB_SUFFIX" => "_autopilot" }, dev[:env], "development is prepared, and seeded for walkthroughs")
     # db:prepare seeds a database it creates, and in development it creates
@@ -2504,6 +3315,60 @@ class AutopilotCLITest < Minitest::Test
     @shell.calls.clear
     cli("foo", "--setup").call
     refute @shell.ran?(/^git worktree add/), "setup is idempotent"
+  end
+
+  # A failed fetch used to fall through to `git worktree add` on whatever
+  # origin/feature/<slug> the checkout last saw.
+  def test_setup_stops_when_the_fetch_fails
+    FileUtils.remove_entry(@worktree)
+    @shell.on("git fetch origin feature/foo", "fatal: Could not read from remote repository.", ok: false)
+
+    assert_equal 1, cli("foo", "--setup").call
+    assert_match(%r{git fetch origin feature/foo failed:\nfatal: Could not read from remote repository\.}, @out.string)
+    refute @shell.ran?(/^git worktree add/)
+  end
+
+  # An app whose seeds need data git does not carry defines db:autopilot:clone:
+  # the run's development database is cloned from yours before db:prepare
+  # could create and seed it.
+  def define_clone_task
+    FileUtils.mkdir_p(File.join(@worktree, "lib/tasks"))
+    File.write(File.join(@worktree, "lib/tasks/autopilot.rake"), "")
+  end
+
+  def test_setup_without_a_clone_task_seeds_as_before
+    @shell.on(/^bin\/rails runner/, ok: false)
+
+    assert_equal 0, cli("foo", "--setup").call
+    refute @shell.ran?(/^bin\/rails runner/), "no clone task: nothing to probe"
+    refute @shell.ran?("bin/rails db:autopilot:clone")
+    assert @shell.ran?("bin/rails db:prepare")
+  end
+
+  def test_setup_clones_the_development_database_only_when_it_is_missing
+    define_clone_task
+    @shell.on(/^bin\/rails runner/, ok: false)
+
+    assert_equal 0, cli("foo", "--setup").call
+    clone = @shell.calls.find { |c| c[:line] == "bin/rails db:autopilot:clone" }
+    assert clone, "a missing database is cloned"
+    refute clone[:env].key?("DB_SUFFIX"), "the clone reads your database, so it runs without the suffix"
+    assert_operator @shell.calls.index(clone), :<, @shell.calls.index { |c| c[:line] == "bin/rails db:prepare" }
+
+    @shell.on(/^bin\/rails runner/)
+    @shell.calls.clear
+    cli("foo", "--setup").call
+    refute @shell.ran?("bin/rails db:autopilot:clone"), "an existing database keeps the run's data"
+  end
+
+  def test_setup_stops_when_the_clone_fails
+    define_clone_task
+    @shell.on(/^bin\/rails runner/, ok: false)
+    @shell.on("bin/rails db:autopilot:clone", "could not recreate", ok: false)
+
+    assert_equal 1, cli("foo", "--setup").call
+    assert_match(/db:autopilot:clone failed:\ncould not recreate/, @out.string)
+    refute @shell.ran?("bin/rails db:prepare"), "nothing is created and half-seeded"
   end
 
   def test_a_feature_already_finished_ends_cleanly
@@ -2531,6 +3396,51 @@ class AutopilotCLITest < Minitest::Test
     assert_equal [ 60, 61 ], landed
     assert_equal [ [ 61, [ 60, 61 ] ] ], fake.finalized
     assert_match(/Finished: feature PR #53 is ready for review/, @out.string)
+  end
+
+  def finish_the_feature
+    slices_pr
+    @shell.on("gh issue view 61 --repo acme/shop --json body,labels,state", issue_json("#60 first."))
+    landed = []
+    fake = FakeRun.new { |issue| (landed << issue) && slices_pr(*landed) }
+    cli("foo", run_factory: ->(**) { fake }).call
+  end
+
+  # The finish takes down what --setup made: the databases, then the
+  # worktree they were dropped from.
+  def test_a_finished_feature_drops_the_databases_and_removes_its_worktree
+    assert_equal 0, finish_the_feature
+
+    drop = @shell.calls.find { |c| c[:line].start_with?("bin/rails runner") }
+    assert_equal({ "DB_SUFFIX" => "_autopilot" }, drop[:env])
+    assert_equal @worktree, drop[:chdir]
+    remove = @shell.calls.find { |c| c[:line] == "git worktree remove #{@worktree}" }
+    assert_equal @root, remove[:chdir]
+    assert_operator @shell.calls.index(drop), :<, @shell.calls.index(remove)
+    branch = @shell.calls.find { |c| c[:line] == "git branch -D autopilot/foo/worktree" }
+    assert_equal @root, branch && branch[:chdir], "the driver's own branch goes with its worktree"
+    assert_operator @shell.calls.index(remove), :<, @shell.calls.index(branch)
+    assert_match(/Removed #{@worktree} and the \*_autopilot databases/, @out.string)
+  end
+
+  # DB_SUFFIX is the same for every feature: another feature's worktree
+  # still runs on these databases.
+  def test_a_finished_feature_keeps_the_databases_another_worktree_uses
+    FileUtils.mkdir_p(File.join(@parent, "shop-autopilot-bar"))
+
+    assert_equal 0, finish_the_feature
+
+    refute @shell.ran?(/^bin\/rails runner/)
+    assert @shell.ran?("git worktree remove #{@worktree}")
+    assert_match(/kept the \*_autopilot databases: shop-autopilot-bar still uses them/, @out.string)
+  end
+
+  def test_a_worktree_git_will_not_remove_is_left_and_said
+    @shell.on(/^git worktree remove/, "fatal: contains modified or untracked files", ok: false)
+
+    assert_equal 0, finish_the_feature
+
+    assert_match(/Left #{@worktree}: fatal: contains modified or untracked files/, @out.string)
   end
 
   def test_a_blocked_slice_after_one_lands_stops_the_run_unfinished
@@ -2771,6 +3681,27 @@ class AutopilotLogTest < Minitest::Test
     refute_includes items.join, "<claim>", "the template inside the comment is not an entry"
     refute_includes items.join, "D47-1", "cheap entries stay out"
     assert_equal text, Autopilot::Log.read_this_first(text), "regenerated, not appended"
+  end
+
+  # A review section writes its drops where it is, not under the template's
+  # heading: one log said "Nothing … dropped" over three drops.
+  def test_read_this_first_lists_drops_written_outside_the_dropped_heading
+    text = FIXTURE.sub("#### Issues filed", <<~MD.chomp)
+      #### Review findings (self-review pass 1 on PR #67, `comments`)
+      - `fix-drop` · Dropped (suggestion): `@x` unset on a sorted load. Probe: the sorted page raises
+      - Dropped (nit, `fix-drop`): a count. Probe: D47-2 settled it
+      - Fixed (nit): a name
+
+      #### Issues filed
+    MD
+
+    items = section(Autopilot::Log.read_this_first(text), "## Read this first").lines.grep(/^- \*\*dropped/).map(&:chomp)
+
+    assert_equal [
+      "- **dropped** · #47 · Token in the cable URL — probe: `grep -n token app/channels` shows none — `app/channels/application_cable/connection.rb:12`",
+      "- **dropped** · #47 · Dropped (suggestion): `@x` unset on a sorted load. Probe: the sorted page raises",
+      "- **dropped** · #47 · Dropped (nit, `fix-drop`): a count. Probe: D47-2 settled it"
+    ], items
   end
 
   def test_the_run_line_names_the_span_and_the_total

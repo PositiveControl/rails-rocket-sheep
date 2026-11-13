@@ -3,8 +3,8 @@
 
 # bin/autopilot — run an autopilot feature's slices unattended.
 #
-#   bin/autopilot <slug> --setup     provision ../<repo>-autopilot-<slug> (once)
-#   bin/autopilot <slug>             run, land and finish every open slice
+#   bin/autopilot <slug> --setup     provision ../<repo>-autopilot-<slug> (once), then a shell there
+#   bin/autopilot <slug>             run, land and finish every open slice, then clean up
 #   bin/autopilot <slug> --dry-run   say what would run, change nothing
 #   bin/autopilot <slug> --usage     cost and cache use per step, from the state file
 #
@@ -106,37 +106,109 @@ module Autopilot
 
     def slice_id(text) = text.start_with?("#") ? text.delete_prefix("#").to_i : "bd-#{text[/[^-]+\z/]}"
     def ref(id) = id.is_a?(Integer) ? "##{id}" : id.to_s
+
+    # The database family, read from the app's own config: the driver frees
+    # stale connections and waits on a restarted server with its client.
+    def postgres?(root)
+      File.read(File.join(root, "config/database.yml")).match?(/adapter:\s*postgresql/)
+    rescue Errno::ENOENT
+      false
+    end
   end
 
   # Runs commands. Each command gets its own process group, so a timeout takes
-  # down everything it spawned, not just the parent.
+  # down everything it spawned, not just the parent; a descendant that left the
+  # group goes too (a step's harness backgrounds a command that outruns its
+  # timeout into a group of its own, and one such test run outlived its step by
+  # seventeen hours).
   class Shell
-    Result = Struct.new(:out, :ok, :timed_out)
+    Result = Struct.new(:out, :ok, :timed_out, :idle)
+    # Nothing the driver runs for itself takes this long; a gh call with the
+    # network gone once held a halt for two hours.
+    DEFAULT_TIMEOUT = 10 * 60
+    POLL = 15
 
-    def run(*cmd, env: {}, chdir: nil, timeout: nil)
+    # Git and ssh fail rather than ask: in its own process group, a command
+    # that prompts on the terminal is stopped, not answered (setup sat for
+    # minutes on a fetch over SSH). The batch-mode ssh is only a default:
+    # GIT_SSH_COMMAND outranks GIT_SSH and core.sshCommand, so it is left out
+    # when the developer set any of the three.
+    def self.no_prompts
+      own = ENV.key?("GIT_SSH_COMMAND") || ENV.key?("GIT_SSH") || core_ssh_command?
+      { "GIT_TERMINAL_PROMPT" => "0", **({ "GIT_SSH_COMMAND" => "ssh -o BatchMode=yes" } unless own) }
+    end
+
+    def self.core_ssh_command?
+      return @core_ssh_command if defined?(@core_ssh_command)
+
+      @core_ssh_command = !IO.popen(%w[git config --get core.sshCommand], err: File::NULL, &:read).strip.empty?
+    end
+
+    # `heartbeat` names a file the command keeps writing while it works (a
+    # step's transcript): `idle` seconds without a write, or without the file,
+    # end the command the way the timeout does. `abort_on` is a pattern in the
+    # output that ends it at once (a suite ran 82 minutes after its database
+    # died): not ok, not timed out, the output so far.
+    def run(*cmd, env: {}, chdir: nil, timeout: DEFAULT_TIMEOUT, heartbeat: nil, idle: nil, abort_on: nil)
       options = { pgroup: true }
       options[:chdir] = chdir if chdir
-      Open3.popen2e(env, *cmd, **options) do |stdin, out, waiter|
+      Open3.popen2e(Shell.no_prompts.merge(env), *cmd, **options) do |stdin, out, waiter|
         stdin.close
-        reader = Thread.new { out.read }
+        hit = false
+        reader = Thread.new do
+          buffer = +""
+          until out.eof?
+            chunk = out.readpartial(65_536)
+            buffer << chunk
+            hit ||= abort_on.match?(chunk) if abort_on
+          end
+          # readpartial hands over bytes; IO#read gave the external encoding.
+          buffer.force_encoding(Encoding.default_external)
+        end
         begin
-          finished = waiter.join(timeout)
+          ended = wait(waiter, timeout, heartbeat, idle, abort_on && -> { hit })
         rescue Interrupt
           # Ctrl-C reaches the driver, not the step in its own process group,
           # and the block would otherwise wait for the step to end. A second
           # Ctrl-C must not cut the cleanup short: the driver is on its way out.
           # Anything spawned after this inherits the ignored INT.
           trap("INT", "IGNORE")
-          kill_group(waiter.pid)
+          kill_tree(waiter.pid)
           raise
         end
-        if finished
-          Result.new(reader.value, waiter.value.success?, false)
+        if ended == :finished
+          Result.new(reader.value, waiter.value.success?, false, false)
         else
-          kill_group(waiter.pid)
-          Result.new(reader.value.to_s, false, true)
+          kill_tree(waiter.pid)
+          Result.new(reader.value.to_s, false, ended != :aborted, ended == :idle)
         end
       end
+    end
+
+    def wait(waiter, timeout, heartbeat, idle, abort = nil)
+      started = Time.now
+      deadline = timeout && started + timeout
+      loop do
+        remaining = deadline && deadline - Time.now
+        return :timeout if remaining && remaining <= 0
+        return :finished if waiter.join([ POLL, remaining, idle, abort && 1 ].compact.min)
+        return :aborted if abort&.call
+        return :idle if idle && Time.now - last_write(heartbeat, started) > idle
+      end
+    end
+
+    # A file from before the command (a resumed session's transcript) counts
+    # from the command's start, not from its own age.
+    def last_write(heartbeat, started)
+      return started unless heartbeat && File.exist?(heartbeat)
+
+      [ File.mtime(heartbeat), started ].max
+    end
+
+    def kill_tree(pid)
+      escaped = descendants(pid)
+      kill_group(pid)
+      kill_pids(escaped.select { |child| alive?(child) })
     end
 
     def kill_group(pid, grace: 2)
@@ -146,6 +218,42 @@ module Autopilot
       Process.kill("KILL", -pid) if alive?(pid)
     rescue Errno::ESRCH, Errno::EPERM
       nil
+    end
+
+    def kill_pids(pids, grace: 2)
+      pids.each { |pid| signal("TERM", pid) }
+      deadline = Time.now + grace
+      sleep 0.05 while Time.now < deadline && pids.any? { |pid| alive?(pid) }
+      pids.each { |pid| signal("KILL", pid) if alive?(pid) }
+    end
+
+    def signal(name, pid)
+      Process.kill(name, pid)
+    rescue Errno::ESRCH, Errno::EPERM
+      nil
+    end
+
+    # Every process under `pid`, read before the kill: an orphan keeps no
+    # trace of the parent it had.
+    def descendants(pid)
+      children = Hash.new { |h, k| h[k] = [] }
+      `ps -eo pid=,ppid=`.scan(/(\d+)\s+(\d+)/) { |child, parent| children[parent.to_i] << child.to_i }
+      found = []
+      queue = [ pid ]
+      until queue.empty?
+        kids = children[queue.shift]
+        found.concat(kids)
+        queue.concat(kids)
+      end
+      found
+    end
+
+    # Processes named `names` whose parent is gone (reparented to pid 1), and
+    # everything still running under them.
+    def orphans(names)
+      rows = `ps -eo pid=,ppid=,comm=`.scan(/^\s*(\d+)\s+(\d+)\s+(\S+)/)
+      roots = rows.select { |_pid, ppid, comm| ppid == "1" && names.include?(comm) }.map { |pid, _, _| pid.to_i }
+      roots + roots.flat_map { |pid| descendants(pid) }
     end
 
     # A pid from a previous run is not our child: waitpid raises ECHILD for it,
@@ -201,6 +309,8 @@ module Autopilot
     end
 
     def kill_group(...) = @shell.kill_group(...)
+    def kill_pids(...) = @shell.kill_pids(...)
+    def orphans(...) = @shell.orphans(...)
     def alive?(...) = @shell.alive?(...)
     def spawn_background(...) = @shell.spawn_background(...)
 
@@ -340,7 +450,7 @@ module Autopilot
 
       def probe
         result = @shell.run("gh", "api", "graphql", "-f", "query={ node(id: \"#{@config['PROJECT_ID']}\") { id } }")
-        return if result.ok && JSON.parse(result.out).dig("data", "node")
+        return write_problem if result.ok && JSON.parse(result.out).dig("data", "node")
 
         "cannot read the board #{@config['PROJECT_ID']} (github-projects): #{result.out.strip.lines.first}"
       rescue JSON::ParserError
@@ -348,6 +458,17 @@ module Autopilot
       end
 
       private
+
+      # Reading the board takes read:project; moving a card takes project, and
+      # without it every Status write failed quietly. A gh that lists no scopes
+      # (a fine-grained token) is taken at its word. Newer gh quotes each scope,
+      # 2.23.0 does not.
+      def write_problem
+        scopes = @shell.run("gh", "auth", "status", "--hostname", "github.com").out[/Token scopes: (.*)$/, 1]
+        return if scopes.nil? || scopes.split(",").map { |scope| scope.strip.delete("'") }.include?("project")
+
+        "gh's token cannot write the board #{@config['PROJECT_ID']} (github-projects): gh auth refresh -h github.com -s project"
+      end
 
       # The issue's card on this app's board, with its Status; nil when it has none.
       def card(id) = cards(id).find { |node| node.dig("project", "id") == @config["PROJECT_ID"] }
@@ -543,18 +664,7 @@ module Autopilot
       reload
       body = pr.fetch("body").to_s
       ticked = self.class.ticked(body, issue, slice_pr, closes: tracker.closes?, pattern: self.class.slice_line(tracker))
-      return if ticked == body
-
-      file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
-      FileUtils.mkdir_p(File.dirname(file))
-      File.write(file, ticked)
-      # Not `gh pr edit`: it asks for projectCards, which GitHub rejects since
-      # Projects (classic) was sunset, and writes nothing.
-      result = @shell.run("gh", "api", "-X", "PATCH", "repos/#{Autopilot.repo}/pulls/#{pr.fetch('number')}",
-                          "-F", "body=@#{file}", "--silent")
-      raise Error, "cannot edit feature PR ##{pr['number']}: #{result.out.strip}" unless result.ok
-
-      reload
+      edit_body(ticked) unless ticked == body
     end
 
     # `- [ ] #n — title` becomes `- [x] #n — title (PR #p)`, and `Closes #n`
@@ -596,12 +706,131 @@ module Autopilot
       stop = (start + 1...lines.size).find { |i| lines[i].start_with?("## ") } || lines.size
       (start + 1...stop).to_a
     end
+
+    private
+
+    def edit_body(text)
+      file = File.join(@root, "tmp/autopilot/feature-pr-body.md")
+      FileUtils.mkdir_p(File.dirname(file))
+      File.write(file, text)
+      # Not `gh pr edit`: it asks for projectCards, which GitHub rejects since
+      # Projects (classic) was sunset, and writes nothing.
+      result = @shell.run("gh", "api", "-X", "PATCH", "repos/#{Autopilot.repo}/pulls/#{pr.fetch('number')}",
+                          "-F", "body=@#{file}", "--silent")
+      raise Error, "cannot edit feature PR ##{pr['number']}: #{result.out.strip}" unless result.ok
+
+      reload
+    end
+  end
+
+  # The developer's model, effort and attribution for the steps, from a
+  # git-ignored file beside their checkout: a default for every step, and a
+  # command's own model and effort under `steps` (a plan on a stronger model
+  # than the build). `--model` / `--effort` win over both for one run. Only
+  # these reach a step; the rest of their user settings stays out (Step#argv).
+  class Preferences
+    PATH = ".claude/autopilot.local.json"
+    KEYS = %w[model effort attribution steps env].freeze
+    NAME = /\A[A-Za-z_][A-Za-z0-9_]*\z/
+    STEP_KEYS = %w[model effort].freeze
+    EFFORTS = %w[low medium high xhigh max].freeze # claude --help
+    # Every command the driver runs as a step, each of which `steps` may name.
+    # A test fails when the driver starts a step this does not list.
+    COMMANDS = %w[task_plan implement pr_submit pr_review pr_comment_resolver pr_fix_ci resolve_conflicts update_docs].freeze
+
+    attr_reader :problem
+
+    def self.read(path, model: nil, effort: nil)
+      values = File.exist?(path) ? JSON.parse(File.read(path)) : {}
+      problem = problem_with(values)
+      problem ? new(problem: problem) : new(values, flags: { "model" => model, "effort" => effort }.compact)
+    rescue JSON::ParserError => e
+      new(problem: "cannot read #{PATH}: #{e.message.lines.first.to_s.strip}")
+    end
+
+    def self.problem_with(values)
+      return "#{PATH} is not a JSON object" unless values.is_a?(Hash)
+
+      unknown = values.keys - KEYS
+      return "#{PATH} has unknown keys: #{unknown.join(', ')} (it takes #{KEYS.join(', ')})" if unknown.any?
+
+      steps = values.fetch("steps", {})
+      return "#{PATH}: steps maps a command to its model and effort" unless steps.is_a?(Hash) && steps.values.all?(Hash)
+
+      strangers = steps.keys - COMMANDS
+      return "#{PATH} names steps it does not run: #{strangers.join(', ')} (it runs #{COMMANDS.join(', ')})" if strangers.any?
+
+      steps.each do |command, entry|
+        unknown = entry.keys - STEP_KEYS
+        return "#{PATH}: #{command} has unknown keys: #{unknown.join(', ')} (it takes #{STEP_KEYS.join(', ')})" if unknown.any?
+      end
+      return "#{PATH}: attribution is not a JSON object" if values.key?("attribution") && !values["attribution"].is_a?(Hash)
+
+      env = values.fetch("env", {})
+      return "#{PATH}: env maps variable names to text" unless env.is_a?(Hash) && env.all? { |name, value| name.match?(NAME) && value.is_a?(String) }
+
+      [ [ nil, values ], *steps ].each do |command, entry|
+        problem = value_problem(entry)
+        return "#{PATH}: #{[ command, problem ].compact.join(': ')}" if problem
+      end
+      nil
+    end
+
+    # A value a step can take: a model name as text, an effort claude knows.
+    def self.value_problem(entry)
+      model, effort = entry.values_at("model", "effort")
+      return "model #{model.inspect} is not a model name" if entry.key?("model") && !(model.is_a?(String) && !model.strip.empty?)
+
+      "effort #{effort.inspect} is not one of #{EFFORTS.join(', ')}" if entry.key?("effort") && !EFFORTS.include?(effort)
+    end
+
+    def initialize(values = {}, flags: {}, problem: nil)
+      @values = values
+      @flags = flags
+      @problem = problem
+    end
+
+    # The flags for one run, then the command's own entry, then the default.
+    def model(command = nil) = pick("model", command)
+    def effort(command = nil) = pick("effort", command)
+    def attribution = @values["attribution"]
+    def env = @values.fetch("env", {})
+
+    # What the step's `--settings` carries beside `verbose`.
+    def settings(command = nil) = { "effortLevel" => effort(command), "attribution" => attribution }.compact
+
+    # The default, then each command whose own entry changes it.
+    def to_s
+      default = [ model ? "model #{model}" : "the default model", effort ? "effort #{effort}" : "default effort", attribution_text ]
+      own = steps.keys.filter_map do |command|
+        pair = [ model(command), effort(command) ]
+        "#{command}: #{pair.map { |value| value || 'default' }.join(', ')}" unless pair == [ model, effort ]
+      end
+      [ default.join(", "), *own, *("env: #{env.keys.join(', ')}" if env.any?) ].join("; ")
+    end
+
+    private
+
+    def steps = @values.fetch("steps", {})
+    def pick(key, command) = @flags[key] || (command && steps.dig(command, key)) || @values[key]
+
+    def attribution_text
+      return "default attribution" unless attribution
+      return "no attribution" if attribution.is_a?(Hash) && attribution.values_at("commit", "pr").all? { |text| text.to_s.empty? }
+
+      "attribution as set"
+    end
   end
 
   # One `claude -p` process: a single command, in the autopilot worktree, with
   # autopilot's two keys set and nothing it may do unlisted.
   class Step
     TIMEOUT = 90 * 60
+    # Longer than the longest foreground command a step may run (BASH_MAX_TIMEOUT_MS)
+    # with a margin: a transcript silent past it is a hung session, not a slow one.
+    IDLE = 25 * 60
+    BASH_MAX_MS = 20 * 60 * 1000
+    PROJECTS = File.expand_path("~/.claude/projects")
     DB_SUFFIX = "_autopilot"
     DEV_PORT = 3100
     HALT_MARKER = /^AUTOPILOT-HALT: (?<gate>\S+) — (?<reason>.+)$/
@@ -621,10 +850,22 @@ module Autopilot
       end
     end
 
-    def self.env = { "AUTOPILOT" => "1", "DB_SUFFIX" => DB_SUFFIX, "QA_HOST" => "http://localhost:#{DEV_PORT}" }
+    # No background tasks: a command past its timeout stops and the step sees
+    # it, instead of being moved to the background and the session staying open
+    # for it (claude -p waits for such a command, and one never returned).
+    def self.env
+      { "AUTOPILOT" => "1", "DB_SUFFIX" => DB_SUFFIX, "QA_HOST" => "http://localhost:#{DEV_PORT}",
+        # Unattended walkthroughs against that server; a command prefixed with
+        # them would be denied (the allowlist matches the command's start).
+        "QA_AUTO" => "1", "QA_HEADLESS" => "1",
+        "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS" => "1", "BASH_MAX_TIMEOUT_MS" => BASH_MAX_MS.to_s }
+    end
 
     def self.classify(result)
-      return Outcome.new(kind: :timeout, reason: "no result after #{TIMEOUT / 60} minutes") if result.timed_out
+      if result.timed_out
+        reason = result.idle ? "no transcript activity for #{IDLE / 60} minutes" : "no result after #{TIMEOUT / 60} minutes"
+        return Outcome.new(kind: :timeout, reason: reason)
+      end
 
       json = JSON.parse(result.out)
       text = [ json["result"], *Array(json["errors"]) ].compact.join("\n")
@@ -697,7 +938,15 @@ module Autopilot
       You are a non-interactive autopilot step: your session ends when your turn does.
       Run every command in the foreground. Never set run_in_background and never end
       your turn to wait for a notification; it will not arrive. A slow command such as
-      bin/test runs in the foreground with a long timeout.
+      a test run gets a `timeout` of up to #{BASH_MAX_MS} ms; one that reaches its
+      timeout is stopped, not backgrounded, so narrow the run (fewer files) and rerun.
+      A dev server for walkthroughs is already running at $QA_HOST, and QA_AUTO
+      and QA_HEADLESS are set for unattended runs: run
+      `bin/qa-walkthrough <name>` as it is, and never start a server.
+      A test run that stops at its timeout after printing its last dot, or fails with
+      `Lock wait timeout exceeded`, is a broken environment, not a slow suite. Do not
+      rerun it with one worker or file by file: say what hung and end your turn. The
+      driver clears the stale database locks and retries the step once.
       A denied command denies only that command, not Bash. When one is denied, run its
       parts as separate commands, each from the allowlist; never conclude that the shell
       is unavailable.
@@ -714,11 +963,12 @@ module Autopilot
 
     # `activation`: the branch, design doc and log the driver's preflight
     # checked, so a step skips re-running the activation check.
-    def initialize(shell:, worktree:, allowed_tools:, activation: nil)
+    def initialize(shell:, worktree:, allowed_tools:, activation: nil, preferences: Preferences.new)
       @shell = shell
       @worktree = worktree
       @allowed_tools = allowed_tools
       @activation = activation
+      @preferences = preferences
     end
 
     # The standing rules plus the allowlist itself, so a step never has to go
@@ -740,20 +990,73 @@ module Autopilot
 
     # A new session unless `resume:` names one. `note` is appended to the
     # prompt: on a retry, it says what the previous attempt left undone.
-    def run(command, arg, session_id: SecureRandom.uuid, resume: nil, note: nil)
-      argv = argv(command, arg, session_id: session_id, resume: resume, note: note)
-      outcome = self.class.classify(@shell.run(*argv, env: self.class.env, chdir: @worktree, timeout: TIMEOUT))
+    def run(command, arg, session_id: SecureRandom.uuid, resume: nil, note: nil, settings_of: nil)
+      argv = argv(command, arg, session_id: session_id, resume: resume, note: note, settings_of: settings_of)
+      result = @shell.run(*argv, env: self.class.env, chdir: @worktree, timeout: TIMEOUT,
+                          heartbeat: transcript(resume || session_id), idle: IDLE)
+      outcome = self.class.classify(result)
       outcome.session_id ||= resume || session_id
       outcome
     end
 
+    # Connections to the run's test databases that outlived their step. A
+    # killed test run's workers can leave their transactions open for days
+    # (MySQL's wait_timeout), and every later run blocks on their locks: one
+    # run lost hours of step time to them. Between steps nothing of the
+    # driver's is connected to those databases, so every connection to them is
+    # an orphan. Best effort: no database client, nothing killed.
+    def release_databases
+      pattern = "%\\_test#{DB_SUFFIX}%"
+      if Autopilot.postgres?(@worktree)
+        killed = @shell.run("psql", "-d", "postgres", "-Atc",
+                            "SELECT count(pg_terminate_backend(pid)) FROM pg_stat_activity " \
+                            "WHERE datname LIKE '#{pattern}' AND pid <> pg_backend_pid()")
+        return killed.ok ? killed.out.to_i : 0
+      end
+
+      listed = @shell.run("mysql", "-uroot", "-N", "-e",
+                          "SELECT ID FROM information_schema.PROCESSLIST WHERE DB LIKE '#{pattern}' OR INFO LIKE '#{pattern}'")
+      return 0 unless listed.ok
+
+      ids = listed.out.scan(/^\d+$/)
+      @shell.run("mysql", "-uroot", "-e", ids.map { |id| "KILL #{id}" }.join("; ")) if ids.any?
+      ids.size
+    end
+
+    # chromedriver and chromium a walkthrough or a system test left behind
+    # once their test process ended: a few hundred MB each on a box the suite
+    # can fill (a database server killed for memory mid-suite), and nobody's.
+    BROWSERS = %w[chromedriver chromium chrome].freeze
+
+    def release_browsers
+      pids = @shell.orphans(BROWSERS)
+      @shell.kill_pids(pids) if pids.any?
+      pids.size
+    end
+
+    # Where Claude Code writes the session as it goes: the heartbeat.
+    def transcript(session_id)
+      File.join(PROJECTS, @worktree.gsub(/[^A-Za-z0-9]/, "-"), "#{session_id}.jsonl")
+    end
+
     # Public so --dry-run prints exactly what a run would execute.
-    def argv(command, arg, session_id: "<new session>", resume: nil, note: nil)
+    #
+    # The repo's settings alone (`--setting-sources project,local`): the guard and
+    # the allowlist are the step's permissions, and a developer's user-level deny
+    # rules would refuse the commits the policy makes. `verbose` is off because,
+    # on, `--output-format json` prints a list of every message, not the result
+    # `classify` reads; it is also kept in ~/.claude.json, which no setting source
+    # leaves out. The developer's model, effort and attribution (Preferences) are
+    # the only user settings a step takes: the command's own, or `settings_of`'s
+    # for a session it continues (the resolver resuming /implement's).
+    def argv(command, arg, session_id: "<new session>", resume: nil, note: nil, settings_of: nil)
       prompt = "/#{command} #{arg}"
       prompt += "\n\n#{note}" if note
+      own = settings_of || command
       argv = [ "claude", "-p", prompt, "--permission-mode", "dontAsk", "--permission-prompts", "none",
                "--allowedTools", *@allowed_tools, "--append-system-prompt", step_rules,
-               "--output-format", "json" ]
+               "--setting-sources", "project,local", "--settings", JSON.generate({ "verbose" => false }.merge(@preferences.settings(own))),
+               "--output-format", "json", *([ "--model", @preferences.model(own) ] if @preferences.model(own)) ]
       argv + (resume ? [ "--resume", resume ] : [ "--session-id", session_id ])
     end
   end
@@ -817,6 +1120,11 @@ module Autopilot
       return "uncommitted changes after the resolver" unless status.empty?
 
       "commits not pushed" unless git("rev-parse", "HEAD") == git("rev-parse", "@{u}")
+    end
+
+    # After /pr_fix_ci: a commit past the red head, pushed, and a clean tree.
+    def ci_fixed(red_head)
+      resolved(nil) || ("no commit after #{red_head[0, 7]}" if git("rev-parse", "HEAD") == red_head)
     end
 
     def slice_pr(_issue)
@@ -958,7 +1266,7 @@ module Autopilot
     # whatever the block committed. Returns the block's value.
     def change
       back_to = git("branch", "--show-current")
-      raise Error, "the worktree is on a detached HEAD (a run stopped mid-change?): check out the slice branch and rerun" if back_to.empty?
+      back_to = reattach if back_to.empty?
 
       @touched = []
       @committed = false
@@ -978,6 +1286,20 @@ module Autopilot
         end
         git("checkout", back_to)
       end
+    end
+
+    # A run killed inside change (no ensure) leaves HEAD detached, one checkout
+    # away from the branch it was on: @{-1}. What it committed detached was
+    # change's own (a main merge, a log entry), which the rerun makes again.
+    def reattach
+      previous = git("rev-parse", "--abbrev-ref", "@{-1}")
+      clean = git("status", "--porcelain").empty?
+      unless clean && !previous.empty? && @shell.run("git", "show-ref", "--verify", "-q", "refs/heads/#{previous}", chdir: @worktree).ok
+        raise Error, "the worktree is on a detached HEAD (a run stopped mid-change?): check out the slice branch and rerun"
+      end
+
+      git!("checkout", previous)
+      previous
     end
 
     def commit(paths, message)
@@ -1032,12 +1354,15 @@ module Autopilot
 
     # A cleared slice, put back where it really is. Under labels that is a
     # slice with no status label; on the other tiers, any state the developer
-    # set while clearing Blocked.
+    # set while clearing Blocked. Returns what it could not write, for the
+    # driver to say.
     def restore_state(slice)
       return unless @feature.tracker.restorable?(slice.state)
 
       wanted = status_for(slice.issue)
-      @feature.tracker.set(slice.issue, wanted) unless wanted == slice.state
+      return if wanted == slice.state || @feature.tracker.set(slice.issue, wanted)
+
+      "could not move #{Autopilot.ref(slice.issue)} to #{wanted} on the tracker (no card for it, or no permission to write it)"
     end
 
     private
@@ -1072,6 +1397,9 @@ module Autopilot
 
     HEADING = /^\#{1,4} /
     RANKS = { "one-way" => 0, "costly" => 1 }.freeze
+    # A dropped finding outside the template's heading, as the review sections
+    # write one: `- Dropped — …`, `- Dropped (nit, …)`, `` - `fix-drop` · Dropped … ``.
+    DROPPED = /\A- (?:`fix-drop` · )?Dropped\b/
 
     # The slice's section under ## Slices: the full heading, the header row,
     # and every `#### D<issue>-` entry gathered under its Decisions, wherever
@@ -1184,11 +1512,16 @@ module Autopilot
       tidy(lines.join)
     end
 
+    # How many findings the slice's section says were dropped, wherever a
+    # step wrote them.
+    def dropped(text, issue) = attention(text).count { |item| item[:rank] == "dropped" && item[:slice] == Autopilot.ref(issue) }
+
     def attention(text)
       items = []
       slice = nil
       subsection = nil
       skip = false
+      slices = false
       comment = false
       text.lines.each_with_index do |line, i|
         comment = true if line.start_with?("<!--")
@@ -1198,6 +1531,7 @@ module Autopilot
         end
         if line.start_with?("## ")
           skip = [ "## Read this first", "## Policy accepted at G1" ].include?(line.chomp)
+          slices = line.chomp == "## Slices"
           subsection = nil
         end
         next if skip
@@ -1206,8 +1540,8 @@ module Autopilot
         if line.start_with?("#### ")
           subsection = line.chomp
           items << entry_item(text.lines.drop(i)) if line.match?(/^#### (D(?:\d+|bd-[\w.]+)-\d+|HALT) /)
-        elsif line.start_with?("- ") && subsection == "#### Dropped review findings"
-          items << { rank: "dropped", line: "- **dropped** · #{slice} · #{line[2..].strip}" }
+        elsif line.start_with?("- ") && (subsection == "#### Dropped review findings" || (slices && line.match?(DROPPED)))
+          items << { rank: "dropped", slice: slice, line: "- **dropped** · #{slice} · #{line[2..].strip.delete_prefix('`fix-drop` · ')}" }
         elsif line.start_with?("- ") && subsection == "#### Issues filed"
           items << { rank: "one-way", line: "- **one-way** · issue filed in #{slice} · #{line[2..].strip}" }
         end
@@ -1273,7 +1607,8 @@ module Autopilot
 
   # bin/dev on the autopilot port with the autopilot databases, so walkthroughs
   # have a server that is not the developer's. Its pid lives in the worktree's
-  # tmp/, so a rerun reuses a server that is still up.
+  # tmp/, so a rerun reuses a server that is still up. Its worker runs no
+  # recurring jobs: a development schedule may call outside services.
   class Server
     def initialize(worktree:, shell:)
       @worktree = worktree
@@ -1283,8 +1618,8 @@ module Autopilot
     def start
       return if running?
 
-      pid = @shell.spawn_background([ "bin/dev" ], env: { "PORT" => Step::DEV_PORT.to_s, "DB_SUFFIX" => Step::DB_SUFFIX },
-                                    chdir: @worktree, log: File.join(dir, "dev.log"))
+      env = { "PORT" => Step::DEV_PORT.to_s, "DB_SUFFIX" => Step::DB_SUFFIX, "SOLID_QUEUE_SKIP_RECURRING" => "true" }
+      pid = @shell.spawn_background([ "bin/dev" ], env: env, chdir: @worktree, log: File.join(dir, "dev.log"))
       FileUtils.mkdir_p(dir)
       File.write(pidfile, pid.to_s)
     end
@@ -1314,16 +1649,21 @@ module Autopilot
     MAX_PAUSES = 12
     PAUSE_FALLBACK = 30 * 60
     CHECKS_TIMEOUT = 45 * 60
+    RERUN_START_POLLS = 24
     # Checks that report and never gate a merge, as /pr_review's Land it and
     # /pr_submit treat them.
     INFORMATIONAL = /\A(CodeQL|Analyze)\b/
+    # Checks that read only the commit: a rerun reds the same way, so one of
+    # them red halts at once (a lint offence reds the same on every attempt).
+    DETERMINISTIC = /\A(lint|gates)\b/
     # `--no-ff` because a developer's `merge.ff=only` would otherwise refuse the
     # merge commit a diverged feature branch needs, and fail with no conflict.
     def self.merge_main = [ "git", "merge", "--no-edit", "--no-ff", "origin/#{Autopilot.default_branch}" ]
 
     def initialize(step:, expect:, notifier:, state:, shell:, worktree:, feature: nil, branch: nil, clock: Clock.new,
-                   resolver: :fresh)
+                   resolver: :fresh, server: nil)
       @step = step
+      @server = server
       @expect = expect
       @notifier = notifier
       @state = state
@@ -1338,6 +1678,8 @@ module Autopilot
     # Returns the merged PR. A slice whose PR already merged (a rerun after a
     # stop mid-landing) goes straight to the rest of the landing.
     def slice(issue)
+      @step.release_databases
+      @step.release_browsers
       merged = @feature.merged_pr(issue)
       unless merged
         pr = ready(issue)
@@ -1446,7 +1788,8 @@ module Autopilot
     def resolve(issue, pr, key)
       return if @state.get(issue, key)
 
-      session = @resolver == :fresh ? { note: handoff(issue, pr) } : { resume: @state.get(issue, "author") }
+      # Resumed, it continues /implement's session, on that session's model.
+      session = @resolver == :fresh ? { note: handoff(issue, pr) } : { resume: @state.get(issue, "author"), settings_of: "implement" }
       outcome = ensure_step("pr_comment_resolver", pr, issue, skip_if_done: false, variant: @resolver.to_s, **session) do
         @expect.resolved(issue)
       end
@@ -1500,12 +1843,44 @@ module Autopilot
       unless checks.ok
         rerun = rerun_failed_jobs(issue, pr, checks.out)
         retried = " (still red after one rerun of its failed jobs)" unless rerun.nil?
-        halt(issue, "CI is red on PR ##{pr}: #{failing(checks.out)}#{retried}") unless rerun
+        red = "CI is red on PR ##{pr}: #{failing(checks.out)}#{retried}"
+        return merge(issue, pr, fix_ci(issue, pr, head, red)) if !rerun && ci_fix?(issue)
+        halt(issue, red) unless rerun
       end
       result = @shell.run("gh", "pr", "merge", pr.to_s, "--repo", Autopilot.repo, "--squash", "--delete-branch",
                           "--match-head-commit", head)
       raise Error, "gh pr merge ##{pr} failed: #{result.out.strip}" unless result.ok
     end
+
+    # Once per slice, and only under a policy with a `ci-fix` row: a policy
+    # accepted before the row existed keeps halting on red. A rerun of the
+    # driver after this has started halts on red too.
+    def ci_fix?(issue)
+      return false if @state.get(issue, "ci_fix")
+
+      File.read(File.join(@worktree, @feature.log_path)).match?(/^\| `ci-fix` \|/)
+    end
+
+    # Red CI a rerun did not clear: /pr_fix_ci commits a fix, a self-review
+    # pass reviews that fix alone, and the author resolves it if the pass found
+    # anything. Returns the head that went through it, for the merge gate to
+    # wait on CI again (a layout change can break a system test that only CI
+    # runs).
+    def fix_ci(issue, pr, head, red)
+      @state.set(issue, "ci_fix", head)
+      @notifier.notify("#{Autopilot.ref(issue)}: #{red}; running /pr_fix_ci once.")
+      ensure_step("pr_fix_ci", pr, issue, skip_if_done: false, note: "#{red}\n#{CI_FIX_NOTE}") { @expect.ci_fixed(head) }
+      pass = @expect.pass_count(pr) + 1
+      ensure_step("pr_review", pr, issue, note: format(CI_REVIEW_NOTE, head: head)) { @expect.reviewed(pr, pass) }
+      resolve(issue, pr, "resolved_ci") unless @expect.findings(pr, pass)&.zero?
+      @expect.head(pr) or raise Error, "cannot read PR ##{pr}'s head after the CI fix"
+    end
+
+    CI_FIX_NOTE = "The merge gate found this red. Fix its cause on the slice branch under the failing-test rule, " \
+                  "commit, and push. Log a `ci-fix` entry. If the cause is not this slice's (a flaky test, a red " \
+                  "already on the feature branch), halt instead."
+    CI_REVIEW_NOTE = "This pass reviews the CI fix alone: the diff from %<head>s to HEAD, plus wherever it reaches. " \
+                     "Earlier passes reviewed the rest; do not review it again."
 
     # `gh pr checks --watch` waits only on the checks it can see, and a
     # workflow whose jobs are not queued yet has none, so a slice merged once
@@ -1560,8 +1935,13 @@ module Autopilot
     # waited out before its failed jobs can be rerun.
     # An informational check's run is not rerun: it never gates the merge,
     # and a second red from it would halt a slice whose real checks passed.
+    # Nothing is rerun when a deterministic check is red: the PR cannot go
+    # green without a commit.
     def rerun_failed_jobs(issue, pr, out)
-      runs = out.lines.grep_v(INFORMATIONAL).join.scan(%r{/actions/runs/(\d+)}).flatten.uniq
+      red = out.lines.grep_v(INFORMATIONAL)
+      return if red.grep(/\bfail/i).any? { |line| DETERMINISTIC.match?(line) }
+
+      runs = red.join.scan(%r{/actions/runs/(\d+)}).flatten.uniq
       return if runs.empty?
 
       @notifier.notify("#{Autopilot.ref(issue)}: CI is red on PR ##{pr} (#{failing(out)}); rerunning its failed jobs once.")
@@ -1570,12 +1950,35 @@ module Autopilot
           @shell.run("gh", "run", "watch", run, "--repo", Autopilot.repo, timeout: CHECKS_TIMEOUT)
           next false unless @shell.run("gh", "run", "rerun", run, "--failed", "--repo", Autopilot.repo).ok
 
+          await_rerun_start(pr, run)
           watched = @shell.run("gh", "run", "watch", run, "--repo", Autopilot.repo, "--exit-status", timeout: CHECKS_TIMEOUT)
           raise Error, "CI rerun on PR ##{pr} did not finish within #{CHECKS_TIMEOUT / 60} minutes" if watched.timed_out
 
-          watched.ok
+          jobs_passed?(run)
         end
       end
+    end
+
+    # The watch only waits; its exit is no verdict. gh 2.23.0 exits 0 when an
+    # API call fails mid-watch, and has exited 1 on a rerun as it went
+    # green. The latest attempt's jobs decide, and one unfinished reads red.
+    def jobs_passed?(run)
+      result = @shell.run("gh", "api", "repos/#{Autopilot.repo}/actions/runs/#{run}/jobs?per_page=100", "--jq",
+                          '.jobs[] | select(.conclusion != "success" and .conclusion != "skipped") | .name')
+      result.ok && result.out.strip.empty?
+    end
+
+    # `gh run rerun` returns before the new attempt is queued, and until then
+    # the run reads as the old attempt: a watch would exit on its red at once
+    # (a run once halted 14 seconds into a rerun that went green).
+    def await_rerun_start(pr, run)
+      RERUN_START_POLLS.times do
+        status = @shell.run("gh", "api", "repos/#{Autopilot.repo}/actions/runs/#{run}", "--jq", ".status").out.strip
+        return unless status == "completed"
+
+        @clock.sleep_until(@clock.now + 5)
+      end
+      raise Error, "CI rerun of run #{run} did not start on PR ##{pr} within #{RERUN_START_POLLS * 5} seconds"
     end
 
     def failing(out)
@@ -1591,6 +1994,7 @@ module Autopilot
         sync_main(issue, branch)
         record(issue, merged, branch)
       end
+      @shell.run("git", "branch", "-D", sync_branch, chdir: @worktree) # pushed now; a stale one would be resumed
       @feature.tick(issue, merged.fetch("number"))
       sha = merged.dig("mergeCommit", "oid").to_s[0, 7]
       @notifier.notify("#{Autopilot.ref(issue)} landed: PR ##{merged['number']} merged into #{@feature.branch} as #{sha}.")
@@ -1601,9 +2005,13 @@ module Autopilot
     def record(issue, merged, branch)
       path = File.join(@worktree, @feature.log_path)
       usage = @state.get(issue, "usage").to_a
-      row = [ merged["additions"], merged["changedFiles"], @expect.pass_count(merged["number"]), *pre_pr_review(issue),
-              Log.duration(usage.sum { |u| u["seconds"].to_i }), Log.usd(usage.sum { |u| u["usd"].to_f }) ]
       before = File.read(path)
+      fixed, dropped = pre_pr_review(issue)
+      # /implement counts its own pre-PR drops; a review pass's drop is in the log alone.
+      logged = Log.dropped(before, issue)
+      dropped = logged if logged.positive? && !(dropped.is_a?(Integer) && dropped >= logged)
+      row = [ merged["additions"], merged["changedFiles"], @expect.pass_count(merged["number"]), fixed, dropped,
+              Log.duration(usage.sum { |u| u["seconds"].to_i }), Log.usd(usage.sum { |u| u["usd"].to_f }) ]
       text = Log.slice_section(before, issue: issue, title: @feature.title(issue), pr: merged["number"],
                                        sha: merged.dig("mergeCommit", "oid").to_s[0, 7], row: row)
       text = Log.pauses(Log.metrics(text, issue, usage), @state.get(issue, "pauses"))
@@ -1621,39 +2029,123 @@ module Autopilot
     end
 
     # A conflict is /resolve_conflicts' to settle and the driver's to prove:
-    # the step's own report is not taken as the suite being green.
+    # the step's own report is not taken as the suite being green. A red suite
+    # keeps the resolved merge on sync_branch, and the rerun starts from it
+    # (as kept, or as the developer fixed it) instead of resolving again.
     def sync_main(issue, branch)
       main = Autopilot.default_branch
       branch.git!("fetch", "origin", main)
-      return if @shell.run("git", "merge-base", "--is-ancestor", "origin/#{main}", "HEAD", chdir: @worktree).ok
-      return if @shell.run(*Run.merge_main, chdir: @worktree).ok
-      raise Error, "git merge origin/#{main} failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
+      unproven = resume_sync(branch)
+      unless @shell.run("git", "merge-base", "--is-ancestor", "origin/#{main}", "HEAD", chdir: @worktree).ok
+        unless @shell.run(*Run.merge_main, chdir: @worktree).ok
+          raise Error, "git merge origin/#{main} failed without a conflict" if branch.git("rev-parse", "-q", "--verify", "MERGE_HEAD").empty?
 
-      ensure_step("resolve_conflicts", @feature.branch, issue, skip_if_done: false) { @expect.merge_resolved }
-      suite = timed(issue, "bin/test after /resolve_conflicts") do
-        @shell.run("bin/test", env: Step.env, chdir: @worktree, timeout: Step::TIMEOUT)
+          ensure_step("resolve_conflicts", @feature.branch, issue, skip_if_done: false) { @expect.merge_resolved }
+          unproven = true
+        end
       end
-      halt(issue, "the suite is red after /resolve_conflicts merged origin/#{main} into #{@feature.branch}") unless suite.ok
+      prove_suite(issue, branch) if unproven
+    end
+
+    # What a suite prints once its database is gone: the server killed under
+    # it (usually for memory), then every worker's pool empty.
+    DATABASE_GONE = Regexp.union(
+      /Can't connect to local MySQL server|Lost connection to MySQL server/,
+      /could not connect to server|connection to server .* failed|server closed the connection unexpectedly/,
+      /could not obtain a connection from the pool/
+    )
+    # Not one worker per core: a full suite's workers can pass 6 GB, and the
+    # box also holds the database, the driver's sessions and the developer's.
+    SUITE_WORKERS = 4
+
+    # The dev server is stopped first (three Rails processes the suite does
+    # not need; the next slice starts it again), and a suite whose database
+    # went away runs once more before red means red.
+    def prove_suite(issue, branch)
+      @server&.stop
+      suite = run_suite(issue, "bin/test after merging #{Autopilot.default_branch}")
+      if !suite.ok && suite.out.match?(DATABASE_GONE)
+        wait_for_database
+        suite = run_suite(issue, "bin/test again, after the database went away")
+      end
+      return if suite.ok
+
+      branch.git!("branch", "-f", sync_branch, "HEAD")
+      log = "tmp/autopilot/suite-#{issue}.log"
+      FileUtils.mkdir_p(File.join(@worktree, File.dirname(log)))
+      File.write(File.join(@worktree, log), suite.out)
+      halt(issue, "#{suite_verdict(suite)}; the merge is kept on #{sync_branch}, the output in #{log}")
+    end
+
+    def suite_verdict(suite)
+      merged = "after merging origin/#{Autopilot.default_branch} into #{@feature.branch}"
+      return "the suite is red #{merged} (#{red_tests(suite.out)})" unless suite.out.match?(DATABASE_GONE)
+
+      "the database went away during the suite twice #{merged} (the database server killed, usually for memory: free some and rerun)"
+    end
+
+    def run_suite(issue, label)
+      @step.release_databases
+      @step.release_browsers
+      timed(issue, label) do
+        @shell.run("bin/test", env: Step.env.merge("MAX_PARALLEL_WORKERS" => SUITE_WORKERS.to_s), chdir: @worktree,
+                   timeout: Step::TIMEOUT, abort_on: DATABASE_GONE)
+      end
+    end
+
+    # A supervised database server comes back within seconds of being
+    # killed; a minute is the most the rerun waits for it.
+    def wait_for_database
+      ping = Autopilot.postgres?(@worktree) ? %w[pg_isready -q] : %w[mysql -uroot -e SELECT\ 1]
+      12.times do
+        return true if @shell.run(*ping).ok
+
+        @clock.sleep_until(@clock.now + 5)
+      end
+      false
+    end
+
+    # A merge kept by a red suite, still on top of the feature branch's head.
+    def resume_sync(branch)
+      return false if branch.git("rev-parse", "-q", "--verify", "refs/heads/#{sync_branch}").empty?
+      return false unless @shell.run("git", "merge-base", "--is-ancestor", "HEAD", sync_branch, chdir: @worktree).ok
+
+      branch.git!("merge", "--ff-only", sync_branch)
+      true
+    end
+
+    def sync_branch = "autopilot/#{@feature.slug}/sync"
+
+    # Minitest's summary line and the first rerun commands it printed.
+    def red_tests(out)
+      found = [ out[/^\d+ runs, .*$/], out.scan(%r{^bin/rails test (\S+)}).flatten.uniq.first(5).join(", ") ]
+      found.compact.reject(&:empty?).join("; ").then { |text| text.empty? ? "no test summary in the output" : text }
     end
 
     # Runs a step until its expectation holds: skipped when it already does,
     # one retry with a note, a pause (no retry used) on the usage limit, and a
     # halt for anything else.
-    def ensure_step(command, arg, issue, resume: nil, skip_if_done: true, note: nil, variant: nil, &expectation)
+    def ensure_step(command, arg, issue, resume: nil, skip_if_done: true, note: nil, variant: nil, settings_of: nil, &expectation)
       return nil if skip_if_done && expectation.call.nil?
 
       retried = false
       pauses = 0
       loop do
         started = @clock.now
-        outcome = @step.run(command, arg, resume: resume, note: note)
+        outcome = @step.run(command, arg, resume: resume, note: note, settings_of: settings_of)
         row = { "step" => "/#{command} #{arg}", "kind" => outcome.kind.to_s, "usd" => outcome.usage_usd,
                 "at" => started.iso8601, "seconds" => (@clock.now - started).round, "session" => outcome.session_id }
         row.merge!({ "tokens" => outcome.tokens, "turns" => outcome.turns, "variant" => variant }.compact, outcome.metrics || {})
         # Why an attempt failed, for the developer reading the state after
         # a retry; an ok exit whose expectation failed is a failure too.
         unless %i[halt usage_limit].include?(outcome.kind)
-          failure = outcome.kind == :ok ? expectation.call : outcome.reason
+          failure = case outcome.kind
+          when :ok then expectation.call
+          # A step killed for hanging may have finished its work first
+          # (an /implement once had, and hung on one last test run).
+          when :timeout then expectation.call && outcome.reason
+          else outcome.reason
+          end
           row["failure"] = failure if failure
         end
         @state.append(issue, "usage", row)
@@ -1669,6 +2161,8 @@ module Autopilot
         return outcome if failure.nil?
         halt(issue, "/#{command} #{arg}: #{failure} (after one retry)") if retried
         retried = true
+        # What the killed step's test run left behind would hang the retry too.
+        @step.release_databases if outcome.kind == :timeout
         note = [ note, "The previous attempt at this step ended without: #{failure}. Finish the step." ].compact.join("\n")
       end
     end
@@ -1692,7 +2186,7 @@ module Autopilot
     # under beads), and the next run copies it into the log
     # (docs/system/autopilot-steps.md, Halt, step 3, and Tracker tiers).
     def halt(issue, reason, gate: "halt")
-      @feature.tracker.set(issue, "blocked")
+      reason = "#{reason} (#{Autopilot.ref(issue)} could not be marked Blocked on the tracker)" unless @feature.tracker.set(issue, "blocked")
       @feature.tracker.post_halt(issue, halt_entry(issue, gate, reason), @feature.pr&.fetch("number"))
       stop(issue, gate, reason)
     end
@@ -1770,7 +2264,8 @@ module Autopilot
   # The command line: setup, preflight, dry run, and one slice per run.
   # Exit status: 0 done (or nothing to do), 1 not ready to run, 2 halted or blocked.
   class CLI
-    USAGE = "usage: bin/autopilot <slug> [--setup | --dry-run | --usage] [--resolver fresh|resume] [--cli claude]"
+    USAGE = "usage: bin/autopilot <slug> [--setup | --dry-run | --usage] [--resolver fresh|resume] [--cli claude] " \
+            "[--model NAME] [--effort LEVEL]"
     CLIS = %w[claude codex cursor].freeze
     # Why only Claude Code drives a step (docs/adr/0016-an-accepted-design-may-run-itself.md).
     # A wrong adapter would be worse than none: the guard is the wall, and it
@@ -1789,6 +2284,7 @@ module Autopilot
     MSG
     ALLOWLIST = ".claude/autopilot-allowed-tools.txt"
     GUARD = "bin/hooks/autopilot_guard"
+    CLONE_TASK = "lib/tasks/autopilot.rake"
 
     def initialize(argv, shell: RetryingShell.new(Shell.new), out: $stdout, desktop: true, run_factory: nil)
       @argv = argv.dup
@@ -1801,6 +2297,9 @@ module Autopilot
     def call
       mode = parse or return say(USAGE, 1)
       return say(format(NO_ADAPTER, cli: @cli), 1) unless @cli == "claude"
+      # Set in the driver's own environment, so every command it starts, each
+      # step included, inherits it.
+      ENV.update(preferences.env)
       return setup if mode == :setup
       return usage if mode == :usage
 
@@ -1824,6 +2323,8 @@ module Autopilot
         o.on("--usage") { mode = :usage }
         o.on("--resolver MODE", %w[resume fresh]) { |v| @resolver = v.to_sym }
         o.on("--cli NAME", CLIS) { |v| @cli = v }
+        o.on("--model NAME") { |v| @model = v }
+        o.on("--effort LEVEL", Preferences::EFFORTS) { |v| @effort = v }
       end.parse!(@argv)
       @slug = @argv.shift
       @slug && @argv.empty? ? mode : nil
@@ -1837,11 +2338,16 @@ module Autopilot
     end
 
     def worktree = File.join(File.dirname(root), "#{File.basename(root)}-autopilot-#{@slug}")
+    def own_branch = "autopilot/#{@slug}/worktree" # a sibling of sync_branch: git refuses a ref nested under another
     def feature = @feature ||= Feature.new(@slug, shell: @shell, root: worktree)
     def state_path = File.join(worktree, "tmp/autopilot/#{@slug}.json")
 
     # What preflight verified, handed to every step (Step#step_rules).
     def activation = { branch: feature.branch, design_doc: feature.design_doc.delete_prefix("#{worktree}/"), log: feature.log_path }
+
+    # Beside the main checkout: the worktree is a fresh checkout, without the
+    # developer's ignored files.
+    def preferences = @preferences ||= Preferences.read(File.join(root, Preferences::PATH), model: @model, effort: @effort)
 
     # Reads only; safe while a run is going.
     def usage
@@ -1851,14 +2357,37 @@ module Autopilot
     end
 
     def setup
+      return say("Not ready to set up: #{preferences.problem}", 1) if preferences.problem
+
+      # On a branch of the driver's own, never the local feature/<slug>: that
+      # is often checked out in the developer's checkout or a planning
+      # worktree, and git gives a branch to one worktree only. Every change to
+      # the feature branch is made detached and pushed anyway (FeatureBranch).
+      # A branch rather than a detached HEAD, which FeatureBranch#reattach
+      # would refuse on a worktree with no branch to go back to.
       unless Dir.exist?(worktree)
-        sh("git", "fetch", "origin", "feature/#{@slug}", chdir: root)
-        result = sh("git", "worktree", "add", worktree, "feature/#{@slug}", chdir: root)
+        result = sh("git", "fetch", "origin", "feature/#{@slug}", chdir: root)
+        return say("git fetch origin feature/#{@slug} failed:\n#{result.out}", 1) unless result.ok
+
+        result = sh("git", "worktree", "add", "-B", own_branch, worktree, "origin/feature/#{@slug}", chdir: root)
         return say("git worktree add failed:\n#{result.out}", 1) unless result.ok
       end
       suffix = { "DB_SUFFIX" => Step::DB_SUFFIX }
+      result = sh("bundle", "install", env: suffix, chdir: worktree)
+      return say("bundle install failed:\n#{result.out}", 1) unless result.ok
+
+      # Opt-in: an app whose seeds cannot build a usable database (they need
+      # data git does not carry) defines `db:autopilot:clone` in
+      # lib/tasks/autopilot.rake to copy the developer's development database
+      # instead (docs/sop/run-a-feature-on-autopilot.md). Cloned only when the
+      # run's database does not exist yet, so a rerun keeps the run's data
+      # (db:version exits 0 on a missing database; a connection does not).
+      if File.exist?(File.join(worktree, CLONE_TASK)) &&
+         !sh("bin/rails", "runner", "ActiveRecord::Base.connection.verify!", env: suffix, chdir: worktree).ok
+        result = sh("bin/rails", "db:autopilot:clone", chdir: worktree)
+        return say("bin/rails db:autopilot:clone failed:\n#{result.out}", 1) unless result.ok
+      end
       [
-        [ %w[bundle install], suffix ],
         # The test databases first, schema only: db:prepare in development
         # also creates them, and it seeds every database it creates. Seeded
         # rows outlive every test, and seeds that need a file git does not
@@ -1869,7 +2398,16 @@ module Autopilot
         result = sh(*cmd, env: env, chdir: worktree)
         return say("#{cmd.join(' ')} failed:\n#{result.out}", 1) unless result.ok
       end
-      say("Ready: #{worktree}\nRun: bin/autopilot #{@slug}   (or --dry-run first)", 0)
+      say("Ready: #{worktree}\nRun: bin/autopilot #{@slug}   (or --dry-run first)", 0).tap { enter_worktree }
+    end
+
+    # A process cannot move its caller's shell, so from a terminal a new
+    # shell opens in the worktree instead; `exit` returns to the old one.
+    def enter_worktree
+      return unless @out.tty? && $stdin.tty?
+
+      @out.puts("Opening a shell in #{worktree}; exit returns you here.")
+      exec(ENV.fetch("SHELL", "/bin/sh"), chdir: worktree)
     end
 
     def preflight
@@ -1891,7 +2429,9 @@ module Autopilot
         problems << "the autopilot log #{feature.log_path} does not exist"
       end
       status = sh("git", "status", "--porcelain", chdir: worktree).out
-      problems << "uncommitted changes in #{worktree}" unless status.strip.empty?
+      unless status.strip.empty? || mid_slice?
+        problems << "uncommitted changes in #{worktree}: #{status.lines.first(3).map(&:strip).join(', ')}"
+      end
       problems << "no open feature PR for feature/#{@slug}" unless feature.pr
       # With nothing it can read, every slice would look landed and the run would "finish".
       if feature.pr && feature.slices.empty?
@@ -1900,6 +2440,7 @@ module Autopilot
       end
       problems << "gh is not signed in (gh auth status)" unless sh("gh", "auth", "status").ok
       problems << "claude is not on PATH" unless sh("sh", "-c", "command -v claude").ok
+      problems << preferences.problem if preferences.problem
       problems << "no allowlist at #{ALLOWLIST}" unless File.exist?(File.join(worktree, ALLOWLIST))
       problems << "the guard is not wired: .claude/settings.json needs #{GUARD} under PreToolUse" unless guard_wired?
       # A tier the driver cannot read would end the run at the first slice.
@@ -1908,6 +2449,15 @@ module Autopilot
       gates = sh("bin/gates", chdir: worktree)
       problems << "bin/gates is red:\n#{gates.out}" unless gates.ok
       problems
+    end
+
+    # Uncommitted work on the next slice's own branch is what a killed step
+    # left behind; the rerun's /implement starts from `git status` and picks
+    # it up. Anywhere else it is the developer's, and the run is not started.
+    def mid_slice?
+      slice = feature.pr && feature.next_slice or return false
+
+      sh("git", "branch", "--show-current", chdir: worktree).out.strip.start_with?("#{Autopilot.branch_prefix}/#{slice.issue}/")
     end
 
     # The guard is the wall the allowlist is not (docs/system/autopilot.md,
@@ -1930,17 +2480,19 @@ module Autopilot
                  "the log's Read this first, the capture hook, gh pr ready.\nDry run: nothing was started, posted or committed.", 0) unless slice
 
       step = Step.new(shell: @shell, worktree: worktree, allowed_tools: Step.allowlist(File.join(worktree, ALLOWLIST)),
-                      activation: activation)
+                      activation: activation, preferences: preferences)
       plan = %w[task_plan implement pr_submit].map { |cmd| step.argv(cmd, slice.issue).join(" ") }
       say(<<~PLAN, 0)
         Preflight: ready. Worktree #{worktree}, feature PR ##{feature.pr['number']}.
         Next slice: #{Autopilot.ref(slice.issue)}#{slice.blocked ? ' (BLOCKED: a run stops here)' : ''}
+        Steps run on: #{preferences} (#{Preferences::PATH} beside your checkout, or --model / --effort).
         Steps, each a fresh process (skipped when its expectation already holds):
         #{plan.map { |line| "  #{line}" }.join("\n")}
           then /pr_review <PR> (new session), /pr_comment_resolver <PR> (#{resolver_session}),
           and /pr_review <PR> and the resolver again only if the resolver moved HEAD.
         Then the driver lands it: base and head checked, every check green, squash merge,
         origin/#{Autopilot.default_branch} merged into feature/#{@slug}, the log written, the slice ticked.
+        Red CI after its rerun: one /pr_fix_ci <PR> and a review of its fix, if the log's policy has a `ci-fix` row.
         Then the next slice, until none is left, and the feature PR is finished and readied.
         Dry run: nothing was started, posted or committed.
       PLAN
@@ -1962,7 +2514,7 @@ module Autopilot
         return blocked(@slice) if @slice.blocked
         raise Error, "#{Autopilot.ref(landed)} is still open after it landed" if @slice.issue == landed
 
-        resume.restore_state(@slice)
+        warn_unwritten(resume.restore_state(@slice))
         server.start # only once there is something to run
         run.slice(@slice.issue)
         landed = @slice.issue
@@ -1989,11 +2541,36 @@ module Autopilot
       return blocked(Slice.new(issue: last, done: true, blocked: true)) if state == "blocked"
 
       # Cleared after a halt while finishing: up for review again, like any landed slice.
-      resume.restore_state(Slice.new(issue: last, done: true, state: state))
+      warn_unwritten(resume.restore_state(Slice.new(issue: last, done: true, state: state)))
 
       server.start
       run.finalize(slices.last.issue, slices.map(&:issue))
-      say("Finished: feature PR ##{feature.pr['number']} is ready for review. Start with the log's Read this first.", 0)
+      server.stop
+      say("Finished: feature PR ##{feature.pr['number']} is ready for review. Start with the log's Read this first.\n#{clean_up}", 0)
+    end
+
+    # Each *_autopilot database, test workers' included.
+    DROP_DATABASES = <<~RUBY
+      c = ActiveRecord::Base.connection
+      c.select_values("SHOW DATABASES").grep(/#{Step::DB_SUFFIX}(_\\d+)?\\z/).each { |db| c.execute("DROP DATABASE \#{c.quote_table_name(db)}") }
+    RUBY
+
+    # What --setup made, taken down once the feature is finished. DB_SUFFIX
+    # is the same for every feature, so the databases go only with the last
+    # autopilot worktree; they are dropped from this one, before it goes.
+    def clean_up
+      others = Dir.glob("#{root}-autopilot-*").reject { |dir| dir == worktree }.map { |dir| File.basename(dir) }
+      dropped = others.empty? && sh("bin/rails", "runner", DROP_DATABASES, env: { "DB_SUFFIX" => Step::DB_SUFFIX }, chdir: worktree).ok
+      kept = others.any? ? "kept the *_autopilot databases: #{others.join(', ')} still uses them" : nil
+      kept ||= "could not drop the *_autopilot databases" unless dropped
+      removed = sh("git", "worktree", "remove", worktree, chdir: root)
+      return "Left #{worktree}: #{removed.out.strip}#{"; #{kept}" if kept}" unless removed.ok
+
+      # Never pushed, so nothing is lost. A worktree set up before it existed
+      # has none, and the failed delete is harmless.
+      sh("git", "branch", "-D", own_branch, chdir: root)
+
+      kept ? "Removed #{worktree}; #{kept}." : "Removed #{worktree} and the *_autopilot databases."
     end
 
     def blocked(slice)
@@ -2018,17 +2595,19 @@ module Autopilot
 
     def build_run
       step = Step.new(shell: @shell, worktree: worktree, allowed_tools: Step.allowlist(File.join(worktree, ALLOWLIST)),
-                      activation: activation)
+                      activation: activation, preferences: preferences)
       @run_factory.call(step: step, expect: Expect.new(shell: @shell, worktree: worktree, feature: feature),
                         notifier: notifier, state: State.new(state_path),
                         shell: @shell, worktree: worktree, feature: feature, resolver: @resolver || :fresh,
-                        branch: FeatureBranch.new(feature: feature, shell: @shell, worktree: worktree))
+                        branch: FeatureBranch.new(feature: feature, shell: @shell, worktree: worktree), server: server)
     end
 
     def server = @server ||= Server.new(worktree: worktree, shell: @shell)
     def notifier = Notifier.new(shell: @shell, feature_pr: feature.pr.fetch("number"), desktop: @desktop)
 
     def sh(*cmd, env: {}, chdir: nil) = @shell.run(*cmd, env: env, chdir: chdir)
+
+    def warn_unwritten(note) = note && @out.puts("Warning: #{note}")
 
     def say(text, status)
       @out.puts(text)
