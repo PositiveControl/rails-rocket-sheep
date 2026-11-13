@@ -59,6 +59,40 @@ class LintDocsRepoScanTest < Minitest::Test
   end
 
   # An autopilot step's PR body and task file are scratch, and say what they like.
+  RISK = "# Cart total drifts\n\n**Status:** open\n**Area:** `app/models/cart.rb`\n"
+
+  def list_risks(*lines)
+    index = File.read(File.join(@dir, "templates/docs/risks/INDEX.md"))
+    write("templates/docs/risks/INDEX.md", index.sub("<!-- risks:end -->", "#{lines.map { |line| "#{line}\n" }.join}<!-- risks:end -->"))
+  end
+
+  def test_a_listed_risk_with_its_status_is_clean
+    write("templates/docs/risks/2026-10-02-cart-total.md", RISK)
+    list_risks("- [Cart total drifts](2026-10-02-cart-total.md) — open")
+    out, = lint
+
+    # The ship check still names the file (risks are an app's own, never the
+    # template's); nothing about the index does.
+    refute_match(%r{docs/risks/INDEX\.md:}, out)
+  end
+
+  # A risk nobody lists is one nobody reads; a union merge can leave a
+  # duplicate, or a stale line beside a status change.
+  def test_the_risk_index_must_list_every_risk_once_with_its_status
+    write("templates/docs/risks/2026-10-02-cart-total.md", RISK)
+    write("templates/docs/risks/2026-10-03-unlisted.md", RISK)
+    list_risks("- [Cart total drifts](2026-10-02-cart-total.md) — open",
+               "- [Cart total drifts](2026-10-02-cart-total.md) — retired",
+               "- [Gone](2026-10-04-gone.md) — open")
+    out, code = lint
+
+    assert_equal 1, code
+    assert_includes out, "lists 2026-10-02-cart-total.md 2 times"
+    assert_includes out, "lists 2026-10-02-cart-total.md as retired, the file says open"
+    assert_includes out, "does not list 2026-10-03-unlisted.md"
+    assert_includes out, "lists 2026-10-04-gone.md, which does not exist"
+  end
+
   def test_gitignored_scratch_is_not_scanned
     write("tmp/pr-body-1.md", WRONG_COUNT + REAL_HOST)
 

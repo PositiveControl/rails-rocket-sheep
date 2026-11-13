@@ -143,6 +143,7 @@ The generated app ships `docs/rules/` (one convention per file, with a routing i
 | `docs/system/` | How things currently work — model reference and the glossary | `/pr_submit`, `/update_docs` |
 | `docs/sop/` | Procedures someone will need to repeat | `/pr_submit`, `/update_docs` |
 | `docs/qa/` | Manual test guides for flows automated tests don't cover | `/pr_qa` |
+| `docs/risks/` | Accepted risks: known ways shipped code can still fail, one per file + `INDEX.md` | `/feature_plan`, `/pr_submit`, `/pr_comment_resolver` |
 
 `.llm/README.md` indexes committed docs only, so an agent can find what already exists before writing a duplicate. `.llm/tasks/` and `.llm/threads/` are local scratch and gitignored.
 

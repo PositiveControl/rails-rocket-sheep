@@ -157,6 +157,18 @@ copy_template_file "docs/sop/add-an-endpoint.md" if API_MODE
 copy_template_file "docs/sop/update-from-the-template.md"
 copy_template_file "docs/sop/run-a-feature-on-autopilot.md"
 
+# Accepted risks: one file per risk and an index line each. The index merges
+# with git's union driver, so branches that each add a risk do not conflict;
+# bin/lint-docs catches the duplicate a union merge can leave.
+empty_directory "docs/risks"
+copy_template_file "docs/risks/INDEX.md"
+gitattributes = File.join(destination_root, ".gitattributes")
+create_file ".gitattributes", "" unless File.exist?(gitattributes)
+unless File.read(gitattributes).include?("docs/risks/INDEX.md merge=union")
+  append_to_file ".gitattributes", "\n# One line per accepted risk, added by many branches at once: keep both sides.\n" \
+                                   "docs/risks/INDEX.md merge=union\n"
+end
+
 # Sharded conventions. One rule per file with frontmatter (applies_to globs,
 # trigger keywords); docs/rules/INDEX.md routes to them. Plain markdown so any
 # agent can use it — no harness-specific loading. An agent reads the index and

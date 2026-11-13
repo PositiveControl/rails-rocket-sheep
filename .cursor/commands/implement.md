@@ -76,6 +76,7 @@ How many rounds depends on what reviews the PR next:
 5. **Fix what is legitimate.**
    - **Blockers and suggestions** — one logical unit per commit, as in Step 4. Each lands with a test that fails without it: revert the fix, run the test, see it fail, restore. A test that passes both ways pins nothing. No such test is possible → say why in the commit message.
    - **Nitpicks** — list them, then fix them together in one commit or drop them. They never trigger another round.
+   - **Real, but not fixed now** — a finding the developer agrees is real and chooses to ship with is an accepted risk when it passes `docs/risks/INDEX.md`'s *What earns an entry*: add it, with their reason, to the task file's *Accepted risks*. Not a nitpick, and not a finding dropped as wrong.
 6. **Settled list** — for round 2's prompt: `Dropped: <finding> — <developer's reason>` and `Changed on purpose in round 1: <what, where>`, so a fresh reviewer neither raises a dropped finding again nor asks for a fix to be undone.
 7. **When to stop.** A slice → done after round 1's fixes. Otherwise: round 1 has no confirmed blockers or suggestions → done; if it has, round 2 runs once, over the fixes. Its confirmed blockers and suggestions go to the developer with your proposed fix (*Fix it* / *Drop it*); fixes land under item 5's test rule. There is no round 3.
    **Autopilot (gate `pass-2`):** fix round 2's confirmed blockers and suggestions under item 5's test rule, one entry each. A fix with no possible failing test is a `halt`, because only the developer can accept an unpinned fix.

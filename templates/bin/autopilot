@@ -1447,7 +1447,7 @@ module Autopilot
     module_function
 
     HEADING = /^\#{1,4} /
-    RANKS = { "one-way" => 0, "costly" => 1 }.freeze
+    RANKS = { "one-way" => 0, "costly" => 1, "risk accepted" => 1 }.freeze
     # A dropped finding outside the template's heading, as the review sections
     # write one: `- Dropped — …`, `- Dropped (nit, …)`, `` - `fix-drop` · Dropped … ``.
     DROPPED = /\A- (?:`fix-drop` · )?Dropped\b/
@@ -1687,8 +1687,8 @@ module Autopilot
     end
 
     # Every costly and one-way entry, every drop, every issue filed, every
-    # opinion, every HALT: one-way first, then costly, then the rest in log
-    # order.
+    # risk accepted, every opinion, every HALT: one-way first, then costly and
+    # risks, then the rest in log order.
     def read_this_first(text)
       items = attention(text).each_with_index.sort_by { |item, i| [ RANKS.fetch(item[:rank], 2), i ] }.map(&:first)
       body = items.empty? ? "Nothing costly, one-way, dropped, filed, opinion or halted.\n" : items.map { |item| "#{item[:line]}\n" }.join
@@ -1731,6 +1731,8 @@ module Autopilot
           items << { rank: "dropped", slice: slice, line: "- **dropped** · #{slice} · #{line[2..].strip.delete_prefix('`fix-drop` · ')}" }
         elsif (failed = line[/^- `bin\/qa-walkthrough \S+` — FAILED/])
           items << { rank: "walkthrough", line: "- **walkthrough FAILED** · #{failed[2..].delete_suffix(' — FAILED')} · output in the QA section" }
+        elsif line.start_with?("- ") && subsection == "#### Risks accepted"
+          items << { rank: "risk accepted", line: "- **risk accepted** · #{slice} · #{line[2..].strip}" }
         elsif line.start_with?("- ") && subsection == "#### Issues filed"
           items << { rank: "one-way", line: "- **one-way** · issue filed in #{slice} · #{line[2..].strip}" }
         end

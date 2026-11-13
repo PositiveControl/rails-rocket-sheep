@@ -88,7 +88,8 @@ Docs ship with the PR — reviewers review them with the code.
 2. Task changed system behavior documented in `docs/system/` → update the affected doc
 3. Update the `.llm/README.md` index: add links for completed docs, remove links for deleted placeholders
 4. **Verify the index**: check for duplicate entries and links to files that don't exist; fix any found
-5. Commit doc changes as their own commit
+5. **Record accepted risks.** Each one in the task file's *Accepted risks* is recorded per `docs/risks/INDEX.md`, *Recording a risk*: a related risk updated, or a new file and its index line. An open risk this change fixes → `retired`, with a *History* line naming this PR. **Autopilot:** list each one under the slice's `#### Risks accepted` in the log: `- [<title>](../risks/<file>) — new | updated | retired`
+6. Commit doc changes as their own commit
 
 ### Step 3b: QA walkthrough — every branch, unless the developer skips it
 

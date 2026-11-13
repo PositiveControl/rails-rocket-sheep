@@ -3927,6 +3927,18 @@ class AutopilotLogTest < Minitest::Test
     assert_equal text, Autopilot::Log.summary(text, [ "Usage: $4.00", "Tokens: 4.0M" ])
   end
 
+  # A risk a slice shipped with is what the feature PR's reviewer most needs
+  # to see: it ranks with the costly entries, after the one-way ones.
+  def test_read_this_first_lists_each_risk_a_slice_accepted
+    text = FIXTURE.sub("#### Issues filed\n", "#### Risks accepted\n- [Cart total drifts](../risks/2026-10-02-cart-total.md) — new\n\n#### Issues filed\n")
+    items = section(Autopilot::Log.read_this_first(text), "## Read this first").lines.map(&:chomp).reject(&:empty?)
+
+    risk = items.index("- **risk accepted** · #47 · [Cart total drifts](../risks/2026-10-02-cart-total.md) — new")
+    assert risk, items.inspect
+    assert_operator items.index { |line| line.start_with?("- **one-way**") }, :<, risk
+    assert_operator risk, :<, items.index { |line| line.start_with?("- **dropped**") }
+  end
+
   def test_the_run_line_names_the_span_and_the_total
     text = Autopilot::Log.run_line(FIXTURE, started: "2026-10-02T01:00:00Z", finished: "2026-10-03T09:00:00Z", usd: 51.5)
 

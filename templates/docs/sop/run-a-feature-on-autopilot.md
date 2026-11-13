@@ -297,7 +297,8 @@ The log is `docs/plans/<date>-<slug>-autopilot.md`, named in the design doc's
 - ***Read this first*** is what you are most likely to want undone, hardest to
   undo first:
   - `one-way` entries and filed issues
-  - `costly` entries
+  - `costly` entries, and every risk a slice accepted (each links its file in
+    `docs/risks/`)
   - then dropped review findings, HALTs and `opinion` entries
 
   Each line names its entry (`D<issue>-<n>`), which you can search for.
