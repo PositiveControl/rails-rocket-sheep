@@ -90,7 +90,7 @@ readable and the constants live in one place.
   copies of a convention drift, and the copy inside a command is the one nobody
   re-reads.
 - **Only the doc canon.** Commands read and write `docs/rules/`, `docs/plans/`,
-  `docs/system/`, `docs/sop/`, `docs/qa/`, and `.llm/`. Do not invent a
+  `docs/system/`, `docs/sop/`, `docs/qa/`, `docs/risks/`, and `.llm/`. Do not invent a
   directory; the names are load-bearing because other commands read them.
 - **Every path resolves.** A path that names a real shipped file must be correct
   to the character. A path the command *creates* carries a placeholder

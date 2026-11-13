@@ -24,6 +24,10 @@
 **In scope:** [explicit]
 **Out of scope:** [explicit — related work that is deliberately NOT this task]
 
+## Accepted risks
+
+[Ways this change can still fail in production that were approved at the plan or in review, each with why — or "none". `/pr_submit` records them in `docs/risks/`. Open risks this change touches: link each, and say worse, retired, or unchanged.]
+
 ## Rules & Conventions
 Follow `CLAUDE.md` for the non-negotiables and `docs/rules/INDEX.md` to find the rules that apply to the files you are touching. Do not copy rules here. Task-specific constraints only:
 - [Add only if this task has constraints beyond CLAUDE.md]

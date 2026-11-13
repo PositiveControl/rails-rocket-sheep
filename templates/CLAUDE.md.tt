@@ -225,6 +225,7 @@ these exact paths — don't rename them.
 | `docs/system/` | Architecture state — how things currently work | `/pr_submit`, `/update_docs` |
 | `docs/sop/` | Procedures someone will repeat | `/pr_submit`, `/update_docs` |
 | `docs/qa/` | Manual test guides | `/pr_qa` |
+| `docs/risks/` | Accepted risks: known ways shipped code can still fail, one per file + `INDEX.md` | `/feature_plan`, `/pr_submit`, `/pr_comment_resolver` |
 
 `docs/adr/` holds one decision per file, numbered (`0001-<slug>.md`): *why* a rule
 exists and what was accepted for it. `docs/system/` holds `models.md` and

@@ -35,7 +35,7 @@ section:
 ## Read this first
 
 <!-- Regenerated at finalize. Every `costly` and `one-way` entry, every drop,
-every issue filed, every `opinion`, every HALT, ranked by how hard each is to
+every issue filed, every risk accepted, every `opinion`, every HALT, ranked by how hard each is to
 reverse. -->
 
 ## Policy accepted at G1
@@ -71,6 +71,9 @@ policy for this feature; later edits to the system doc do not reach it. -->
 
 #### Issues filed
 - <id> <title> — <why it is out of scope>
+
+#### Risks accepted
+- [<title>](../risks/<file>) — new | updated | retired
 
 #### Not checked by a human
 - <behaviour> — how to check it: <steps>
@@ -324,7 +327,9 @@ that is still open after it landed stops the run rather than looping on it.
    confirm at the feature PR.
 2. **The log.** *Read this first* is regenerated:
    - every `one-way` entry and every filed issue, first
-   - then every `costly` entry
+   - then every `costly` entry and every risk a slice accepted (its `#### Risks
+     accepted` bullets, written by `/pr_submit` and `/pr_comment_resolver`; the
+     risk itself is in `docs/risks/`)
    - then drops, HALTs and `opinion` entries, in log order. A drop here is a
      bullet under `#### Dropped review findings`, or one that starts `Dropped`
      (or `` `fix-drop` · Dropped ``) anywhere in a slice's section, where the

@@ -150,7 +150,7 @@ app's problem envelope rather than answering in a second format.
 | [`docs/sop/harden-a-kamal-server.md`](../templates/docs/sop/harden-a-kamal-server.md) | Server hardening after `kamal setup` |
 | [`docs/sop/extract-database-and-storage.md`](../templates/docs/sop/extract-database-and-storage.md) | Moving the database off the app server |
 
-`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories complete the canon (`rules`, `plans`, `adr`, `system`, `sop`, `qa`). The names are load-bearing — the workflow commands read and write those exact paths.
+`docs/rules/` holds the conventions, one per file, with `INDEX.md` routing by path, symptom, or rule id. Empty `docs/plans/` and `docs/qa/` directories and `docs/risks/INDEX.md`, the log of accepted risks, complete the canon (`rules`, `plans`, `adr`, `system`, `sop`, `qa`, `risks`). The names are load-bearing — the workflow commands read and write those exact paths.
 
 ### Agent workflow
 
