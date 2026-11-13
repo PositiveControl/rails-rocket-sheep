@@ -35,8 +35,8 @@ section:
 ## Read this first
 
 <!-- Regenerated at finalize. Every `costly` and `one-way` entry, every drop,
-every issue filed, every `opinion`, every HALT, ranked by how hard each is to
-reverse. -->
+every issue filed, every `opinion`, every HALT, every walkthrough that failed at
+the finish, ranked by how hard each is to reverse. -->
 
 ## Policy accepted at G1
 
@@ -78,8 +78,9 @@ policy for this feature; later edits to the system doc do not reach it. -->
 
 ## QA — how to check the whole feature
 
-<!-- Setup (accounts, servers, clients) · walkthrough scripts in order · capture
-output · every "Not checked by a human" item, collected -->
+<!-- Setup (accounts, servers, clients). At finalize the driver adds the
+walkthroughs it ran, in order, with each one's result, every slice's "Not
+checked by a human" items, collected, and the capture output. -->
 
 ## Open questions for the developer
 
@@ -87,8 +88,12 @@ output · every "Not checked by a human" item, collected -->
 
 ## Metrics
 
-| Slice | Step | Wall time | Usage | Retries | Pauses |
-|---|---|---|---|---|---|
+<!-- At finalize the driver opens this section with the run's summary: usage
+and tokens in total and per 1,000 added lines and per 1,000 SLOC, step and wait time, each model's
+share. -->
+
+| Slice | Step | Wall time | Usage | Retries | Pauses | Model |
+|---|---|---|---|---|---|---|
 ````
 
 ## The driver
@@ -100,13 +105,23 @@ finishes the feature.
 
 ```
 bin/autopilot <slug> --setup     once: worktree, bundle, the _autopilot databases, then a shell there
-bin/autopilot <slug> --dry-run   preflight, the next slice, the exact commands
-bin/autopilot <slug> --usage     cost and cache use per step, from the state file
+bin/autopilot <slug> --dry-run   preflight, then each open slice's steps in run order, and the command to start
+bin/autopilot <slug> --usage     cost and cache use per step, then the run's summary, from the state file
 bin/autopilot <slug>             run it
 ```
 
 `--model NAME` and `--effort LEVEL` (with `--dry-run` or a run) set the steps'
-model and effort for that run, over `.claude/autopilot.local.json` (*A step*).
+model and effort for that run, over `.claude/autopilot.json` and
+`.claude/autopilot.local.json` (*A step*).
+
+**What it prints.** One line per command or step as it starts, and how it ended
+and its time when it does (`bundle install … ok (14s)`, `/implement 48 … ok,
+$6.10 (38m 2s)`), for setup, preflight and the run alike: a hang shows as a line
+that never finishes. The dry run lists each open slice in the order the run
+takes them (a slice waits on its dependencies), a step to a line with the model
+and effort it runs on, and ends on the command that starts the run, alone on
+its line. `--verbose` adds every command's output as it arrives, and the dry
+run's full `claude -p` commands with their allowlist and standing rules.
 
 Claude Code drives every step. `--cli codex` and `--cli cursor` exit 1 and name
 what an adapter would need: a non-interactive mode that denies unlisted tools, a
@@ -156,13 +171,21 @@ the developer's checkout and databases are never touched:
   one result the driver reads. The model is the exception: without `--model`, a
   step runs on whichever model the developer last picked with `/model`, in any
   session.
-- The developer's own model, effort and attribution can be set instead:
-  `--model` and, in the `--settings` JSON, `effortLevel` and `attribution`, from
-  `.claude/autopilot.local.json` beside the main checkout (git-ignored; the
-  worktree is a fresh checkout without it): a default for every step, and a
+- A model, effort and attribution can be set instead: `--model` and, in the
+  `--settings` JSON, `effortLevel` and `attribution`. The team's are in
+  `.claude/autopilot.json`, committed, read from the feature branch: `model`,
+  `effort` and `steps` only, and it ships empty until the team has compared
+  enough runs to choose. Each developer's are in `.claude/autopilot.local.json`
+  beside the main checkout (git-ignored; the worktree is a fresh checkout
+  without it), which wins over the team's key by key: its default over the
+  team's default, its entry for a command over the team's entry for that
+  command, a key at a time, so a developer's own effort for `task_plan` keeps
+  the team's model for it. Either file holds a default for every step and a
   command's own under `steps` (a resumed resolver keeps `implement`'s, the
-  session it continues). `--model` / `--effort` win over the file for one
-  run. Preflight refuses a file that is not JSON, has another key, names a
+  session it continues). `--model` / `--effort` win over both for one run.
+  Every step's state row records the model and effort it was asked to run on,
+  beside the models that answered, and the log's *Metrics* names each step's.
+  Preflight refuses a file that is not JSON, has another key, names a
   command the driver does not run, or holds a value a step cannot take (a model
   that is not text, an effort other than low, medium, high, xhigh or max, an
   attribution that is not an object, an `env` that is not names to text);
@@ -334,7 +357,23 @@ that is still open after it landed stops the run rather than looping on it.
      so it shows only when it is `costly` or `one-way`.
 
    The `**Run:**` line gets the first step's start, the finish time and the
-   total usage estimate.
+   total usage estimate. *Metrics* opens with the run's summary (`--usage` ends
+   with the same): usage and tokens, in total and per 1,000 lines the slices
+   added and per 1,000 SLOC; time in steps, in the driver's waits, and elapsed; and each model's
+   usage, tokens and cost per million tokens, so runs on different models
+   compare fairly. Added lines are each slice PR's `additions`, prose and the log
+   included; SLOC are the added lines of the slice's merge commit that are not
+   blank, not a comment alone, and not under `docs/`, `.llm/` or in Markdown
+   (tests count), recorded per slice at landing (`added`, `sloc` in the state).
+
+   Before that, *QA* gets the driver's part, regenerated on a rerun: every
+   walkthrough the feature added or changed under `script/qa/`, in the order
+   its commits first touched them, each run once, one after another, on the
+   run's server, with its result and a failure's last lines; then every
+   slice's *Not checked by a human* items, collected under each slice's id. A
+   slice ran only its own walkthrough, so two that clash (two slices making a
+   record with the same name) first meet here. A failure is evidence, like the
+   capture: it is recorded and listed in *Read this first*, never halted on.
 3. **Capture.** `script/qa/<slug>-capture` runs if it is executable, and its last
    lines go under *QA*. A failure there is recorded, not halted on.
 4. **Ready.** The push, then `gh pr ready`, then a notice naming the log.

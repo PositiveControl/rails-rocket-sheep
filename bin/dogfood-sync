@@ -46,7 +46,8 @@ VERBATIM = [
   "bin/hooks/pre-push",
   "bin/hooks/autopilot_guard",
   "bin/autopilot",
-  "bin/autopilot-tail"
+  "bin/autopilot-tail",
+  ".claude/autopilot.json"
 ].freeze
 
 ALLOWLIST = ".claude/autopilot-allowed-tools.txt"

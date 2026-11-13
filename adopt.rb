@@ -251,6 +251,10 @@ copy_template_file "test/bin/autopilot_guard_test.rb"
 # and the guard is the wall.
 copy_template_file ".claude/autopilot-allowed-tools.txt"
 
+# The team's model and effort for the steps, by command; each developer's
+# git-ignored .claude/autopilot.local.json wins over it key by key. Ships empty.
+copy_template_file ".claude/autopilot.json"
+
 # The autopilot driver: runs an approved feature's slices unattended, one
 # `claude -p` step per gate (docs/system/autopilot.md, The driver). Its tests
 # and their fixtures come with it, so an update to the driver updates them.

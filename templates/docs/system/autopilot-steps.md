@@ -141,8 +141,10 @@ why the code is the way it is.
 
   It also moves any `#### D<issue>-` entry that landed elsewhere in the file under
   the slice's *Decisions*. Every write here can run twice and change nothing.
-- At finalize, the driver regenerates *Read this first* and the `**Run:**` line,
-  and puts the capture hook's output under *QA*.
+- At finalize, the driver regenerates *Read this first*, the `**Run:**` line and
+  the summary that opens *Metrics*, and fills *QA*: the whole feature's
+  walkthroughs, run once in order, every slice's *Not checked by a human* items,
+  and the capture hook's output.
 
 **Entry shape.** Every decision is one entry, never batched:
 

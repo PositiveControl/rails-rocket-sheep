@@ -22,6 +22,7 @@ load File.expand_path("../../bin/autopilot", __dir__)
 # between calls. Every call is recorded, so a test can say what never ran.
 class FakeShell
   attr_reader :calls
+  attr_accessor :echo
 
   def initialize
     @rules = []
@@ -1802,7 +1803,53 @@ class AutopilotRunTest < Minitest::Test
     @shell.on(/foo-capture$/, "wrote tmp/qa/top-down.png\n")
     run_with({}).finalize(48, [ 48 ])
 
-    assert_match(/## QA — how to check the whole feature\n\n<!-- capture -->\n\*\*Capture:\*\* `script\/qa\/foo-capture` ran\. Last lines:\n\n```\nwrote tmp\/qa\/top-down.png\n```/, log)
+    assert_match(/<!-- \/qa -->\n\n<!-- capture -->\n\*\*Capture:\*\* `script\/qa\/foo-capture` ran\. Last lines:\n\n```\nwrote tmp\/qa\/top-down.png\n```/, log)
+  end
+
+  # Each slice ran only its own steps, so two slices' walkthroughs that clash
+  # were never run together. Once more at the finish, every walkthrough the
+  # feature touched, in the order it first did; a failure is evidence, not a halt.
+  def test_finalize_runs_every_walkthrough_the_feature_touched_in_order_and_fills_qa
+    %w[cart.rb checkout.rb support/helper.rb].each { |name| write("script/qa/#{name}", "") }
+    @shell.on(%r{^git log --reverse --format= --name-only origin/main\.\.HEAD -- script/qa},
+              "script/qa/checkout.rb\nscript/qa/support/helper.rb\n\nscript/qa/cart.rb\nscript/qa/checkout.rb\nscript/qa/gone.rb\n")
+    @shell.on("bin/qa-walkthrough cart", "step 3 ✗ Couldn't find Coupon with code 'SAVE10'\n", ok: false)
+
+    run_with({}).finalize(48, [ 47, 48 ])
+
+    walkthroughs = @shell.lines.grep(/^bin\/qa-walkthrough/)
+    assert_equal [ "bin/qa-walkthrough checkout", "bin/qa-walkthrough cart" ], walkthroughs
+    assert_match(/^- `bin\/qa-walkthrough checkout` — passed \(0m 0s\)$/, log)
+    assert_match(/^- `bin\/qa-walkthrough cart` — FAILED \(0m 0s\)\n\n  ```\n  step 3 ✗ Couldn't find Coupon with code 'SAVE10'\n  ```/, log)
+    assert_match(/^- \*\*walkthrough FAILED\*\* · `bin\/qa-walkthrough cart`/, log[/## Read this first.*?\n## /m])
+    assert @shell.ran?("gh pr ready 53 --repo acme/shop"), "the developer reads the failure on a ready PR"
+  end
+
+  # The driver's waits and every slice's added lines, for the run's summary.
+  def test_landing_records_the_slice_s_added_lines_and_sloc
+    @shell.on("git diff --unified=0 5bc96eb0000^ 5bc96eb0000", "diff --git a/app/x.rb b/app/x.rb\n+++ b/app/x.rb\n+def x = 1\n+\n+# why\n")
+    run_with(happy_script).slice(48)
+
+    assert_equal [ 420, 1 ], [ @state.get(48, "added"), @state.get(48, "sloc") ]
+  end
+
+  def test_each_step_s_effort_is_recorded_beside_its_usage
+    @step = FakeStep.new({})
+    outcome = Autopilot::Step::Outcome.new(kind: :ok, session_id: "s", usage_usd: 1.0, model: "opus", effort: "high")
+    run = run_with("task_plan" => [ -> { @expect.ran(:task_plan) && outcome } ])
+    run.send(:ensure_step, "task_plan", 48, 48) { @expect.task_planned(48) }
+
+    row = @state.get(48, "usage").last
+    assert_equal [ "opus", "high" ], row.values_at("model", "effort")
+  end
+
+  # One line per step as it starts, and its outcome and time when it ends.
+  def test_each_step_is_said_as_it_starts_and_ends
+    out = StringIO.new
+    run_with(happy_script).tap { |run| run.instance_variable_set(:@out, out) }.slice(48)
+
+    assert_match(%r{^/task_plan 48 … ok, \$1\.00 \(0m 0s\)$}, out.string)
+    assert_match(%r{^/pr_review 70 … ok}, out.string)
   end
 
   # #69's metrics read these; the run is many full sessions out of the
@@ -2938,6 +2985,7 @@ class AutopilotCLITest < Minitest::Test
     @shell = FakeShell.new
     @shell.on("git rev-parse --path-format=absolute --git-common-dir", "#{@root}/.git\n")
     @shell.on(/gh pr list .*--head feature\/foo/, JSON.generate([ { "number" => 53, "body" => SLICES } ]))
+    @shell.on(/gh issue view \d+ --repo acme\/shop --json body,labels,state/, issue_json(""))
     @shell.on("gh issue view 60 --repo acme/shop --json body,labels,state", issue_json("#47 first."))
     @shell.on(/gh issue view \d+ .*--json comments/, JSON.generate("comments" => []))
     @shell.on(/gh pr list .*--state merged/, "[]")
@@ -2954,7 +3002,7 @@ class AutopilotCLITest < Minitest::Test
   MUTATING = /^(claude |spawn |gh (issue|pr) (edit|comment|create|merge|ready)|git (checkout|commit|push|pull|worktree|merge)|bundle|bin\/rails)/
 
   def test_dry_run_prints_the_plan_and_changes_nothing
-    assert_equal 0, cli("foo", "--dry-run").call
+    assert_equal 0, cli("foo", "--dry-run", "--verbose").call
 
     assert_match(/Next slice: #60/, @out.string)
     assert_match(%r{claude -p /task_plan 60 --permission-mode dontAsk}, @out.string)
@@ -2967,7 +3015,7 @@ class AutopilotCLITest < Minitest::Test
   def test_dry_run_shows_the_developer_s_model_effort_and_attribution
     write_preferences("model" => "opus", "effort" => "high", "attribution" => { "commit" => "", "pr" => "" })
 
-    assert_equal 0, cli("foo", "--dry-run").call
+    assert_equal 0, cli("foo", "--dry-run", "--verbose").call
 
     assert_match(/Steps run on: model opus, effort high, no attribution/, @out.string)
     assert_match(%r{claude -p /task_plan 60 .*--model opus}m, @out.string)
@@ -2996,11 +3044,92 @@ class AutopilotCLITest < Minitest::Test
     write_preferences("model" => "sonnet", "effort" => "medium",
                       "steps" => { "task_plan" => { "model" => "opus", "effort" => "high" }, "pr_review" => { "model" => "opus" } })
 
-    assert_equal 0, cli("foo", "--dry-run").call
+    assert_equal 0, cli("foo", "--dry-run", "--verbose").call
 
     assert_match(/Steps run on: model sonnet, effort medium, default attribution; task_plan: opus, high; pr_review: opus, medium/, @out.string)
     assert_match(%r{claude -p /task_plan 60 .*--model opus}m, @out.string)
     assert_match(%r{claude -p /implement 60 .*--model sonnet}m, @out.string)
+  end
+
+  def write_team(content)
+    File.write(File.join(@worktree, ".claude/autopilot.json"), JSON.generate(content))
+  end
+
+  # The team's file is committed, so the feature branch's copy is the one
+  # read; the developer's own file wins over it key by key, a step's entry
+  # included, and leaves the steps it does not name on the team's values.
+  def test_the_team_defaults_apply_under_the_developer_s_own_key_by_key
+    write_team("model" => "sonnet", "effort" => "medium",
+               "steps" => { "task_plan" => { "model" => "opus", "effort" => "high" }, "pr_review" => { "model" => "opus" } })
+    write_preferences("effort" => "low", "steps" => { "task_plan" => { "effort" => "max" } })
+
+    assert_equal 0, cli("foo", "--dry-run").call
+
+    assert_match(/Steps run on: model sonnet, effort low, default attribution; task_plan: opus, max; pr_review: opus, low/, @out.string)
+  end
+
+  # Attribution and env are each developer's own, never the team's.
+  def test_preflight_refuses_a_team_file_with_a_personal_key
+    write_team("env" => { "X" => "1" })
+
+    assert_equal 1, cli("foo", "--dry-run").call
+    assert_match(%r{\.claude/autopilot\.json has unknown keys: env \(it takes model, effort, steps\)}, @out.string)
+  end
+
+  def test_the_committed_team_file_is_one_the_driver_takes
+    path = File.expand_path("../../.claude/autopilot.json", __dir__)
+
+    assert_nil Autopilot::Preferences.problem_with(JSON.parse(File.read(path)), path: Autopilot::Preferences::TEAM_PATH,
+                                                                                 keys: Autopilot::Preferences::TEAM_KEYS)
+  end
+
+  # Short by default: each open slice's steps on a line each, with what they
+  # run on, then the command that starts the run, alone on its line.
+  def test_the_dry_run_lists_each_open_slice_s_steps_and_ends_on_the_run_command
+    write_preferences("steps" => { "task_plan" => { "model" => "opus", "effort" => "high" } })
+
+    assert_equal 0, cli("foo", "--dry-run", "--effort", "medium").call
+
+    refute_match(/claude -p/, @out.string, "the full commands are --verbose's")
+    assert_match(%r{^#60\n  /task_plan 60 +opus, medium\n  /implement 60 +default model, medium\n}, @out.string)
+    assert_match(%r{^  /pr_review <PR>}, @out.string)
+    assert_equal "bin/autopilot foo --effort medium", @out.string.lines.last.chomp
+  end
+
+  # The order the run takes: a slice waits for its dependencies to land.
+  def test_the_dry_run_lists_the_slices_in_the_order_the_run_takes_them
+    @shell.on("gh issue view 48 --repo acme/shop --json body,labels,state", issue_json("Depends on #49."))
+    @shell.on(/gh issue view 51 --repo acme\/shop --json body,labels,state/, issue_json("", labels: [ "status:blocked" ]))
+
+    cli("foo", "--dry-run").call
+
+    assert_equal [ "#60", "#49", "#48", "#50", "#51 (BLOCKED: a run stops here)" ], @out.string.lines.grep(/^#\d/).map(&:chomp)
+  end
+
+  def test_verbose_streams_each_command_s_output
+    cli("foo", "--dry-run", "--verbose").call
+
+    assert_equal @out, @shell.echo
+  end
+
+  # One line per command as it starts, its time when it ends: a hang shows
+  # as a line that never finishes, not as silence.
+  def test_setup_says_each_command_as_it_runs
+    FileUtils.remove_entry(@worktree)
+    @shell.on(/^git worktree add/) { FileUtils.mkdir_p(@worktree) && Autopilot::Shell::Result.new("", true, false) }
+
+    assert_equal 0, cli("foo", "--setup").call
+
+    assert_match(/^git fetch origin feature\/foo … ok \(\d+s\)$/, @out.string)
+    assert_match(/^bundle install … ok \(\d+s\)$/, @out.string)
+    assert_match(/^bin\/rails db:prepare … ok \(\d+s\)$/, @out.string)
+    assert_nil @shell.echo, "quiet unless --verbose"
+  end
+
+  def test_the_preflight_says_it_ran
+    cli("foo", "--dry-run").call
+
+    assert_match(/\Apreflight … ok \(\d+s\)$/, @out.string)
   end
 
   # A one-off run on one model: the flags win over every entry in the file.
@@ -3126,6 +3255,31 @@ class AutopilotCLITest < Minitest::Test
     refute_includes @shell.lines, "gh auth status", "a summary needs no preflight"
   end
 
+  # The run as a whole: what it cost and spent per 1,000 lines it added, the
+  # time, and the split by model, which is how two runs are compared.
+  def test_usage_ends_with_the_run_s_summary
+    write_state(
+      "60" => { "added" => 1500, "sloc" => 800, "usage" => [
+        { "step" => "/task_plan 60", "kind" => "ok", "usd" => 3.0, "seconds" => 600, "at" => "2026-10-02T10:00:00Z",
+          "models" => { "claude-opus-5-5" => { "usd" => 3.0, "input" => 1_000, "output" => 1_000, "cache_read" => 1_998_000, "cache_write" => 0 } } },
+        { "step" => "CI wait, PR #70", "kind" => "driver", "usd" => 0.0, "seconds" => 300, "at" => "2026-10-02T10:10:00Z" }
+      ] },
+      "61" => { "added" => 500, "sloc" => 200, "usage" => [
+        { "step" => "/implement 61", "kind" => "ok", "usd" => 1.0, "seconds" => 1200, "at" => "2026-10-02T12:00:00Z",
+          "models" => { "claude-sonnet-5-5" => { "usd" => 1.0, "input" => 0, "output" => 0, "cache_read" => 2_000_000, "cache_write" => 0 } } }
+      ] }
+    )
+
+    assert_equal 0, cli("foo", "--usage").call
+
+    assert_includes @out.string, "Usage: $4.00 ($2.00 per 1,000 added lines, $4.00 per 1,000 SLOC)"
+    assert_includes @out.string, "Tokens: 4.0M (2.0M per 1,000 added lines, 4.0M per 1,000 SLOC)"
+    assert_includes @out.string, "Added: 2,000 lines, 1,000 SLOC, over 2 slices"
+    assert_includes @out.string, "Time: 30m 0s in steps, 5m 0s in driver waits, 2h 20m elapsed"
+    assert_includes @out.string, "claude-opus-5-5: $3.00, 2.0M tokens, $1.50 per 1M"
+    assert_includes @out.string, "claude-sonnet-5-5: $1.00, 2.0M tokens, $0.50 per 1M"
+  end
+
   # Rows from before token capture still count toward cost and runs.
   def test_usage_counts_rows_without_tokens_toward_cost_only
     write_state("60" => { "usage" => [ { "step" => "/pr_review 70", "kind" => "ok", "usd" => 1.0, "seconds" => 60 } ] })
@@ -3181,7 +3335,7 @@ class AutopilotCLITest < Minitest::Test
 
   def test_cli_claude_is_the_default_and_runs
     assert_equal 0, cli("foo", "--cli", "claude", "--dry-run").call
-    assert_match(/Next slice: #60/, @out.string)
+    assert_match(/^#60$/, @out.string)
   end
 
   def test_an_unknown_cli_is_a_usage_error
@@ -3644,8 +3798,8 @@ class AutopilotLogTest < Minitest::Test
     rows = text.lines.grep(/^\| #48 \|/)
 
     assert_equal 5, rows.size, "the two review passes are two rows"
-    assert_equal "| #48 | `/implement 48` | 1h 5m | $7.25 | 1 | 1 |\n", rows[1]
-    assert_equal "| #48 | `/task_plan 48` | 4m 0s | $1.50 | 0 | 0 |\n", rows[0]
+    assert_equal "| #48 | `/implement 48` | 1h 5m | $7.25 | 1 | 1 | default model, default effort |\n", rows[1]
+    assert_equal "| #48 | `/task_plan 48` | 4m 0s | $1.50 | 0 | 0 | default model, default effort |\n", rows[0]
     assert_equal text, Autopilot::Log.metrics(text, 48, USAGE), "rerun replaces, not appends"
     assert text.index("| #47 |") < text.index("| #48 |")
   end
@@ -3654,7 +3808,7 @@ class AutopilotLogTest < Minitest::Test
     waits = [ { "step" => "CI wait, PR #71", "kind" => "driver", "seconds" => 2700 },
               { "step" => "CI wait, PR #71", "kind" => "driver", "seconds" => 300 } ]
 
-    assert_equal [ { step: "CI wait, PR #71", seconds: 3000, usd: 0.0, retries: 0, pauses: 0 } ], Autopilot::Log.step_rows(waits)
+    assert_equal [ { step: "CI wait, PR #71", seconds: 3000, usd: 0.0, retries: 0, pauses: 0, ran_on: "—" } ], Autopilot::Log.step_rows(waits)
   end
 
   def test_pauses_are_written_once
@@ -3702,6 +3856,75 @@ class AutopilotLogTest < Minitest::Test
       "- **dropped** · #47 · Dropped (suggestion): `@x` unset on a sorted load. Probe: the sorted page raises",
       "- **dropped** · #47 · Dropped (nit, `fix-drop`): a count. Probe: D47-2 settled it"
     ], items
+  end
+
+  # The reviewer's checklist in one place: every slice's items, each under
+  # the slice it came from, the template's own example left out.
+  def test_qa_collects_every_slice_s_not_checked_by_a_human_items
+    text = FIXTURE.sub("#### Issues filed\n", "#### Not checked by a human\n- Reconnect after sleep — how to check it: close\n  the lid for a minute\n\n#### Issues filed\n")
+    text = Autopilot::Log.qa(text, [ { name: "realtime", ok: true, seconds: 62 } ])
+    qa = text[/^## QA.*?(?=^## )/m]
+
+    assert_includes qa, "- `bin/qa-walkthrough realtime` — passed (1m 2s)"
+    assert_includes qa, "- #47 · Reconnect after sleep — how to check it: close\n  the lid for a minute\n"
+    refute_includes qa, "<behaviour>"
+    assert_equal text, Autopilot::Log.qa(text, [ { name: "realtime", ok: true, seconds: 62 } ]), "regenerated, not appended"
+  end
+
+  # Source lines: added, not blank, not a comment alone, not prose.
+  def test_sloc_counts_added_code_lines_only
+    diff = <<~DIFF
+      diff --git a/app/models/cart.rb b/app/models/cart.rb
+      --- a/app/models/cart.rb
+      +++ b/app/models/cart.rb
+      @@ -1,0 +2,6 @@
+      +# A cart holds line items.
+      +class Cart
+      +
+      +  // not ruby, still a comment
+      +  def total = 0 # trailing comment counts
+      -  old = 1
+      diff --git a/app/views/carts/show.html.slim b/app/views/carts/show.html.slim
+      +++ b/app/views/carts/show.html.slim
+      +/ a slim comment
+      +-# another
+      +h1 = @cart.total
+      diff --git a/docs/system/carts.md b/docs/system/carts.md
+      +++ b/docs/system/carts.md
+      +Carts hold items.
+      diff --git a/README.md b/README.md
+      +++ b/README.md
+      +More prose.
+    DIFF
+
+    assert_equal 3, Autopilot::Log.sloc(diff)
+  end
+
+  def test_qa_says_when_there_is_nothing_to_list
+    qa = Autopilot::Log.qa(FIXTURE, [])[/^## QA.*?(?=^## )/m]
+
+    assert_includes qa, "None: the feature added or changed no walkthrough."
+    assert_includes qa, "None recorded."
+  end
+
+  # Which model and effort each step ran on, so a slice's cost is explainable.
+  def test_metrics_name_each_step_s_model_and_effort
+    usage = [ { "step" => "/implement 48", "kind" => "ok", "usd" => 1.0, "seconds" => 60, "effort" => "medium",
+                "models" => { "claude-haiku-5-5" => { "usd" => 0.1 }, "claude-sonnet-5-5" => { "usd" => 0.9 } } },
+              { "step" => "/pr_review 71", "kind" => "ok", "usd" => 1.0, "seconds" => 60 },
+              { "step" => "CI wait, PR #71", "kind" => "driver", "usd" => 0.0, "seconds" => 60 } ]
+    text = Autopilot::Log.metrics(FIXTURE, 48, usage)
+
+    assert_includes text, "| #48 | `/implement 48` | 1m 0s | $1.00 | 0 | 0 | claude-sonnet-5-5, medium |"
+    assert_includes text, "| #48 | `/pr_review 71` | 1m 0s | $1.00 | 0 | 0 | default model, default effort |"
+    assert_includes text, "| #48 | `CI wait, PR #71` | 1m 0s | $0.00 | 0 | 0 | — |"
+  end
+
+  def test_the_summary_opens_the_metrics_section_once
+    text = Autopilot::Log.summary(FIXTURE, [ "Usage: $4.00", "Tokens: 4.0M" ])
+
+    assert_includes text, "## Metrics\n\n<!-- summary -->\n- Usage: $4.00\n- Tokens: 4.0M\n<!-- /summary -->\n\n| Slice |"
+    assert_equal text, Autopilot::Log.summary(text, [ "Usage: $4.00", "Tokens: 4.0M" ])
   end
 
   def test_the_run_line_names_the_span_and_the_total
