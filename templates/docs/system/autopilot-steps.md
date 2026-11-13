@@ -82,14 +82,15 @@ having agreed to it at its G1.
 
 | Gate id | Where it comes up | Answer |
 |---|---|---|
-| `G2` | `/task_plan` Step 5 | Self-approve when the forecast is ≤1,500 added lines and ≤25 files, there are ≤2 flagged decisions, and nothing in the plan touches the *halt list*. Each flagged decision is logged as its own `choice` entry. Otherwise `halt` |
+| `G2` | `/task_plan` Step 5 | Self-approve when the forecast is ≤~3,000 added lines and ≤50 files, there are ≤2 flagged decisions, and nothing in the plan touches the *halt list*. Each flagged decision is logged as its own `choice` entry. Otherwise `halt` |
 | `split` | `/task_plan` Step 5 (forecast over the bound), `/implement` Step 4 (scope escape) | Split: create the sub-issue (`Feature branch:` line, dependencies, label `autopilot`; *Tracker tiers*), add it to the feature PR's **Slices** list, carry on with the reduced slice. At most 2 splits per feature, then `halt` |
 | `fix-drop` | `/implement` Step 5.4, `/pr_review` self-review pass 1 | Drop a finding only with a **probe**: a command or test whose output shows the failure scenario does not happen, or a cited rule it contradicts. Otherwise fix it under the failing-test rule. Every drop is logged with its probe |
 | `pass-2` | `/implement` Step 5.7 (a PR into `main` only), `/pr_review` self-review pass 2 | Fix confirmed blockers and suggestions under the failing-test rule. A fix with no possible failing test → `halt` |
 | `comments` | `/pr_comment_resolver` Step 4 | Address every non-noise comment. Skip noise and log what was skipped. **A comment from a person** on a slice PR mid-run → `halt`: someone is watching and has something to say |
 | `post-review` | `/pr_review` Step 9 | Post the review unedited as `COMMENT`, its body opening with `Self-review pass <N>` |
+| `ci-fix` | The driver's merge gate: a check still red after one rerun of its failed jobs, or a red `lint` or `gates` | One `/pr_fix_ci` step per slice: fix the cause under the failing-test rule and log it; a cause outside the slice, or a fix with no possible failing test → `halt`. Then one self-review pass of the fix alone, the resolver if it found anything, and CI again. Red again → `halt`. A policy without this row halts on the first red |
 | `merge` | `/pr_review` *Land it from this session* | Never inside a command. The driver merges after checking the PR's base. The command stops once the review is posted |
-| `walkthrough` | `/pr_submit` Step 3b | Create it (already the rule for a non-interactive run) |
+| `walkthrough` | `/pr_submit` Step 3b | Create it (already the rule for a non-interactive run), at about 10 steps per script, split by small testable feature (`/qa_walkthrough` Step 1.5) |
 | `out-of-slice` | Anywhere: a fix outside the slice's acceptance criteria | Allowed at ≤~100 added lines, with a failing test first and no migration. Bigger → file an `issue` and work around it, or `halt` if blocked |
 | `issue` | Anywhere: an API gap, a bug, follow-up work | File it with label `autopilot` (*Tracker tiers*), never work on it in the same run. Every one appears under *Read this first* |
 | `opinion` | A deliverable that is the developer's call (a recommendation, a scorecard verdict) | Write it under a heading **Draft — the agent's view, for the developer to confirm**, and mark the doc `**Status:** Draft` so the feature PR cannot merge it silently |
@@ -103,15 +104,19 @@ having agreed to it at its G1.
   `.github/workflows/`, beyond what the slice's acceptance criteria name
 - touch payments, billing, or anything else that moves money
 - leave the suite red after `/test_fix` plus one retry
-- leave fast CI red after three iterations (`/pr_submit` Step 6, a PR into `main` only; a slice's CI is checked at the merge gate, where a red check halts only after one rerun of its failed jobs)
-- need a third split, or grow one slice past 2,000 added lines
+- leave fast CI red after three iterations (`/pr_submit` Step 6, a PR into `main` only; a slice's CI is checked at the merge gate, where a red check halts only after one rerun of its failed jobs and, under `ci-fix`, one `/pr_fix_ci` pass)
+- need a third split, or grow one slice past ~4,000 added lines
 - hit a merge conflict `/resolve_conflicts` cannot prove green
 - rest on a decision the design doc does not answer and no `choice` can settle
   safely — a question the developer would expect to be asked
 
 A feature's G1 may scope an exception to one slice's acceptance criteria, written
 into the log's *Policy accepted at G1* (example: "auth: bearer-token auth exactly as
-#<n>'s acceptance criteria").
+#<n>'s acceptance criteria"). **An exception never reaches the guard** (*Guard* in
+`autopilot.md`): a migration that drops, removes or renames, `config/credentials*`,
+`.github/workflows/`, merges and pushes stay denied whatever the log says. A slice
+that needs a column gone plans `ignored_columns`, and the drop goes to a human-run
+issue, as `docs/rules/safe-migrations.md` asks anyway.
 
 **The failing-test rule** is `/implement` Step 5.5's, unchanged: revert the fix,
 see the test fail, restore it.
@@ -252,6 +257,12 @@ and this table says how it is done on each tier. Board IDs for
 The label `autopilot` has to exist on GitHub for the first two tiers. The run
 guide's setup creates it.
 
+On `github-projects`, preflight also needs gh's token to carry the `project`
+scope: `read:project` reads the board but writes nothing, and every Status move
+failed without a word. A write the driver makes itself (marking Blocked, putting
+a cleared slice back) that fails is said: in the halt's reason, or as a warning
+in the run's output.
+
 ## Halt
 
 A halt means the policy says a person is needed. It is not a failure. A command
@@ -277,8 +288,9 @@ that halts:
      the branch (`git push -u origin HEAD`). An unpushed entry is invisible to the
      developer reading GitHub.
    - **`issue`** (typically `/task_plan` Steps 1–5, and Step 6 up to the slice
-     branch checkout, while the driver's worktree is on `feature/<slug>`): commit
-     nothing. A commit there would land on the feature branch, possibly mixed with
+     branch checkout, while the driver's worktree is on its own `autopilot/<slug>/worktree`
+     branch at the feature branch's head): commit nothing. A commit there would
+     land on that branch, never pushed and possibly mixed with
      the uncommitted changes that caused the halt. Post the entry as a comment
      instead (*Tracker tiers*, "Post a HALT entry"), ending with
      `<!-- autopilot -->`. The driver copies it into
